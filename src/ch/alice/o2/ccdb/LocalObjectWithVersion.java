@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 
 /**
  * Handle all interactions with a local file, including the metadata access (backed by a .properties file with the same base name as the referenced file)
@@ -105,7 +106,7 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 	}
 
 	public boolean covers(final long referenceTime) {
-		return this.startTime <= referenceTime && this.endTime >= referenceTime;
+		return this.startTime <= referenceTime && this.endTime > referenceTime;
 	}
 
 	private void loadProperties() {
@@ -140,8 +141,14 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		try {
 			createTime = Long.parseLong(getProperty("CreateTime"));
 		} catch (@SuppressWarnings("unused") NumberFormatException | NullPointerException ignore) {
-			// lacking better information assume the object was created when the interval starts
-			return startTime;
+			try {
+				final UUID uuid = UUID.fromString(referenceFile.getName());
+				createTime = UUIDTools.epochTime(uuid);
+				return createTime;
+			} catch (@SuppressWarnings("unused") final Throwable t) {
+				// if everything else fails use as last resort the start time of the interval, normally these two are the same
+				return startTime;
+			}
 		}
 
 		return createTime;

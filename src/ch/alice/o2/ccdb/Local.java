@@ -147,7 +147,9 @@ public class Local extends HttpServlet {
 				return;
 			}
 
-		final UUID targetUUID = UUID.randomUUID();
+		final long newObjectTime = System.currentTimeMillis();
+
+		final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime);
 
 		final Part part = parts.iterator().next();
 
@@ -168,7 +170,7 @@ public class Local extends HttpServlet {
 		newObject.setProperty("UploadedFrom", request.getRemoteHost());
 
 		if (newObject.getProperty("CreateTime") == null)
-			newObject.setProperty("CreateTime", String.valueOf(System.currentTimeMillis()));
+			newObject.setProperty("CreateTime", String.valueOf(newObjectTime));
 
 		newObject.setValidityLimit(parser.endTime);
 
