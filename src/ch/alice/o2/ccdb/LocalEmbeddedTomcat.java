@@ -39,7 +39,7 @@ public class LocalEmbeddedTomcat {
 		final Tomcat tomcat = new Tomcat();
 
 		final int port = Options.getIntOption("tomcat.port", 8080);
-		final String address = Options.getOption("tomcat.address", "127.0.0.1");
+		final String address = Options.getOption("tomcat.address", "localhost");
 
 		tomcat.setPort(port);
 		tomcat.getConnector().setProperty("address", address);
