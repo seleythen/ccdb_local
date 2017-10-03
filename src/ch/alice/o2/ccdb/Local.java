@@ -191,6 +191,7 @@ public class Local extends HttpServlet {
 		newObject.setProperty("OriginalFileName", part.getSubmittedFileName());
 		newObject.setProperty("Content-Type", part.getContentType());
 		newObject.setProperty("UploadedFrom", request.getRemoteHost());
+		newObject.setProperty("File-Size", String.valueOf(targetFile.length()));
 		newObject.setProperty("Content-MD5", UUIDTools.getMD5(targetFile));
 
 		if (newObject.getProperty("CreateTime") == null)
@@ -331,5 +332,27 @@ public class Local extends HttpServlet {
 			}
 
 		return mostRecent;
+	}
+
+	@Override
+	protected void doOptions(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+		response.setHeader("Allow", "GET, HEAD, POST, PUT, DELETE, OPTIONS");
+
+		final RequestParser parser = new RequestParser(request);
+
+		if (!parser.ok)
+			return;
+
+		final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
+
+		if (matchingObject == null) {
+			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+			return;
+		}
+
+		for (final Object key : matchingObject.getPropertiesKeys())
+			response.setHeader(key.toString(), matchingObject.getProperty(key.toString()));
+
+		setHeaders(matchingObject, response, false);
 	}
 }

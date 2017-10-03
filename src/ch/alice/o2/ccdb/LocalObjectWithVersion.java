@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -59,6 +60,10 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		taintedProperties = taintedProperties || changed;
 
 		return changed;
+	}
+
+	public Set<Object> getPropertiesKeys() {
+		return objectProperties.keySet();
 	}
 
 	public String getOriginalName() {
