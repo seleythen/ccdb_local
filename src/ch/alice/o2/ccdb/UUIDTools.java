@@ -1,6 +1,12 @@
 package ch.alice.o2.ccdb;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 
 /**
@@ -65,9 +71,12 @@ public class UUIDTools {
 	/**
 	 * @param referenceTime
 	 *            timestamp to be encoded in the UUID
+	 * @param address
+	 *            client's address to encode in the UUID. Up to 6 bytes from it will be placed in the MAC address field. If not provided (or less than 6 bytes long, ie. IPv4) then a fixed value will
+	 *            be used for the missing part.
 	 * @return a time UUID with the reference time set to the reference time
 	 */
-	public static synchronized UUID generateTimeUUID(final long referenceTime) {
+	public static synchronized UUID generateTimeUUID(final long referenceTime, final byte[] address) {
 		final long time = referenceTime * 10000 + 122192928000000000L;
 
 		if (time <= lastTimestamp2 || time <= lastTimestamp) {
@@ -81,7 +90,16 @@ public class UUIDTools {
 
 		final byte[] contents = new byte[16];
 
-		for (int i = 0; i < 6; i++)
+		int addressBytes = 0;
+
+		if (address != null) {
+			addressBytes = Math.min(address.length, 6);
+
+			for (int i = 0; i < addressBytes; i++)
+				contents[10 + i] = address[i];
+		}
+
+		for (int i = addressBytes; i < 6; i++)
 			contents[10 + i] = macAddress[i];
 
 		final int timeHi = (int) (time >>> 32);
@@ -123,5 +141,40 @@ public class UUIDTools {
 	 */
 	public static final long epochTime(final UUID uuid) {
 		return (uuid.timestamp() - 0x01b21dd213814000L) / 10000;
+	}
+
+	/**
+	 * Get the MD5 checksum of a file
+	 *
+	 * @param f
+	 * @return the MD5 checksum of the entire file
+	 * @throws IOException
+	 */
+	public static String getMD5(final File f) throws IOException {
+		if (f == null || !f.isFile() || !f.canRead())
+			throw new IOException("Cannot read from this file: " + f);
+
+		MessageDigest md;
+		try {
+			md = MessageDigest.getInstance("MD5");
+		} catch (final NoSuchAlgorithmException e1) {
+			throw new IOException("Could not initialize MD5 digester", e1);
+		}
+
+		try (DigestInputStream dis = new DigestInputStream(new FileInputStream(f), md)) {
+			final byte[] buff = new byte[10240];
+
+			int cnt;
+
+			do
+				cnt = dis.read(buff);
+			while (cnt == buff.length);
+
+			final byte[] digest = md.digest();
+
+			return String.format("%032x", new BigInteger(1, digest));
+		} catch (final IOException ioe) {
+			throw ioe;
+		}
 	}
 }

@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
@@ -101,6 +102,18 @@ public class Local extends HttpServlet {
 			response.addHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
 			response.setHeader("Content-Length", String.valueOf(obj.referenceFile.length()));
 			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
+
+			String md5 = obj.getProperty("Content-MD5");
+
+			try {
+				if (md5 == null || md5.isEmpty())
+					md5 = UUIDTools.getMD5(obj.referenceFile);
+			} catch (@SuppressWarnings("unused") final IOException ioe) {
+				// ignore IO exceptions
+			}
+
+			if (md5 != null && !md5.isEmpty())
+				response.setHeader("Content-MD5", md5);
 		}
 
 		try {
@@ -149,7 +162,17 @@ public class Local extends HttpServlet {
 
 		final long newObjectTime = System.currentTimeMillis();
 
-		final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime);
+		byte[] remoteAddress = null;
+
+		try {
+			final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
+
+			remoteAddress = ia.getAddress();
+		} catch (@SuppressWarnings("unused") final Throwable t) {
+			// ignore
+		}
+
+		final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
 
 		final Part part = parts.iterator().next();
 
@@ -168,6 +191,7 @@ public class Local extends HttpServlet {
 		newObject.setProperty("OriginalFileName", part.getSubmittedFileName());
 		newObject.setProperty("Content-Type", part.getContentType());
 		newObject.setProperty("UploadedFrom", request.getRemoteHost());
+		newObject.setProperty("Content-MD5", UUIDTools.getMD5(targetFile));
 
 		if (newObject.getProperty("CreateTime") == null)
 			newObject.setProperty("CreateTime", String.valueOf(newObjectTime));
@@ -295,7 +319,7 @@ public class Local extends HttpServlet {
 				for (final File f : intervalFileList) {
 					final LocalObjectWithVersion owv = new LocalObjectWithVersion(lValidityStart, f);
 
-					if (owv.covers(parser.startTime) && owv.matches(parser.flagConstraints))
+					if (owv.covers(parser.startTime) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter) && owv.matches(parser.flagConstraints))
 						if (mostRecent == null)
 							mostRecent = owv;
 						else

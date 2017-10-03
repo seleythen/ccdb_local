@@ -28,6 +28,8 @@ class RequestParser {
 	boolean startTimeSet = false;
 	boolean endTimeSet = false;
 
+	long notAfter = 0;
+
 	final Map<String, String> flagConstraints = new HashMap<>();
 
 	public RequestParser(final HttpServletRequest request) {
@@ -53,6 +55,12 @@ class RequestParser {
 
 			if (previousUUID != null && previousUUID.length() > 0)
 				cachedValue = UUID.fromString(previousUUID);
+		} catch (@SuppressWarnings("unused") final Throwable t) {
+			// ignore
+		}
+
+		try {
+			notAfter = Long.parseLong(request.getHeader("If-Not-After"));
 		} catch (@SuppressWarnings("unused") final Throwable t) {
 			// ignore
 		}
