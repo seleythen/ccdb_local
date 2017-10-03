@@ -12,6 +12,8 @@ if [ ! -d "$T" ]; then
 
     tar -xf apache-tomcat.tar.gz || exit 2
     rm apache-tomcat.tar.gz
+
+    rm -rfv apache-tomcat-$VER/{conf,logs,temp,webapps,work,LICENSE,NOTICE,RELEASE-NOTES,RUNNING.txt} apache-tomcat-$VER/bin/{*.sh,*.bat,*.tar.gz,*.xml}
 fi
 
 rm -f apache-tomcat
