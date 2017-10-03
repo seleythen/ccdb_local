@@ -8,9 +8,12 @@ import javax.servlet.ServletException;
 import org.apache.catalina.Globals;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
+import org.apache.catalina.Valve;
 import org.apache.catalina.Wrapper;
 import org.apache.catalina.core.StandardContext;
+import org.apache.catalina.core.StandardHost;
 import org.apache.catalina.startup.Tomcat;
+import org.apache.catalina.valves.ErrorReportValve;
 
 /**
  * Start an embedded Tomcat with the local servlet mapping (localhost:8080/Local/) by default
@@ -69,6 +72,14 @@ public class LocalEmbeddedTomcat {
 
 		if (debugLevel >= 1)
 			System.err.println("Ready to accept HTTP calls on " + address + ":" + port + ", file repository base path is: " + Local.basePath);
+
+		final StandardHost host = (StandardHost) tomcat.getHost();
+
+		for (final Valve v : host.getPipeline().getValves())
+			if (v instanceof ErrorReportValve) {
+				final ErrorReportValve erv = (ErrorReportValve) v;
+				erv.setShowServerInfo(false);
+			}
 
 		tomcat.getServer().await();
 	}
