@@ -63,6 +63,8 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 	}
 
 	public Set<Object> getPropertiesKeys() {
+		loadProperties();
+
 		return objectProperties.keySet();
 	}
 

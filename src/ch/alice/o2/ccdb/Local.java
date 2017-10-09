@@ -7,9 +7,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.net.InetAddress;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 import java.util.UUID;
 
 import javax.servlet.ServletException;
@@ -78,43 +83,32 @@ public class Local extends HttpServlet {
 		if (parser.uuidConstraint != null) {
 			// download this explicitly requested file, unless HEAD was indicated in which case no content should be returned to the client
 
-			setHeaders(matchingObject, response, true);
+			setHeaders(matchingObject, response);
 
 			if (!head)
-				download(matchingObject, response);
+				download(matchingObject, request, response);
+			else {
+				response.setHeader("Content-Length", String.valueOf(matchingObject.referenceFile.length()));
+				response.setHeader("Content-Disposition", "inline;filename=\"" + matchingObject.getOriginalName() + "\"");
+				response.setHeader("Content-Type", matchingObject.getProperty("Content-Type", "application/octet-stream"));
+				response.setHeader("Accept-Ranges", "bytes");
+				setMD5Header(matchingObject, response);
+			}
 
 			return;
 		}
 
-		setHeaders(matchingObject, response, false);
+		setHeaders(matchingObject, response);
 
 		response.sendRedirect(getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
 	}
 
-	private static void setHeaders(final LocalObjectWithVersion obj, final HttpServletResponse response, final boolean forDownload) {
+	private static void setHeaders(final LocalObjectWithVersion obj, final HttpServletResponse response) {
 		response.setDateHeader("Date", System.currentTimeMillis());
 		response.setHeader("Valid-Until", String.valueOf(obj.endTime));
 		response.setHeader("Valid-From", String.valueOf(obj.startTime));
 		response.setHeader("Created", String.valueOf(obj.getCreateTime()));
 		response.setHeader("ETag", '"' + obj.referenceFile.getName() + '"');
-
-		if (forDownload) {
-			response.addHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
-			response.setHeader("Content-Length", String.valueOf(obj.referenceFile.length()));
-			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
-
-			String md5 = obj.getProperty("Content-MD5");
-
-			try {
-				if (md5 == null || md5.isEmpty())
-					md5 = UUIDTools.getMD5(obj.referenceFile);
-			} catch (@SuppressWarnings("unused") final IOException ioe) {
-				// ignore IO exceptions
-			}
-
-			if (md5 != null && !md5.isEmpty())
-				response.setHeader("Content-MD5", md5);
-		}
 
 		try {
 			response.setDateHeader("Last-Modified", Long.parseLong(obj.getProperty("Last-Modified")));
@@ -123,10 +117,193 @@ public class Local extends HttpServlet {
 		}
 	}
 
-	private static void download(final LocalObjectWithVersion obj, final HttpServletResponse response) throws IOException {
-		try (InputStream is = new FileInputStream(obj.referenceFile); OutputStream os = response.getOutputStream()) {
-			IOUtils.copy(is, os);
+	private static void setMD5Header(final LocalObjectWithVersion obj, final HttpServletResponse response) {
+		String md5 = obj.getProperty("Content-MD5");
+
+		try {
+			if (md5 == null || md5.isEmpty())
+				md5 = UUIDTools.getMD5(obj.referenceFile);
+		} catch (@SuppressWarnings("unused") final IOException ioe) {
+			// ignore IO exceptions
 		}
+
+		if (md5 != null && !md5.isEmpty())
+			response.setHeader("Content-MD5", md5);
+	}
+
+	private static void download(final LocalObjectWithVersion obj, final HttpServletRequest request, final HttpServletResponse response) throws IOException {
+		final String range = request.getHeader("Range");
+
+		if (range == null || range.trim().isEmpty()) {
+			response.setHeader("Content-Length", String.valueOf(obj.referenceFile.length()));
+			response.setHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
+			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
+			setMD5Header(obj, response);
+
+			try (InputStream is = new FileInputStream(obj.referenceFile); OutputStream os = response.getOutputStream()) {
+				IOUtils.copy(is, os);
+			}
+
+			return;
+		}
+
+		// a Range request was made, serve only the requested bytes
+
+		final long fileSize = obj.referenceFile.length();
+
+		if (!range.startsWith("bytes=")) {
+			response.setHeader("Content-Range", "bytes */" + fileSize);
+			response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+			return;
+		}
+
+		final StringTokenizer st = new StringTokenizer(range.substring(6).trim(), ",");
+
+		final List<Map.Entry<Long, Long>> requestedRanges = new ArrayList<>();
+
+		while (st.hasMoreTokens()) {
+			final String s = st.nextToken();
+
+			final int idx = s.indexOf('-');
+
+			long start;
+			long end;
+
+			if (idx > 0) {
+				start = Long.parseLong(s.substring(0, idx));
+
+				if (start >= fileSize) {
+					response.setHeader("Content-Range", "bytes */" + fileSize);
+					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
+					return;
+				}
+
+				if (idx < (s.length() - 1)) {
+					end = Long.parseLong(s.substring(idx + 1));
+
+					if (end >= fileSize) {
+						response.setHeader("Content-Range", "bytes */" + fileSize);
+						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested bytes beyond what the file contains (" + end + ")");
+						return;
+					}
+				}
+				else
+					end = fileSize - 1;
+
+				if (start > end) {
+					response.setHeader("Content-Range", "bytes */" + fileSize);
+					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
+							"The requested range is wrong, the second value (" + end + ") should be larger than the first (" + start + ")");
+					return;
+				}
+			}
+			else
+				if (idx == 0) {
+					// a single negative value means 'last N bytes'
+					start = Long.parseLong(s.substring(idx + 1));
+
+					end = fileSize - 1;
+
+					start = end - start + 1;
+
+					if (start < 0) {
+						response.setHeader("Content-Range", "bytes */" + fileSize);
+						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
+								"You requested more last bytes (" + s.substring(idx + 1) + ") from the end of the file than the file actually has (" + fileSize + ")");
+						start = 0;
+					}
+				}
+				else {
+					start = Long.parseLong(s);
+
+					if (start >= fileSize) {
+						response.setHeader("Content-Range", "bytes */" + fileSize);
+						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
+						return;
+					}
+
+					end = fileSize - 1;
+				}
+
+			requestedRanges.add(new AbstractMap.SimpleEntry<>(Long.valueOf(start), Long.valueOf(end)));
+		}
+
+		if (requestedRanges.size() == 0) {
+			response.setHeader("Content-Range", "bytes */" + fileSize);
+			response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+			return;
+		}
+
+		response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
+
+		if (requestedRanges.size() == 1) {
+			// A single byte range
+			final Map.Entry<Long, Long> theRange = requestedRanges.get(0);
+			final long first = theRange.getKey().longValue();
+			final long last = theRange.getValue().longValue();
+
+			final long toCopy = last - first + 1;
+
+			response.setHeader("Content-Length", String.valueOf(toCopy));
+			response.setHeader("Content-Range", "bytes " + first + "-" + last + "/" + fileSize);
+			response.setHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
+			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
+
+			try (RandomAccessFile input = new RandomAccessFile(obj.referenceFile, "r"); OutputStream output = response.getOutputStream()) {
+				input.seek(first);
+				copy(input, output, toCopy);
+			}
+
+			return;
+		}
+
+		// the content length should be computed based on the ranges and the header sizes. Or just don't send it :)
+		final String boundaryString = "THIS_STRING_SEPARATES_" + UUIDTools.generateTimeUUID(System.currentTimeMillis(), null).toString();
+
+		response.setHeader("Content-Type", "multipart/byteranges; boundary=" + boundaryString);
+
+		try (RandomAccessFile input = new RandomAccessFile(obj.referenceFile, "r"); OutputStream output = response.getOutputStream()) {
+			final StringBuilder subHeader = new StringBuilder();
+
+			for (final Map.Entry<Long, Long> theRange : requestedRanges) {
+				final long first = theRange.getKey().longValue();
+				final long last = theRange.getValue().longValue();
+
+				final long toCopy = last - first + 1;
+
+				subHeader.setLength(0);
+				subHeader.append("\n--").append(boundaryString);
+				subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
+				subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(fileSize).append("\n\n");
+
+				output.write(subHeader.toString().getBytes());
+
+				input.seek(first);
+				copy(input, output, toCopy);
+			}
+
+			subHeader.setLength(0);
+			subHeader.append("\n--").append(boundaryString).append("--\n");
+
+			output.write(subHeader.toString().getBytes());
+		}
+	}
+
+	private static void copy(final RandomAccessFile input, final OutputStream output, final long count) throws IOException {
+		final byte[] buffer = new byte[4096];
+		int cnt = 0;
+
+		long leftToCopy = count;
+
+		do {
+			final int toCopy = (int) Math.min(leftToCopy, buffer.length);
+
+			cnt = input.read(buffer, 0, toCopy);
+
+			output.write(buffer, 0, cnt);
+
+			leftToCopy -= cnt;
+		} while (leftToCopy > 0);
 	}
 
 	@Override
@@ -201,7 +378,7 @@ public class Local extends HttpServlet {
 
 		newObject.saveProperties(request.getRemoteHost());
 
-		setHeaders(newObject, response, false);
+		setHeaders(newObject, response);
 		response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
 		response.sendError(HttpServletResponse.SC_CREATED);
 	}
@@ -231,7 +408,7 @@ public class Local extends HttpServlet {
 
 		matchingObject.saveProperties(request.getRemoteHost());
 
-		setHeaders(matchingObject, response, false);
+		setHeaders(matchingObject, response);
 
 		response.setHeader("Location", getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
 
@@ -353,6 +530,6 @@ public class Local extends HttpServlet {
 		for (final Object key : matchingObject.getPropertiesKeys())
 			response.setHeader(key.toString(), matchingObject.getProperty(key.toString()));
 
-		setHeaders(matchingObject, response, false);
+		setHeaders(matchingObject, response);
 	}
 }
