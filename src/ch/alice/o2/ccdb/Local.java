@@ -135,6 +135,7 @@ public class Local extends HttpServlet {
 		final String range = request.getHeader("Range");
 
 		if (range == null || range.trim().isEmpty()) {
+			response.setHeader("Accept-Ranges", "bytes");
 			response.setHeader("Content-Length", String.valueOf(obj.referenceFile.length()));
 			response.setHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
 			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
@@ -514,6 +515,7 @@ public class Local extends HttpServlet {
 	@Override
 	protected void doOptions(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		response.setHeader("Allow", "GET, HEAD, POST, PUT, DELETE, OPTIONS");
+		response.setHeader("Accept-Ranges", "bytes");
 
 		final RequestParser parser = new RequestParser(request);
 
