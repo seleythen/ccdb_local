@@ -12,6 +12,7 @@ import java.net.InetAddress;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
@@ -88,7 +89,7 @@ public class Local extends HttpServlet {
 			if (!head)
 				download(matchingObject, request, response);
 			else {
-				response.setHeader("Content-Length", String.valueOf(matchingObject.referenceFile.length()));
+				response.setContentLengthLong(matchingObject.referenceFile.length());
 				response.setHeader("Content-Disposition", "inline;filename=\"" + matchingObject.getOriginalName() + "\"");
 				response.setHeader("Content-Type", matchingObject.getProperty("Content-Type", "application/octet-stream"));
 				response.setHeader("Accept-Ranges", "bytes");
@@ -136,7 +137,7 @@ public class Local extends HttpServlet {
 
 		if (range == null || range.trim().isEmpty()) {
 			response.setHeader("Accept-Ranges", "bytes");
-			response.setHeader("Content-Length", String.valueOf(obj.referenceFile.length()));
+			response.setContentLengthLong(obj.referenceFile.length());
 			response.setHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
 			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
 			setMD5Header(obj, response);
@@ -245,7 +246,7 @@ public class Local extends HttpServlet {
 
 			final long toCopy = last - first + 1;
 
-			response.setHeader("Content-Length", String.valueOf(toCopy));
+			response.setContentLengthLong(toCopy);
 			response.setHeader("Content-Range", "bytes " + first + "-" + last + "/" + fileSize);
 			response.setHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
 			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
@@ -263,30 +264,55 @@ public class Local extends HttpServlet {
 
 		response.setHeader("Content-Type", "multipart/byteranges; boundary=" + boundaryString);
 
-		try (RandomAccessFile input = new RandomAccessFile(obj.referenceFile, "r"); OutputStream output = response.getOutputStream()) {
+		final ArrayList<String> subHeaders = new ArrayList<>(requestedRanges.size());
+
+		long contentLength = 0;
+
+		for (final Map.Entry<Long, Long> theRange : requestedRanges) {
+			final long first = theRange.getKey().longValue();
+			final long last = theRange.getValue().longValue();
+
+			final long toCopy = last - first + 1;
+
 			final StringBuilder subHeader = new StringBuilder();
 
-			for (final Map.Entry<Long, Long> theRange : requestedRanges) {
+			subHeader.append("\n--").append(boundaryString);
+			subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
+			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(fileSize).append("\n\n");
+
+			final String sh = subHeader.toString();
+
+			subHeaders.add(sh);
+
+			contentLength += toCopy + sh.length();
+		}
+
+		final String documentFooter = "\n--" + boundaryString + "--\n";
+
+		contentLength += documentFooter.length();
+
+		response.setContentLengthLong(contentLength);
+
+		try (RandomAccessFile input = new RandomAccessFile(obj.referenceFile, "r"); OutputStream output = response.getOutputStream()) {
+			final Iterator<Map.Entry<Long, Long>> itRange = requestedRanges.iterator();
+			final Iterator<String> itSubHeader = subHeaders.iterator();
+
+			while (itRange.hasNext()) {
+				final Map.Entry<Long, Long> theRange = itRange.next();
+				final String subHeader = itSubHeader.next();
+
 				final long first = theRange.getKey().longValue();
 				final long last = theRange.getValue().longValue();
 
 				final long toCopy = last - first + 1;
 
-				subHeader.setLength(0);
-				subHeader.append("\n--").append(boundaryString);
-				subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
-				subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(fileSize).append("\n\n");
-
-				output.write(subHeader.toString().getBytes());
+				output.write(subHeader.getBytes());
 
 				input.seek(first);
 				copy(input, output, toCopy);
 			}
 
-			subHeader.setLength(0);
-			subHeader.append("\n--").append(boundaryString).append("--\n");
-
-			output.write(subHeader.toString().getBytes());
+			output.write(documentFooter.getBytes());
 		}
 	}
 
