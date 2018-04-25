@@ -16,6 +16,8 @@ for jar in $TB/tomcat-juli.jar $TL/{catalina.jar,servlet-api.jar,tomcat-api.jar,
 done
 
 # remove useless (for this project) classes
+rm -rf src
+
 rm -rf META-INF LICENSE NOTICE about.html ecj.1
 
 rm -rf org/apache/catalina/{manager,filters,ssi,users}
@@ -39,11 +41,28 @@ ln -s ../build/classes/ch .
 
 # package everything in a single JAR
 jar -cfe local.jar \
-    ch.alice.o2.ccdb.LocalEmbeddedTomcat ch/alice/o2/ccdb/LocalEmbeddedTomcat.class \
+    ch.alice.o2.ccdb.webserver.LocalEmbeddedTomcat ch/alice/o2/ccdb/webserver/LocalEmbeddedTomcat.class \
     ch javax org
 
+# Extra packages for the SQL backend
+
+for jar in postgresql.jar lazyj.jar; do
+    jar -xf $jar
+done
+
+rm -rf src META-INF
+
+#jar -cfe sql.jar \
+#    ch.alice.o2.ccdb.testing.SQLBenchmark ch/alice/o2/ccdb/testing/SQLBenchmark.class \
+#    ch javax org lazyj
+
+jar -cfe sql.jar \
+    ch.alice.o2.ccdb.webserver.SQLBackedTomcat ch/alice/o2/ccdb/webserver/SQLBackedTomcat.class \
+    ch javax org lazyj
+
 # further compression and remove debugging information
-pack200 --repack -G -O local.jar
+#pack200 --repack -G -O local.jar
+#pack200 --repack -G -O sql.jar
 
 # remove all intermediate folders
-rm -rf javax org ch
+rm -rf javax org ch org lazyj
