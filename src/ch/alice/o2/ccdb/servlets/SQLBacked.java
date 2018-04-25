@@ -3,7 +3,11 @@ package ch.alice.o2.ccdb.servlets;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.Map;
 
@@ -15,11 +19,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 
-import org.apache.tomcat.util.http.fileupload.IOUtils;
-
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
-import ch.alice.o2.ccdb.UUIDTools;
 
 /**
  * SQL-backed implementation of CCDB. File reside on a separate storage and clients are redirected to it for the actual file access
@@ -98,6 +99,10 @@ public class SQLBacked extends HttpServlet {
 		response.setDateHeader("Date", System.currentTimeMillis());
 		response.setHeader("Valid-Until", String.valueOf(obj.validUntil));
 		response.setHeader("Valid-From", String.valueOf(obj.validFrom));
+
+		if (obj.initialValidity != obj.validUntil)
+			response.setHeader("InitialValidityLimit", String.valueOf(obj.initialValidity));
+
 		response.setHeader("Created", String.valueOf(obj.createTime));
 		response.setHeader("ETag", "\"" + obj.id + "\"");
 
@@ -145,8 +150,31 @@ public class SQLBacked extends HttpServlet {
 			return;
 		}
 
-		try (FileOutputStream fos = new FileOutputStream(targetFile)) {
-			IOUtils.copy(part.getInputStream(), fos);
+		final MessageDigest md5;
+
+		try {
+			md5 = MessageDigest.getInstance("MD5");
+		} catch (@SuppressWarnings("unused") NoSuchAlgorithmException e) {
+			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot initialize the MD5 digester");
+			return;
+		}
+
+		newObject.size = 0;
+
+		try (FileOutputStream fos = new FileOutputStream(targetFile); InputStream is = part.getInputStream()) {
+			final byte[] buffer = new byte[1024 * 16];
+
+			int n;
+
+			while ((n = is.read(buffer)) >= 0) {
+				fos.write(buffer, 0, n);
+				md5.update(buffer, 0, n);
+				newObject.size += n;
+			}
+		} catch (@SuppressWarnings("unused") final IOException ioe) {
+			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot upload the blob to the local file " + targetFile.getAbsolutePath());
+			targetFile.delete();
+			return;
 		}
 
 		for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet())
@@ -155,10 +183,7 @@ public class SQLBacked extends HttpServlet {
 		newObject.uploadedFrom = request.getRemoteHost();
 		newObject.fileName = part.getSubmittedFileName();
 		newObject.contentType = part.getContentType();
-		newObject.size = targetFile.length();
-		newObject.md5 = UUIDTools.getMD5(targetFile);
-
-		newObject.setProperty("InitialValidityLimit", String.valueOf(parser.endTime));
+		newObject.md5 = String.format("%032x", new BigInteger(1, md5.digest())); // UUIDTools.getMD5(targetFile);
 
 		newObject.replicas.add(Integer.valueOf(0));
 
