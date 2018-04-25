@@ -3,7 +3,7 @@
 cd `dirname $0`
 
 # Tomcat version to embed in this project
-VER="8.5.23"
+VER="8.5.30"
 
 T="apache-tomcat-$VER"
 
@@ -20,3 +20,13 @@ fi
 
 rm -f apache-tomcat
 ln -s "$T" apache-tomcat
+
+if [ ! -f lazyj.jar ]; then
+    echo "Downloading lazyj"
+    wget -nv "http://lazyj.sf.net/download/lazyj.jar" -O lazyj.jar
+fi
+
+if [ ! -f postgresql.jar ]; then
+    echo "Downloading PostgreSQL JDBC driver"
+    wget -nv "https://jdbc.postgresql.org/download/postgresql-42.2.2.jar" -O postgresql.jar
+fi
