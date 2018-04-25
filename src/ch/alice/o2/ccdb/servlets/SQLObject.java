@@ -242,8 +242,6 @@ public class SQLObject {
 				lastModified = System.currentTimeMillis();
 
 				if (existing) {
-					System.err.println("Updating to new validity = " + validUntil + ", metadata=" + metadata + ", replicas=" + replicaArray);
-
 					final boolean ok = db.query(
 							"UPDATE ccdb SET validity=tsrange(to_timestamp(?) AT TIME ZONE 'UTC', to_timestamp(?) AT TIME ZONE 'UTC'), replicas=?::int[], contenttype=?, metadata=?::hstore, lastmodified=? WHERE id=?;",
 							false, Double.valueOf(validFrom / 1000.), Double.valueOf(validUntil / 1000.), replicaArray, getContentTypeID(contentType, true), metadata, Long.valueOf(lastModified), id);
@@ -251,9 +249,10 @@ public class SQLObject {
 					if (ok) {
 						existing = true;
 						tainted = false;
+						return true;
 					}
-					else
-						System.err.println("Update query failed");
+
+					System.err.println("Update query failed for id=" + id);
 				}
 				else {
 					initialValidity = validUntil;
@@ -264,13 +263,12 @@ public class SQLObject {
 							Long.valueOf(initialValidity), fileName, getContentTypeID(contentType, true), uploadedFrom, metadata, Long.valueOf(lastModified))) {
 						existing = true;
 						tainted = false;
+						return true;
 					}
-					else
-						System.err.println("Insert query failed");
+
+					System.err.println("Insert query failed for id=" + id);
 				}
 			}
-
-			return true;
 		}
 
 		return false;
