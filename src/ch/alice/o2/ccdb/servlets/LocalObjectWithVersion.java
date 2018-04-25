@@ -1,4 +1,4 @@
-package ch.alice.o2.ccdb;
+package ch.alice.o2.ccdb.servlets;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+
+import ch.alice.o2.ccdb.UUIDTools;
 
 /**
  * Handle all interactions with a local file, including the metadata access (backed by a .properties file with the same base name as the referenced file)

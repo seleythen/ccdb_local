@@ -1,4 +1,4 @@
-package ch.alice.o2.ccdb;
+package ch.alice.o2.ccdb.servlets;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,6 +28,10 @@ import javax.servlet.http.Part;
 
 import org.apache.tomcat.util.http.fileupload.IOUtils;
 
+import ch.alice.o2.ccdb.Options;
+import ch.alice.o2.ccdb.RequestParser;
+import ch.alice.o2.ccdb.UUIDTools;
+
 /**
  * Prototype implementation of QC repository. This simple implementation is filesystem-based and targeted to local development and testing of the QC framework
  *
@@ -39,7 +43,10 @@ import org.apache.tomcat.util.http.fileupload.IOUtils;
 public class Local extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	static final String basePath = Options.getOption("file.repository.location", System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + "QC");
+	/**
+	 * The base path of the file repository
+	 */
+	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + "QC");
 
 	private static String getURLPrefix(final HttpServletRequest request) {
 		return request.getContextPath() + request.getServletPath();

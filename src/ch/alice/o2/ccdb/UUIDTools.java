@@ -124,13 +124,23 @@ public class UUIDTools {
 		contents[8] &= (byte) 0x3F;
 		contents[8] |= (byte) 0x80;
 
+		return getUUID(contents);
+	}
+
+	/**
+	 * @param data
+	 * @return the UUID objected created from these bytes
+	 */
+	public static final UUID getUUID(final byte[] data) {
+		assert data.length == 16;
+
 		long msb = 0;
 		long lsb = 0;
 
 		for (int i = 0; i < 8; i++)
-			msb = (msb << 8) | (contents[i] & 0xff);
+			msb = (msb << 8) | (data[i] & 0xff);
 		for (int i = 8; i < 16; i++)
-			lsb = (lsb << 8) | (contents[i] & 0xff);
+			lsb = (lsb << 8) | (data[i] & 0xff);
 
 		return new UUID(msb, lsb);
 	}

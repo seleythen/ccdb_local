@@ -1,6 +1,7 @@
 package ch.alice.o2.ccdb;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,24 +16,65 @@ import javax.servlet.http.HttpServletRequest;
  * @author costing
  * @since 2017-09-22
  */
-class RequestParser {
-	boolean ok = false;
+public class RequestParser {
+	/**
+	 * Whether or not the request was successfully parsed
+	 */
+	public boolean ok = false;
 
-	String path;
+	/**
+	 * Requested object path
+	 */
+	public String path;
 
-	long startTime = System.currentTimeMillis();
-	long endTime = startTime + 1;
-	UUID uuidConstraint = null;
-	UUID cachedValue = null;
+	/**
+	 * Start validity of the object (default is `now`)
+	 */
+	public long startTime = System.currentTimeMillis();
 
-	boolean startTimeSet = false;
-	boolean endTimeSet = false;
+	/**
+	 * End validity of the request (default is `now` - an open end interval, so +1ms)
+	 */
+	public long endTime = startTime + 1;
 
-	long notAfter = 0;
+	/**
+	 * UUID to get the detail for
+	 */
+	public UUID uuidConstraint = null;
 
-	final Map<String, String> flagConstraints = new HashMap<>();
+	/**
+	 * Client's current UUID, to be checked if it is still valid or not
+	 */
+	public UUID cachedValue = null;
 
+	/**
+	 * Whether or not the start time was defined
+	 */
+	public boolean startTimeSet = false;
+
+	/**
+	 * If the end time was set for the request
+	 */
+	public boolean endTimeSet = false;
+
+	/**
+	 * Snapshot timestamp (the cutoff time after which any newer created object is ignored)
+	 */
+	public long notAfter = 0;
+
+	/**
+	 * Quality or other metadata constraints that have to match (or be set)
+	 */
+	public final Map<String, String> flagConstraints = new HashMap<>();
+
+	/**
+	 * @param request
+	 *            request to wrap around
+	 */
 	public RequestParser(final HttpServletRequest request) {
+		if (request == null)
+			return;
+
 		final String pathInfo = request.getPathInfo();
 
 		if (pathInfo == null || pathInfo.isEmpty())
@@ -131,5 +173,31 @@ class RequestParser {
 		}
 
 		path = pathBuilder.toString();
+	}
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder();
+
+		sb.append("Path: ").append(path).append('\n');
+
+		if (startTimeSet)
+			sb.append("Start time: ").append(startTime).append(" (").append(new Date(startTime)).append(")\n");
+		else
+			sb.append("Start time not set\n");
+
+		if (endTimeSet)
+			sb.append("End time: ").append(endTime).append(" (").append(new Date(endTime)).append(")\n");
+
+		if (uuidConstraint != null)
+			sb.append("Requested UUID: ").append(uuidConstraint).append("\n");
+
+		if (cachedValue != null)
+			sb.append("Cached value: ").append(cachedValue).append("\n");
+
+		if (notAfter > 0)
+			sb.append("Snapshot time limit: ").append(notAfter).append(" (").append(new Date(notAfter)).append(")\n");
+
+		return sb.toString();
 	}
 }
