@@ -38,11 +38,6 @@ public class SQLObject {
 		return new DBFunctions(config);
 	}
 
-	static {
-		// make sure the database structures exist
-		createDBStructure();
-	}
-
 	/**
 	 * Unique identifier of an object
 	 */
@@ -738,28 +733,5 @@ public class SQLObject {
 		return sb.toString();
 	}
 
-	/**
-	 * Create the table structure to hold this object
-	 */
-	public static void createDBStructure() {
-		try (DBFunctions db = getDB()) {
-			if (db.isPostgreSQL()) {
-				db.query("CREATE EXTENSION IF NOT EXISTS hstore;", true);
-				db.query(
-						"CREATE TABLE IF NOT EXISTS ccdb (id uuid PRIMARY KEY, pathId int NOT NULL, validity tsrange, createTime bigint NOT NULL, replicas integer[], size bigint, md5 uuid, filename text, contenttype int, uploadedfrom inet, initialvalidity bigint, metadata hstore, lastmodified bigint);");
-				db.query("CREATE INDEX IF NOT EXISTS ccdb_pathId2_idx ON ccdb(pathId);");
-				// db.query("CREATE INDEX IF NOT EXISTS ccdb_validFrom_idx ON ccdb(validFrom);");
-				// db.query("CREATE INDEX IF NOT EXISTS ccdb_validUntil_idx ON ccdb(validUntil);");
-				// db.query("CREATE INDEX IF NOT EXISTS ccdb_createTime_idx ON ccdb(createTime);");
-				db.query("ALTER TABLE ccdb ALTER validity SET STATISTICS 10000;");
-				db.query("CREATE INDEX IF NOT EXISTS ccdb_validity2_idx on ccdb using gist(validity);");
 
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_paths (pathId SERIAL PRIMARY KEY, path text UNIQUE NOT NULL);");
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_metadata (metadataId SERIAL PRIMARY KEY, metadataKey text UNIQUE NOT NULL);");
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
-			}
-			else
-				throw new IllegalArgumentException("Only PostgreSQL support is implemented at the moment");
-		}
-	}
 }
