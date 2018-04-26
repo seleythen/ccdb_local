@@ -36,7 +36,7 @@ public class SQLBacked extends HttpServlet {
 	/**
 	 * The base path of the file repository
 	 */
-	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + "QC");
+	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("user.home") + System.getProperty("file.separator") + "QC");
 
 	private static String getURLPrefix(final HttpServletRequest request) {
 		return request.getContextPath() + request.getServletPath();
