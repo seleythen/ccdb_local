@@ -311,7 +311,25 @@ public class SQLObject {
 		final List<String> ret = new ArrayList<>(replicas.size());
 
 		for (final Integer replica : replicas) {
-			String pattern = config.gets("server." + replica + ".url", "http://localhost:8080/download/UUID");
+			String pattern = config.gets("server." + replica + ".urlPattern", null);
+
+			if (pattern == null) {
+				if (replica.intValue() == 0) {
+					String hostname;
+
+					try {
+						hostname = InetAddress.getLocalHost().getCanonicalHostName();
+					} catch (@SuppressWarnings("unused") final Throwable t) {
+						hostname = "localhost";
+					}
+
+					pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
+				}
+				else
+					pattern = "alien:///alice/ccdb/FOLDER/UUID";
+
+				config.set("server." + replica + ".urlPattern", pattern);
+			}
 
 			pattern = Format.replace(pattern, "UUID", id.toString());
 			pattern = Format.replace(pattern, "FOLDER", getFolder());
