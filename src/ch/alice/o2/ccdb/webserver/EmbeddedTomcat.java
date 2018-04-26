@@ -34,9 +34,11 @@ public class EmbeddedTomcat extends Tomcat {
 	final StandardContext ctx;
 
 	/**
+	 * @param defaultAddress
+	 *            default listening address for the Tomcat server. Either "localhost" (default for testing servers) or "*" for production instances.
 	 * @throws ServletException
 	 */
-	public EmbeddedTomcat() throws ServletException {
+	public EmbeddedTomcat(final String defaultAddress) throws ServletException {
 		super();
 
 		// This is to disable Tomcat from creating work directories, nothing needs to be compiled on the fly
@@ -46,7 +48,7 @@ public class EmbeddedTomcat extends Tomcat {
 		if (debugLevel < 2)
 			LogManager.getLogManager().reset();
 
-		address = Options.getOption("tomcat.address", "localhost");
+		address = Options.getOption("tomcat.address", defaultAddress);
 
 		setPort(Options.getIntOption("tomcat.port", 8080));
 		getConnector().setProperty("address", address);

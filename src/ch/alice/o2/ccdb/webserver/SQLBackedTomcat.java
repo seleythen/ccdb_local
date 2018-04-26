@@ -23,7 +23,7 @@ public class SQLBackedTomcat {
 		EmbeddedTomcat tomcat;
 
 		try {
-			tomcat = new EmbeddedTomcat();
+			tomcat = new EmbeddedTomcat("*");
 		} catch (final ServletException se) {
 			System.err.println("Cannot create the Tomcat server: " + se.getMessage());
 			return;

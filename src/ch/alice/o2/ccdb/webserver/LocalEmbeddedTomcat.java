@@ -22,7 +22,7 @@ public class LocalEmbeddedTomcat {
 		EmbeddedTomcat tomcat;
 
 		try {
-			tomcat = new EmbeddedTomcat();
+			tomcat = new EmbeddedTomcat("localhost");
 		} catch (ServletException se) {
 			System.err.println("Cannot create the Tomcat server: " + se.getMessage());
 			return;
