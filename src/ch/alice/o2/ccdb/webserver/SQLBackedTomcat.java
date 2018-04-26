@@ -5,10 +5,11 @@ import javax.servlet.ServletException;
 import org.apache.catalina.LifecycleException;
 
 import ch.alice.o2.ccdb.servlets.SQLBacked;
+import ch.alice.o2.ccdb.servlets.SQLBrowse;
 import ch.alice.o2.ccdb.servlets.SQLDownload;
 
 /**
- * Start an embedded Tomcat with the local servlet mapping (localhost:8080/Local/) by default
+ * Start an embedded Tomcat with the local servlet mapping (*:8080/Local/) by default
  *
  * @author costing
  * @since 2017-10-13
@@ -30,6 +31,7 @@ public class SQLBackedTomcat {
 		}
 
 		tomcat.addServlet(SQLDownload.class.getName(), "/download/*");
+		tomcat.addServlet(SQLBrowse.class.getName(), "/browse/*");
 		tomcat.addServlet(SQLBacked.class.getName(), "/*");
 
 		// Start the server

@@ -15,7 +15,6 @@ import java.util.StringTokenizer;
 import java.util.UUID;
 
 import javax.servlet.ServletException;
-import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -26,13 +25,13 @@ import org.apache.tomcat.util.http.fileupload.IOUtils;
 import ch.alice.o2.ccdb.UUIDTools;
 
 /**
- * SQL-backed implementation of CCDB. File reside on a separate storage and clients are redirected to it for the actual file access
+ * SQL-backed implementation of CCDB. This servlet only implements GET (and HEAD) for a particular UUID that is known to reside on this server. It should normally not be accessed directly but clients
+ * might end up here if the file was not migrated to other physical locations.
  *
  * @author costing
  * @since 2017-10-13
  */
-@WebServlet("/SQLDownload/*")
-@MultipartConfig
+@WebServlet("/download/*")
 public class SQLDownload extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
@@ -54,7 +53,7 @@ public class SQLDownload extends HttpServlet {
 		try {
 			id = UUID.fromString(pathInfo.substring(1));
 		} catch (@SuppressWarnings("unused") final Throwable t) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The only path information supported is the requested object ID");
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The only path information supported is the requested object ID, i.e. '/download/UUID'");
 			return;
 		}
 
@@ -63,7 +62,7 @@ public class SQLDownload extends HttpServlet {
 		// System.err.println(matchingObject);
 
 		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+			response.sendError(HttpServletResponse.SC_NOT_FOUND, "Object id " + id + " could not be found in the database");
 			return;
 		}
 
@@ -286,5 +285,20 @@ public class SQLDownload extends HttpServlet {
 
 			leftToCopy -= cnt;
 		} while (leftToCopy > 0);
+	}
+
+	@Override
+	protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+		resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "The DELETE method should use the main entry point instead of /download/, which is reserved for direct read access to the objects");
+	}
+
+	@Override
+	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+		resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "You shouldn't try to create objects via the /download/ servlet, go to / instead");
+	}
+
+	@Override
+	protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+		resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Object manipulation is not available via the /download/ servlet, go to / instead");
 	}
 }

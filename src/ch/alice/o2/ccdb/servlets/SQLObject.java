@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -300,36 +301,48 @@ public class SQLObject {
 	}
 
 	/**
+	 * Return the full URL to the physical representation on this replica ID
+	 * 
+	 * @param replica
+	 * @return full URL
+	 */
+	public String getAddress(final Integer replica) {
+		String pattern = config.gets("server." + replica + ".urlPattern", null);
+
+		if (pattern == null) {
+			if (replica.intValue() == 0) {
+				String hostname;
+
+				try {
+					hostname = InetAddress.getLocalHost().getCanonicalHostName();
+				} catch (@SuppressWarnings("unused") final Throwable t) {
+					hostname = "localhost";
+				}
+
+				pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
+			}
+			else
+				pattern = "alien:///alice/ccdb/FOLDER/UUID";
+
+			config.set("server." + replica + ".urlPattern", pattern);
+		}
+
+		pattern = Format.replace(pattern, "UUID", id.toString());
+		pattern = Format.replace(pattern, "FOLDER", getFolder());
+
+		return pattern;
+	}
+
+	/**
+	 * Get all URLs where replicas of this object can be retrieved from
+	 * 
 	 * @return the list of URLs where the content of this object can be retrieved from
 	 */
 	public List<String> getAddresses() {
 		final List<String> ret = new ArrayList<>(replicas.size());
 
 		for (final Integer replica : replicas) {
-			String pattern = config.gets("server." + replica + ".urlPattern", null);
-
-			if (pattern == null) {
-				if (replica.intValue() == 0) {
-					String hostname;
-
-					try {
-						hostname = InetAddress.getLocalHost().getCanonicalHostName();
-					} catch (@SuppressWarnings("unused") final Throwable t) {
-						hostname = "localhost";
-					}
-
-					pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
-				}
-				else
-					pattern = "alien:///alice/ccdb/FOLDER/UUID";
-
-				config.set("server." + replica + ".urlPattern", pattern);
-			}
-
-			pattern = Format.replace(pattern, "UUID", id.toString());
-			pattern = Format.replace(pattern, "FOLDER", getFolder());
-
-			ret.add(pattern);
+			ret.add(getAddress(replica));
 		}
 
 		return ret;
@@ -547,7 +560,13 @@ public class SQLObject {
 		return null;
 	}
 
-	static synchronized String getMetadataString(final Integer metadataId) {
+	/**
+	 * Convert from metadata primary key (integer) to the String representation of it (as users passed them in the request)
+	 * 
+	 * @param metadataId
+	 * @return the string representation of this metadata key
+	 */
+	public static synchronized String getMetadataString(final Integer metadataId) {
 		String value = METADATA_REVERSE.get(metadataId);
 
 		if (value != null)
@@ -711,6 +730,72 @@ public class SQLObject {
 		}
 	}
 
+	/**
+	 * @param parser
+	 * @return the most recent matching object
+	 */
+	public static final Collection<SQLObject> getAllMatchingObjects(final RequestParser parser) {
+		final Integer pathId = getPathID(parser.path, false);
+
+		if (pathId == null)
+			return null;
+
+		final List<Object> arguments = new ArrayList<>();
+
+		try (DBFunctions db = getDB()) {
+			final StringBuilder q = new StringBuilder("SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
+
+			arguments.add(pathId);
+
+			if (parser.uuidConstraint != null) {
+				q.append(" AND id=?");
+
+				arguments.add(parser.uuidConstraint.toString());
+			}
+
+			if (parser.startTimeSet) {
+				q.append(" AND to_timestamp(?) AT TIME ZONE 'UTC' <@ validity");
+
+				arguments.add(Double.valueOf(parser.startTime / 1000.));
+			}
+
+			if (parser.notAfter > 0) {
+				q.append(" AND createTime<=?");
+
+				arguments.add(Long.valueOf(parser.notAfter));
+			}
+
+			if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
+				for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
+					final String key = constraint.getKey();
+
+					final Integer metadataId = getMetadataID(key, false);
+
+					if (metadataId == null)
+						return null;
+
+					final String value = constraint.getValue();
+
+					q.append(" AND metadata -> ? = ?");
+
+					arguments.add(metadataId.toString());
+					arguments.add(value);
+				}
+
+			q.append(" ORDER BY createTime DESC;");
+
+			db.query(q.toString(), false, arguments.toArray(new Object[0]));
+
+			final List<SQLObject> ret = new ArrayList<>();
+
+			while (db.moveNext()) {
+				ret.add(new SQLObject(db));
+			}
+
+			return ret;
+		}
+	}
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
@@ -732,6 +817,5 @@ public class SQLObject {
 
 		return sb.toString();
 	}
-
 
 }

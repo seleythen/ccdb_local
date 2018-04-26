@@ -24,13 +24,13 @@ import ch.alice.o2.ccdb.RequestParser;
 import lazyj.DBFunctions;
 
 /**
- * SQL-backed implementation of CCDB. File reside on a separate storage and clients are redirected to it for the actual file access
+ * SQL-backed implementation of CCDB. Files reside on this server and/or a separate storage and clients are served directly or redirected to one of the other replicas for the actual file access.
  *
  * @author costing
  * @since 2017-10-13
  */
-@WebServlet("/SQLBacked/*")
-@MultipartConfig
+@WebServlet("/*")
+@MultipartConfig(fileSizeThreshold = 1024 * 1024 * 100)
 public class SQLBacked extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
@@ -38,10 +38,6 @@ public class SQLBacked extends HttpServlet {
 	 * The base path of the file repository
 	 */
 	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("user.home") + System.getProperty("file.separator") + "QC");
-
-	private static String getURLPrefix(final HttpServletRequest request) {
-		return request.getContextPath() + request.getServletPath();
-	}
 
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
@@ -82,13 +78,14 @@ public class SQLBacked extends HttpServlet {
 		// Can I serve it directly?
 
 		if (matchingObject.replicas.contains(Integer.valueOf(0))) {
+			response.setHeader("Content-Location", "/download/" + matchingObject.id);
 			SQLDownload.download(head, matchingObject, request, response);
 			return;
 		}
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(getURLPrefix(request) + matchingObject.getAddresses().iterator().next());
+		response.sendRedirect(matchingObject.getAddresses().iterator().next());
 	}
 
 	static void setMD5Header(final SQLObject obj, final HttpServletResponse response) {
@@ -201,7 +198,11 @@ public class SQLBacked extends HttpServlet {
 
 		setHeaders(newObject, response);
 
-		response.setHeader("Location", newObject.getAddresses().iterator().next());
+		String location = newObject.getAddress(Integer.valueOf(0));
+
+		response.setHeader("Location", location);
+		response.setHeader("Content-Location", location);
+
 		response.sendError(HttpServletResponse.SC_CREATED);
 	}
 
@@ -336,8 +337,10 @@ public class SQLBacked extends HttpServlet {
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_metadata (metadataId SERIAL PRIMARY KEY, metadataKey text UNIQUE NOT NULL);");
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
 
-				if (!db.query("SELECT * FROM ccdb LIMIT 0"))
-					throw new IllegalArgumentException("Database communication cannot be established");
+				if (!db.query("SELECT * FROM ccdb LIMIT 0")) {
+					System.err.println("Database communication cannot be established, please fix config.properties and/or the PostgreSQL server and try again");
+					System.exit(1);
+				}
 
 				System.err.println("Database connection is verified to work");
 			}

@@ -72,6 +72,17 @@ public class RequestParser {
 	 *            request to wrap around
 	 */
 	public RequestParser(final HttpServletRequest request) {
+		this(request, false);
+	}
+
+	/**
+	 * @param request
+	 *            request to wrap around
+	 * @param optionalTimeConstraints
+	 *            whether or not the time constraints are required. If <code>true</code> then at least one time parameter has to be indicated (start time / validity moment). If <code>false</code> then
+	 *            any object in that interval will match.
+	 */
+	public RequestParser(final HttpServletRequest request, final boolean optionalTimeConstraints) {
 		if (request == null)
 			return;
 
@@ -127,7 +138,7 @@ public class RequestParser {
 		}
 
 		// require at least two path elements, but not more than 10 (safety limit)
-		if (pathElements.size() < 2 || pathElements.size() > 10 || !startTimeSet) {
+		if (pathElements.size() < 2 || pathElements.size() > 10 || (!optionalTimeConstraints && !startTimeSet)) {
 			ok = false;
 			return;
 		}
