@@ -105,7 +105,7 @@ public class SQLBenchmark {
 
 		final int noQueries = 10000;
 
-		for (final int queryThreads : new int[] { 1, 4, 8, 16, 32 }) {
+		for (final int queryThreads : new int[] { 1, 4, 8, 16, 24, 32 }) {
 			final long startQueryTime = System.currentTimeMillis();
 
 			threads.clear();
@@ -121,7 +121,7 @@ public class SQLBenchmark {
 
 							parser.path = "dummy";
 							// parser.startTime = i * rangeWidth + r.nextLong() % rangeWidth;
-							parser.startTime = Math.abs(r.nextLong()) % ((base + noOfObjects * noThreads) * 160);
+							parser.startTime = Math.abs(r.nextLong() % ((base + noOfObjects * noThreads) * 160));
 							parser.startTimeSet = true;
 
 							SQLObject result = SQLObject.getMatchingObject(parser);
