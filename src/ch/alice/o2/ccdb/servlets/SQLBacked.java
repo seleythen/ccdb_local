@@ -137,6 +137,11 @@ public class SQLBacked extends HttpServlet {
 			return;
 		}
 
+		if (parts.size() > 1) {
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A single object can be uploaded at a time");
+			return;
+		}
+
 		final Part part = parts.iterator().next();
 
 		final SQLObject newObject = new SQLObject(request, parser.path);
@@ -182,6 +187,7 @@ public class SQLBacked extends HttpServlet {
 		newObject.fileName = part.getSubmittedFileName();
 		newObject.contentType = part.getContentType();
 		newObject.md5 = String.format("%032x", new BigInteger(1, md5.digest())); // UUIDTools.getMD5(targetFile);
+		newObject.setProperty("partName", part.getName());
 
 		newObject.replicas.add(Integer.valueOf(0));
 
@@ -261,6 +267,8 @@ public class SQLBacked extends HttpServlet {
 			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not delete the underlying record");
 			return;
 		}
+
+		setHeaders(matchingObject, response);
 
 		for (final Integer replica : matchingObject.replicas)
 			if (replica.intValue() == 0) {
