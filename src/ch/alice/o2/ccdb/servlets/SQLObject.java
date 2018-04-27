@@ -685,7 +685,7 @@ public class SQLObject {
 			if (parser.uuidConstraint != null) {
 				q.append(" AND id=?");
 
-				arguments.add(parser.uuidConstraint.toString());
+				arguments.add(parser.uuidConstraint);
 			}
 
 			if (parser.startTimeSet) {
@@ -750,7 +750,7 @@ public class SQLObject {
 			if (parser.uuidConstraint != null) {
 				q.append(" AND id=?");
 
-				arguments.add(parser.uuidConstraint.toString());
+				arguments.add(parser.uuidConstraint);
 			}
 
 			if (parser.startTimeSet) {
