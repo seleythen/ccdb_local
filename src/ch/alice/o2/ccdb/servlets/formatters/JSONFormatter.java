@@ -77,29 +77,29 @@ public class JSONFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void start(PrintWriter writer) {
+	public void start(final PrintWriter writer) {
 		writer.write("{");
 	}
 
 	@Override
-	public void subfoldersListingHeader(PrintWriter writer) {
+	public void subfoldersListingHeader(final PrintWriter writer) {
 		writer.write(",\"subfolders\":[\n");
 	}
 
 	@Override
-	public void subfoldersListing(PrintWriter writer, String path) {
+	public void subfoldersListing(final PrintWriter writer, final String path) {
 		writer.write("\"");
 		writer.write(Format.escJS(path));
 		writer.write("\"");
 	}
 
 	@Override
-	public void subfoldersListingFooter(PrintWriter writer) {
+	public void subfoldersListingFooter(final PrintWriter writer) {
 		writer.write("]\n");
 	}
 
 	@Override
-	public void end(PrintWriter writer) {
+	public void end(final PrintWriter writer) {
 		writer.write("}");
 	}
 }

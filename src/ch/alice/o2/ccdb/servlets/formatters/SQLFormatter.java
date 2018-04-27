@@ -11,14 +11,14 @@ import ch.alice.o2.ccdb.servlets.SQLObject;
 public interface SQLFormatter {
 	/**
 	 * Start of document
-	 * 
+	 *
 	 * @param writer
 	 */
 	public void start(PrintWriter writer);
 
 	/**
 	 * Start of object listing
-	 * 
+	 *
 	 * @param writer
 	 *            object to append to
 	 */
@@ -26,7 +26,7 @@ public interface SQLFormatter {
 
 	/**
 	 * Formatting one object at a time
-	 * 
+	 *
 	 * @param writer
 	 *            object to append to
 	 * @param obj
@@ -36,7 +36,7 @@ public interface SQLFormatter {
 
 	/**
 	 * If there is more than one element in the list and there has to be a separator between consecutive elements, this is one separator
-	 * 
+	 *
 	 * @param writer
 	 *            object to append to
 	 */
@@ -44,7 +44,7 @@ public interface SQLFormatter {
 
 	/**
 	 * End of the object listing
-	 * 
+	 *
 	 * @param writer
 	 *            object to append to
 	 */
@@ -52,14 +52,14 @@ public interface SQLFormatter {
 
 	/**
 	 * Start of the subfolders listing
-	 * 
+	 *
 	 * @param writer
 	 */
 	public void subfoldersListingHeader(PrintWriter writer);
 
 	/**
 	 * One subpath
-	 * 
+	 *
 	 * @param writer
 	 * @param path
 	 */
@@ -67,14 +67,14 @@ public interface SQLFormatter {
 
 	/**
 	 * End of subfolders listing
-	 * 
+	 *
 	 * @param writer
 	 */
 	public void subfoldersListingFooter(PrintWriter writer);
 
 	/**
 	 * End of document
-	 * 
+	 *
 	 * @param writer
 	 */
 	public void end(PrintWriter writer);

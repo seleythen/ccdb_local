@@ -157,7 +157,7 @@ public class SQLBacked extends HttpServlet {
 
 		try {
 			md5 = MessageDigest.getInstance("MD5");
-		} catch (@SuppressWarnings("unused") NoSuchAlgorithmException e) {
+		} catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
 			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot initialize the MD5 digester");
 			return;
 		}
@@ -204,7 +204,7 @@ public class SQLBacked extends HttpServlet {
 
 		setHeaders(newObject, response);
 
-		String location = newObject.getAddress(Integer.valueOf(0));
+		final String location = newObject.getAddress(Integer.valueOf(0));
 
 		response.setHeader("Location", location);
 		response.setHeader("Content-Location", location);

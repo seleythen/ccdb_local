@@ -80,29 +80,29 @@ public class HTMLFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void start(PrintWriter writer) {
+	public void start(final PrintWriter writer) {
 		writer.write("<html>\n");
 	}
 
 	@Override
-	public void subfoldersListingHeader(PrintWriter writer) {
+	public void subfoldersListingHeader(final PrintWriter writer) {
 		writer.write("<table><thead><tr><th>Subfolder</th></tr>\n");
 	}
 
 	@Override
-	public void subfoldersListing(PrintWriter writer, String path) {
+	public void subfoldersListing(final PrintWriter writer, final String path) {
 		writer.write("<tr><td>");
 		writer.write(Format.escHtml(path));
 		writer.write("</td></tr>\n");
 	}
 
 	@Override
-	public void subfoldersListingFooter(PrintWriter writer) {
+	public void subfoldersListingFooter(final PrintWriter writer) {
 		writer.write("</table>\n");
 	}
 
 	@Override
-	public void end(PrintWriter writer) {
+	public void end(final PrintWriter writer) {
 		writer.write("</html>");
 	}
 }

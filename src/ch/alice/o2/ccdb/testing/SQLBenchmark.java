@@ -12,7 +12,7 @@ import lazyj.Format;
 
 /**
  * Evaluate the performance of insert and query of SQL-backed CCDB objects
- * 
+ *
  * @author costing
  * @since 2017-10-16
  */
@@ -21,14 +21,14 @@ public class SQLBenchmark {
 	 * @param args
 	 * @throws InterruptedException
 	 */
-	public static void main(String[] args) throws InterruptedException {
+	public static void main(final String[] args) throws InterruptedException {
 		final long targetNoOfObjects = args.length >= 1 ? Long.parseLong(args[0]) : 100000;
 
 		final long noThreads = args.length >= 2 ? Long.parseLong(args[1]) : 10;
 
 		long startingCount = args.length >= 3 ? Long.parseLong(args[2]) : -1;
 
-		if (startingCount < 0) {
+		if (startingCount < 0)
 			try (DBFunctions db = SQLObject.getDB()) {
 				db.query("SELECT count(1) FROM ccdb;");
 
@@ -37,7 +37,6 @@ public class SQLBenchmark {
 				else
 					startingCount = 0;
 			}
-		}
 
 		System.err.println("Executing vacuum");
 
@@ -59,7 +58,7 @@ public class SQLBenchmark {
 		for (long thread = 0; thread < noThreads; thread++) {
 			final long localThread = thread;
 
-			Thread t = new Thread() {
+			final Thread t = new Thread() {
 				@Override
 				public void run() {
 					for (long i = 0; i < noOfObjects; i++) {
@@ -87,7 +86,7 @@ public class SQLBenchmark {
 		}
 
 		// wait for all threads to finish
-		for (Thread t : threads)
+		for (final Thread t : threads)
 			t.join();
 
 		if (noOfObjects * noThreads > 0) {
@@ -97,9 +96,8 @@ public class SQLBenchmark {
 
 			System.err.println((noOfObjects * noThreads * 1000.) / (System.currentTimeMillis() - startTime) + " Hz");
 		}
-		else {
+		else
 			System.err.println("Not inserting anything, just benchmarking read times");
-		}
 
 		final Random r = new Random(System.currentTimeMillis());
 
@@ -124,7 +122,7 @@ public class SQLBenchmark {
 							parser.startTime = Math.abs(r.nextLong() % ((base + noOfObjects * noThreads) * 160));
 							parser.startTimeSet = true;
 
-							SQLObject result = SQLObject.getMatchingObject(parser);
+							final SQLObject result = SQLObject.getMatchingObject(parser);
 
 							if (result == null)
 								nullObjects.incrementAndGet();

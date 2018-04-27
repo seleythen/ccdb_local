@@ -78,29 +78,29 @@ public class XMLFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void start(PrintWriter writer) {
+	public void start(final PrintWriter writer) {
 		writer.println("<document>");
 	}
 
 	@Override
-	public void subfoldersListingHeader(PrintWriter writer) {
+	public void subfoldersListingHeader(final PrintWriter writer) {
 		writer.println("<folders>");
 	}
 
 	@Override
-	public void subfoldersListing(PrintWriter writer, String path) {
+	public void subfoldersListing(final PrintWriter writer, final String path) {
 		writer.print("<path name='");
 		writer.print(Format.escHtml(path));
 		writer.println("'/>");
 	}
 
 	@Override
-	public void subfoldersListingFooter(PrintWriter writer) {
+	public void subfoldersListingFooter(final PrintWriter writer) {
 		writer.println("</folders>");
 	}
 
 	@Override
-	public void end(PrintWriter writer) {
+	public void end(final PrintWriter writer) {
 		writer.println("</document>");
 	}
 }

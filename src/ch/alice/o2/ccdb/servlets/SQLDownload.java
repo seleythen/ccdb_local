@@ -288,17 +288,17 @@ public class SQLDownload extends HttpServlet {
 	}
 
 	@Override
-	protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+	protected void doDelete(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
 		resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "The DELETE method should use the main entry point instead of /download/, which is reserved for direct read access to the objects");
 	}
 
 	@Override
-	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+	protected void doPost(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
 		resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "You shouldn't try to create objects via the /download/ servlet, go to / instead");
 	}
 
 	@Override
-	protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+	protected void doPut(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
 		resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Object manipulation is not available via the /download/ servlet, go to / instead");
 	}
 }

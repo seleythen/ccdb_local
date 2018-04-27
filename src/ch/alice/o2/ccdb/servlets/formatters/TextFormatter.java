@@ -31,27 +31,27 @@ public class TextFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void start(PrintWriter writer) {
+	public void start(final PrintWriter writer) {
 		// nothing
 	}
 
 	@Override
-	public void subfoldersListingHeader(PrintWriter writer) {
+	public void subfoldersListingHeader(final PrintWriter writer) {
 		writer.println("\n\nSubfolders:\n");
 	}
 
 	@Override
-	public void subfoldersListing(PrintWriter writer, String path) {
+	public void subfoldersListing(final PrintWriter writer, final String path) {
 		writer.println(path);
 	}
 
 	@Override
-	public void subfoldersListingFooter(PrintWriter writer) {
+	public void subfoldersListingFooter(final PrintWriter writer) {
 		// nothing
 	}
 
 	@Override
-	public void end(PrintWriter writer) {
+	public void end(final PrintWriter writer) {
 		// nothing
 	}
 }

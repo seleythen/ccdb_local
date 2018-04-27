@@ -302,7 +302,7 @@ public class SQLObject {
 
 	/**
 	 * Return the full URL to the physical representation on this replica ID
-	 * 
+	 *
 	 * @param replica
 	 * @return full URL
 	 */
@@ -335,15 +335,14 @@ public class SQLObject {
 
 	/**
 	 * Get all URLs where replicas of this object can be retrieved from
-	 * 
+	 *
 	 * @return the list of URLs where the content of this object can be retrieved from
 	 */
 	public List<String> getAddresses() {
 		final List<String> ret = new ArrayList<>(replicas.size());
 
-		for (final Integer replica : replicas) {
+		for (final Integer replica : replicas)
 			ret.add(getAddress(replica));
-		}
 
 		return ret;
 	}
@@ -562,7 +561,7 @@ public class SQLObject {
 
 	/**
 	 * Convert from metadata primary key (integer) to the String representation of it (as users passed them in the request)
-	 * 
+	 *
 	 * @param metadataId
 	 * @return the string representation of this metadata key
 	 */
@@ -788,9 +787,8 @@ public class SQLObject {
 
 			final List<SQLObject> ret = new ArrayList<>();
 
-			while (db.moveNext()) {
+			while (db.moveNext())
 				ret.add(new SQLObject(db));
-			}
 
 			return ret;
 		}
