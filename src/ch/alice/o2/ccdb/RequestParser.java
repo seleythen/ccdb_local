@@ -93,7 +93,7 @@ public class RequestParser {
 
 		final StringTokenizer st = new StringTokenizer(pathInfo, "/");
 
-		if (st.countTokens() < 2)
+		if (st.countTokens() < 1)
 			return;
 
 		final List<String> pathElements = new ArrayList<>();
@@ -137,8 +137,8 @@ public class RequestParser {
 			}
 		}
 
-		// require at least two path elements, but not more than 10 (safety limit)
-		if (pathElements.size() < 2 || pathElements.size() > 10 || (!optionalTimeConstraints && !startTimeSet)) {
+		// require at least one path element, but not more than 10 (safety limit)
+		if (pathElements.size() < 1 || pathElements.size() > 10 || (!optionalTimeConstraints && !startTimeSet)) {
 			ok = false;
 			return;
 		}

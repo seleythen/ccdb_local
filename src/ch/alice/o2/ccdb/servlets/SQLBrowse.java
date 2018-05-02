@@ -48,11 +48,6 @@ public class SQLBrowse extends HttpServlet {
 
 		final Collection<SQLObject> matchingObjects = SQLObject.getAllMatchingObjects(parser);
 
-		if (matchingObjects == null || matchingObjects.size() == 0) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
-		}
-
 		String sContentType;
 		SQLFormatter formatter = null;
 
@@ -94,13 +89,15 @@ public class SQLBrowse extends HttpServlet {
 
 			boolean first = true;
 
-			for (final SQLObject object : matchingObjects) {
-				if (first)
-					first = false;
-				else
-					formatter.middle(pw);
+			if (matchingObjects != null) {
+				for (final SQLObject object : matchingObjects) {
+					if (first)
+						first = false;
+					else
+						formatter.middle(pw);
 
-				formatter.format(pw, object);
+					formatter.format(pw, object);
+				}
 			}
 
 			formatter.footer(pw);
