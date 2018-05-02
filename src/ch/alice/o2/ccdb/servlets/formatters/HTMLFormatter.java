@@ -15,7 +15,7 @@ public class HTMLFormatter implements SQLFormatter {
 	@Override
 	public void header(final PrintWriter writer) {
 		writer.print(
-				"<html><table><thead><tr><th>ID</th><th>Valid from</th><th>Valid until</th><th>Initial validity limit</th><th>Created at</th><th>Last modified</th><th>MD5</th><th>File name</th><th>Content type</th><th>Size</th><th>Metadata</th><th>Replicas</th></thead>\n");
+				"<table><thead><tr><th>ID</th><th>Valid from</th><th>Valid until</th><th>Initial validity limit</th><th>Created at</th><th>Last modified</th><th>MD5</th><th>File name</th><th>Content type</th><th>Size</th><th>Metadata</th><th>Replicas</th></thead>\n");
 	}
 
 	@Override
@@ -84,7 +84,7 @@ public class HTMLFormatter implements SQLFormatter {
 
 	@Override
 	public void start(final PrintWriter writer) {
-		writer.write("<html>\n");
+		writer.write("<!DOCTYPE html><html>\n");
 	}
 
 	@Override
