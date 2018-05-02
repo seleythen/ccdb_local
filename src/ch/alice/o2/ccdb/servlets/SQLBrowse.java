@@ -105,7 +105,13 @@ public class SQLBrowse extends HttpServlet {
 			formatter.subfoldersListingHeader(pw);
 
 			try (DBFunctions db = SQLObject.getDB()) {
-				db.query("select path from ccdb_paths where path ~ '" + Format.escSQL(parser.path) + "/[^/]+$';");
+				int cnt = 0;
+
+				for (char c : parser.path.toCharArray())
+					if (c == '/')
+						cnt++;
+
+				db.query("select distinct split_part(path,'/'," + (cnt + 2) + ") from ccdb_paths where path like '" + Format.escSQL(parser.path) + "/%';");
 
 				first = true;
 
@@ -115,7 +121,7 @@ public class SQLBrowse extends HttpServlet {
 					else
 						formatter.middle(pw);
 
-					formatter.subfoldersListing(pw, db.gets(1));
+					formatter.subfoldersListing(pw, parser.path + "/" + db.gets(1));
 				}
 			}
 
