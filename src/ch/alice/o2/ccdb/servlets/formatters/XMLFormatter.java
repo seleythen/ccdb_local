@@ -46,6 +46,9 @@ public class XMLFormatter implements SQLFormatter {
 		writer.print("' contentType='");
 		writer.print(Format.escHtml(obj.contentType));
 
+		writer.print("' size='");
+		writer.print(obj.size);
+
 		writer.print("'>\n");
 
 		for (final Map.Entry<Integer, String> entry : obj.metadata.entrySet()) {

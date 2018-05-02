@@ -46,6 +46,9 @@ public class JSONFormatter implements SQLFormatter {
 		writer.print("\",\n  \"contentType\":\"");
 		writer.print(Format.escJS(obj.contentType));
 
+		writer.print("\",\n  \"size\":\"");
+		writer.print(obj.size);
+
 		writer.print("\"");
 		for (final Map.Entry<Integer, String> entry : obj.metadata.entrySet()) {
 			writer.print(",\n  \"");
