@@ -26,7 +26,6 @@ ls org/apache/catalina/servlets/*.class | grep -v DefaultServlet | xargs rm
 ls org/apache/catalina/valves/*.class | grep -v -E -e "ValveBase|ErrorReportValve" | xargs rm
 ls org/apache/catalina/session/*.class | grep -v -E -e "StandardManager|ManagerBase|TooManyActiveSessionsException" | xargs rm
 
-rm -rf org/apache/coyote/{ajp,http2}
 rm -rf org/apache/jasper/{el,xmlparser,tagplugins,security,runtime}
 
 ls org/apache/jasper/compiler/*.class | grep -v -E -e "JspRuntimeContext|TldCache|JspConfig|TagPluginManager|Node" | xargs rm
