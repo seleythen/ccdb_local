@@ -62,8 +62,11 @@ public interface SQLFormatter {
 	 *
 	 * @param writer
 	 * @param path
+	 *            just the folder name
+	 * @param url
+	 *            folder name and other constraints (time, metadata ...) to apply the same filtering to the subfolders too
 	 */
-	public void subfoldersListing(PrintWriter writer, String path);
+	public void subfoldersListing(PrintWriter writer, String path, String url);
 
 	/**
 	 * End of subfolders listing

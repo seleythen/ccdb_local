@@ -90,7 +90,7 @@ public class JSONFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void subfoldersListing(final PrintWriter writer, final String path) {
+	public void subfoldersListing(final PrintWriter writer, final String path, final String url) {
 		writer.write("\"");
 		writer.write(Format.escJS(path));
 		writer.write("\"");

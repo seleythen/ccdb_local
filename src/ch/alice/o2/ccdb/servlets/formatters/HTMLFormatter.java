@@ -109,10 +109,12 @@ public class HTMLFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void subfoldersListing(final PrintWriter writer, final String path) {
-		writer.write("<tr><td>");
+	public void subfoldersListing(final PrintWriter writer, final String path, final String url) {
+		writer.write("<tr><td><a href='/browse/");
+		writer.write(Format.escHtml(url));
+		writer.write("'>");
 		writer.write(Format.escHtml(path));
-		writer.write("</td></tr>\n");
+		writer.write("</a></td></tr>\n");
 	}
 
 	@Override

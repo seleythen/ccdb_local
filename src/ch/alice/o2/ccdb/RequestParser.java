@@ -133,12 +133,17 @@ public class RequestParser {
 				startTimeSet = true;
 				break;
 			} catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
-				pathElements.add(token);
+				final int idx = token.indexOf('=');
+
+				if (idx >= 0)
+					flagConstraints.put(token.substring(0, idx).trim(), token.substring(idx + 1).trim());
+				else
+					pathElements.add(token);
 			}
 		}
 
 		// require at least one path element, but not more than 10 (safety limit)
-		if (pathElements.size() < 1 || pathElements.size() > 10 || (!optionalTimeConstraints && !startTimeSet)) {
+		if (pathElements.size() < (optionalTimeConstraints ? 0 : 1) || pathElements.size() > 10 || (!optionalTimeConstraints && !startTimeSet)) {
 			ok = false;
 			return;
 		}

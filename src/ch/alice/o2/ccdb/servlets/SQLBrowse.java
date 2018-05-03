@@ -3,6 +3,7 @@ package ch.alice.o2.ccdb.servlets;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
+import java.util.Map;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -106,6 +107,8 @@ public class SQLBrowse extends HttpServlet {
 			try (DBFunctions db = SQLObject.getDB()) {
 				String prefix = "";
 
+				String suffix = "";
+
 				if (parser.path == null || parser.path.length() == 0)
 					db.query("select distinct split_part(path,'/',1) from ccdb_paths order by 1;");
 				else {
@@ -120,6 +123,15 @@ public class SQLBrowse extends HttpServlet {
 					prefix = parser.path + "/";
 				}
 
+				if (parser.startTimeSet)
+					suffix += "/" + parser.startTime;
+
+				if (parser.uuidConstraint != null)
+					suffix += "/" + parser.uuidConstraint;
+
+				for (final Map.Entry<String, String> entry : parser.flagConstraints.entrySet())
+					suffix += "/" + entry.getKey() + "=" + entry.getValue();
+
 				first = true;
 
 				while (db.moveNext()) {
@@ -128,7 +140,7 @@ public class SQLBrowse extends HttpServlet {
 					else
 						formatter.middle(pw);
 
-					formatter.subfoldersListing(pw, prefix + db.gets(1));
+					formatter.subfoldersListing(pw, prefix + db.gets(1), prefix + db.gets(1) + suffix);
 				}
 			}
 

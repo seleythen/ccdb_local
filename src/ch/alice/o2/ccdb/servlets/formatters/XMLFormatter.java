@@ -91,7 +91,7 @@ public class XMLFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void subfoldersListing(final PrintWriter writer, final String path) {
+	public void subfoldersListing(final PrintWriter writer, final String path, final String url) {
 		writer.print("<path name='");
 		writer.print(Format.escHtml(path));
 		writer.println("'/>");

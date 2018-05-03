@@ -41,7 +41,7 @@ public class TextFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void subfoldersListing(final PrintWriter writer, final String path) {
+	public void subfoldersListing(final PrintWriter writer, final String path, final String url) {
 		writer.println(path);
 	}
 
