@@ -89,7 +89,7 @@ public class SQLBrowse extends HttpServlet {
 
 			boolean first = true;
 
-			if (matchingObjects != null) {
+			if (matchingObjects != null)
 				for (final SQLObject object : matchingObjects) {
 					if (first)
 						first = false;
@@ -98,20 +98,27 @@ public class SQLBrowse extends HttpServlet {
 
 					formatter.format(pw, object);
 				}
-			}
 
 			formatter.footer(pw);
 
 			formatter.subfoldersListingHeader(pw);
 
 			try (DBFunctions db = SQLObject.getDB()) {
-				int cnt = 0;
+				String prefix = "";
 
-				for (char c : parser.path.toCharArray())
-					if (c == '/')
-						cnt++;
+				if (parser.path == null || parser.path.length() == 0)
+					db.query("select distinct split_part(path,'/',1) from ccdb_paths order by 1;");
+				else {
+					int cnt = 0;
 
-				db.query("select distinct split_part(path,'/'," + (cnt + 2) + ") from ccdb_paths where path like '" + Format.escSQL(parser.path) + "/%';");
+					for (final char c : parser.path.toCharArray())
+						if (c == '/')
+							cnt++;
+
+					db.query("select distinct split_part(path,'/'," + (cnt + 2) + ") from ccdb_paths where path like '" + Format.escSQL(parser.path) + "/%' order by 1;");
+
+					prefix = parser.path + "/";
+				}
 
 				first = true;
 
@@ -121,7 +128,7 @@ public class SQLBrowse extends HttpServlet {
 					else
 						formatter.middle(pw);
 
-					formatter.subfoldersListing(pw, parser.path + "/" + db.gets(1));
+					formatter.subfoldersListing(pw, prefix + db.gets(1));
 				}
 			}
 
