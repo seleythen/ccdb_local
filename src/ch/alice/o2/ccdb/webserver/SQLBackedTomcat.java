@@ -3,6 +3,7 @@ package ch.alice.o2.ccdb.webserver;
 import javax.servlet.ServletException;
 
 import org.apache.catalina.LifecycleException;
+import org.apache.catalina.Wrapper;
 
 import ch.alice.o2.ccdb.servlets.SQLBacked;
 import ch.alice.o2.ccdb.servlets.SQLBrowse;
@@ -31,8 +32,8 @@ public class SQLBackedTomcat {
 		}
 
 		tomcat.addServlet(SQLDownload.class.getName(), "/download/*");
-		tomcat.addServlet(SQLBrowse.class.getName(), "/browse/*");
-		tomcat.addServlet(SQLBrowse.class.getName(), "/latest/*");
+		final Wrapper browser = tomcat.addServlet(SQLBrowse.class.getName(), "/browse/*");
+		browser.addMapping("/latest/*");
 		tomcat.addServlet(SQLBacked.class.getName(), "/*");
 
 		// Start the server
