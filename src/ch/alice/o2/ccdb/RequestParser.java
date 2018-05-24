@@ -68,6 +68,12 @@ public class RequestParser {
 	public final Map<String, String> flagConstraints = new HashMap<>();
 
 	/**
+	 * If just the latest object version is requested, default is <code>true</code> for retrieving or getting the latest matching set. It is automatically set to <code>false</code> when the request is
+	 * for /browse/..., in order to list all matching objects.
+	 */
+	public boolean latestFlag = true;
+
+	/**
 	 * @param request
 	 *            request to wrap around
 	 */
@@ -85,6 +91,9 @@ public class RequestParser {
 	public RequestParser(final HttpServletRequest request, final boolean optionalTimeConstraints) {
 		if (request == null)
 			return;
+
+		if (request.getServletPath().contains("browse"))
+			latestFlag = false;
 
 		final String pathInfo = request.getPathInfo();
 

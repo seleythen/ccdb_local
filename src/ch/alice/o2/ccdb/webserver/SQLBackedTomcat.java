@@ -32,6 +32,7 @@ public class SQLBackedTomcat {
 
 		tomcat.addServlet(SQLDownload.class.getName(), "/download/*");
 		tomcat.addServlet(SQLBrowse.class.getName(), "/browse/*");
+		tomcat.addServlet(SQLBrowse.class.getName(), "/latest/*");
 		tomcat.addServlet(SQLBacked.class.getName(), "/*");
 
 		// Start the server

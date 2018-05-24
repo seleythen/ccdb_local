@@ -763,7 +763,7 @@ public class SQLObject {
 		}
 		else {
 			// wildcard expression ?
-			if (parser.path!=null && (parser.path.contains("*") || parser.path.contains("%"))) {
+			if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
 				pathIDs = getPathIDs(parser.path);
 
 				if (pathIDs == null || pathIDs.size() == 0)
@@ -819,7 +819,10 @@ public class SQLObject {
 						arguments.add(value);
 					}
 
-				q.append(" ORDER BY createTime DESC;");
+				q.append(" ORDER BY createTime DESC");
+
+				if (parser.latestFlag)
+					q.append(" LIMIT 1");
 
 				db.query(q.toString(), false, arguments.toArray(new Object[0]));
 
