@@ -763,7 +763,7 @@ public class SQLObject {
 		}
 		else {
 			// wildcard expression ?
-			if (parser.path.contains("*") || parser.path.contains("%")) {
+			if (parser.path!=null && (parser.path.contains("*") || parser.path.contains("%"))) {
 				pathIDs = getPathIDs(parser.path);
 
 				if (pathIDs == null || pathIDs.size() == 0)
