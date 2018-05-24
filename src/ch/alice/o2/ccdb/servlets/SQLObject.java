@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -479,7 +480,7 @@ public class SQLObject {
 			return value;
 
 		try (DBFunctions db = getDB()) {
-			db.query("SELECT pathid FROM ccdb_paths WHERE path='" + Format.escSQL(path) + "';");
+			db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
 
 			if (db.moveNext()) {
 				value = Integer.valueOf(db.geti(1));
@@ -489,8 +490,8 @@ public class SQLObject {
 			}
 
 			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_paths (path) VALUES ('" + Format.escSQL(path) + "');")) {
-					db.query("SELECT pathid FROM ccdb_paths WHERE path='" + Format.escSQL(path) + "';");
+				if (db.query("INSERT INTO ccdb_paths (path) VALUES (?);", false, path)) {
+					db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
 
 					if (db.moveNext()) {
 						value = Integer.valueOf(db.geti(1));
@@ -502,6 +503,25 @@ public class SQLObject {
 		}
 
 		return null;
+	}
+
+	private static List<Integer> getPathIDs(final String pathPattern) {
+		final List<Integer> ret = new ArrayList<>();
+
+		try (DBFunctions db = getDB()) {
+			if (pathPattern.contains("%")) {
+				db.query("SELECT pathid FROM ccdb_paths WHERE path LIKE ?", false, pathPattern);
+			}
+			else {
+				db.query("SELECT pathid FROM ccdb_paths WHERE path ~ ?", false, pathPattern);
+			}
+
+			while (db.moveNext()) {
+				ret.add(Integer.valueOf(db.geti(1)));
+			}
+		}
+
+		return ret;
 	}
 
 	private static synchronized String getPath(final Integer pathId) {
@@ -534,7 +554,7 @@ public class SQLObject {
 			return value;
 
 		try (DBFunctions db = getDB()) {
-			db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey='" + Format.escSQL(metadataKey) + "';");
+			db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
 
 			if (db.moveNext()) {
 				value = Integer.valueOf(db.geti(1));
@@ -544,8 +564,8 @@ public class SQLObject {
 			}
 
 			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_metadata (metadataKey) VALUES ('" + Format.escSQL(metadataKey) + "');")) {
-					db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey='" + Format.escSQL(metadataKey) + "';");
+				if (db.query("INSERT INTO ccdb_metadata (metadataKey) VALUES (?);", false, metadataKey)) {
+					db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
 
 					if (db.moveNext()) {
 						value = Integer.valueOf(db.geti(1));
@@ -734,64 +754,81 @@ public class SQLObject {
 	 * @return the most recent matching object
 	 */
 	public static final Collection<SQLObject> getAllMatchingObjects(final RequestParser parser) {
-		final Integer pathId = getPathID(parser.path, false);
+		final Integer exactPathId = getPathID(parser.path, false);
 
-		if (pathId == null)
-			return null;
+		final List<Integer> pathIDs;
 
-		final List<Object> arguments = new ArrayList<>();
+		if (exactPathId != null) {
+			pathIDs = Arrays.asList(exactPathId);
+		}
+		else {
+			// wildcard expression ?
+			if (parser.path.contains("*") || parser.path.contains("%")) {
+				pathIDs = getPathIDs(parser.path);
+
+				if (pathIDs == null || pathIDs.size() == 0)
+					return null;
+			}
+			else
+				return null;
+		}
+
+		final List<SQLObject> ret = new ArrayList<>();
 
 		try (DBFunctions db = getDB()) {
-			final StringBuilder q = new StringBuilder("SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
+			for (Integer pathId : pathIDs) {
+				final StringBuilder q = new StringBuilder(
+						"SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
 
-			arguments.add(pathId);
+				final List<Object> arguments = new ArrayList<>();
 
-			if (parser.uuidConstraint != null) {
-				q.append(" AND id=?");
+				arguments.add(pathId);
 
-				arguments.add(parser.uuidConstraint);
-			}
+				if (parser.uuidConstraint != null) {
+					q.append(" AND id=?");
 
-			if (parser.startTimeSet) {
-				q.append(" AND to_timestamp(?) AT TIME ZONE 'UTC' <@ validity");
-
-				arguments.add(Double.valueOf(parser.startTime / 1000.));
-			}
-
-			if (parser.notAfter > 0) {
-				q.append(" AND createTime<=?");
-
-				arguments.add(Long.valueOf(parser.notAfter));
-			}
-
-			if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
-				for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
-					final String key = constraint.getKey();
-
-					final Integer metadataId = getMetadataID(key, false);
-
-					if (metadataId == null)
-						return null;
-
-					final String value = constraint.getValue();
-
-					q.append(" AND metadata -> ? = ?");
-
-					arguments.add(metadataId.toString());
-					arguments.add(value);
+					arguments.add(parser.uuidConstraint);
 				}
 
-			q.append(" ORDER BY createTime DESC;");
+				if (parser.startTimeSet) {
+					q.append(" AND to_timestamp(?) AT TIME ZONE 'UTC' <@ validity");
 
-			db.query(q.toString(), false, arguments.toArray(new Object[0]));
+					arguments.add(Double.valueOf(parser.startTime / 1000.));
+				}
 
-			final List<SQLObject> ret = new ArrayList<>();
+				if (parser.notAfter > 0) {
+					q.append(" AND createTime<=?");
 
-			while (db.moveNext())
-				ret.add(new SQLObject(db));
+					arguments.add(Long.valueOf(parser.notAfter));
+				}
 
-			return ret;
+				if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
+					for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
+						final String key = constraint.getKey();
+
+						final Integer metadataId = getMetadataID(key, false);
+
+						if (metadataId == null)
+							return null;
+
+						final String value = constraint.getValue();
+
+						q.append(" AND metadata -> ? = ?");
+
+						arguments.add(metadataId.toString());
+						arguments.add(value);
+					}
+
+				q.append(" ORDER BY createTime DESC;");
+
+				db.query(q.toString(), false, arguments.toArray(new Object[0]));
+
+				while (db.moveNext())
+					ret.add(new SQLObject(db));
+			}
 		}
+
+		return ret;
 	}
 
 	@Override
