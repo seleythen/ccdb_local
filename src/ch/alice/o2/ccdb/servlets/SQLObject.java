@@ -836,6 +836,7 @@ public class SQLObject {
 		final StringBuilder sb = new StringBuilder();
 
 		sb.append("ID: ").append(id.toString()).append('\n');
+		sb.append("Path: ").append(getPath()).append('\n');
 		sb.append("Validity: ").append(validFrom).append(" - ").append(validUntil).append(" (").append(new Date(validFrom)).append(" - ").append(new Date(validUntil)).append(")\n");
 		sb.append("Initial validity limit: ").append(initialValidity).append(" (").append(new Date(initialValidity)).append(")\n");
 		sb.append("Created: ").append(createTime).append(" (").append(new Date(createTime)).append(")\n");

@@ -16,7 +16,7 @@ public class HTMLFormatter implements SQLFormatter {
 	@Override
 	public void header(final PrintWriter writer) {
 		writer.print(
-				"<table style='font-size:10px' border=1 cellspacing=0 cellpadding=2><thead><tr><th>ID</th><th>Valid from</th><th>Valid until</th><th>Initial validity limit</th><th>Created at</th><th>Last modified</th><th>MD5</th><th>File name</th><th>Content type</th><th>Size</th><th>Metadata</th><th>Replicas</th></thead>\n");
+				"<table style='font-size:10px' border=1 cellspacing=0 cellpadding=2><thead><tr><th>ID</th><th>Valid from</th><th>Valid until</th><th>Initial validity limit</th><th>Created at</th><th>Last modified</th><th>MD5</th><th>File name</th><th>Content type</th><th>Size</th><th>Path</th><th>Metadata</th><th>Replicas</th></thead>\n");
 	}
 
 	@Override
@@ -65,6 +65,9 @@ public class HTMLFormatter implements SQLFormatter {
 
 		writer.print("</td><td align=right nowrap>");
 		writer.print(obj.size);
+		
+		writer.print("</td><td align=left nowrap>");
+		writer.print(Format.escHtml(obj.getPath()));
 
 		writer.print("</td><td align=left><dl>");
 		for (final Map.Entry<Integer, String> entry : obj.metadata.entrySet()) {

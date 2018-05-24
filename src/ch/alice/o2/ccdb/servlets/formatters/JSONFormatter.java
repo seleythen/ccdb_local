@@ -48,6 +48,9 @@ public class JSONFormatter implements SQLFormatter {
 
 		writer.print("\",\n  \"size\":\"");
 		writer.print(obj.size);
+		
+		writer.println("\",\n  \"path\":\"");
+		writer.print(Format.escJS(obj.getPath()));
 
 		writer.print("\"");
 		for (final Map.Entry<Integer, String> entry : obj.metadata.entrySet()) {

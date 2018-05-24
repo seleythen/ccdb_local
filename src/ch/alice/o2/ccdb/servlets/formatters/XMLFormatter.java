@@ -48,6 +48,9 @@ public class XMLFormatter implements SQLFormatter {
 
 		writer.print("' size='");
 		writer.print(obj.size);
+		
+		writer.print("'  path='");
+		writer.print(Format.escHtml(obj.getPath()));
 
 		writer.print("'>\n");
 
