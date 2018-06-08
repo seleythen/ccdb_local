@@ -8,6 +8,7 @@ import org.apache.catalina.Wrapper;
 import ch.alice.o2.ccdb.servlets.SQLBacked;
 import ch.alice.o2.ccdb.servlets.SQLBrowse;
 import ch.alice.o2.ccdb.servlets.SQLDownload;
+import ch.alice.o2.ccdb.servlets.SQLTruncate;
 
 /**
  * Start an embedded Tomcat with the local servlet mapping (*:8080/Local/) by default
@@ -35,6 +36,8 @@ public class SQLBackedTomcat {
 		final Wrapper browser = tomcat.addServlet(SQLBrowse.class.getName(), "/browse/*");
 		browser.addMapping("/latest/*");
 		tomcat.addServlet(SQLBacked.class.getName(), "/*");
+
+		tomcat.addServlet(SQLTruncate.class.getName(), "/truncate/*");
 
 		// Start the server
 		try {

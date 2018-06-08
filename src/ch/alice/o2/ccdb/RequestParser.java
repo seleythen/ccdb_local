@@ -92,7 +92,7 @@ public class RequestParser {
 		if (request == null)
 			return;
 
-		if (request.getServletPath().contains("browse"))
+		if (request.getServletPath().contains("browse") || request.getServletPath().contains("truncate"))
 			latestFlag = false;
 
 		final String pathInfo = request.getPathInfo();

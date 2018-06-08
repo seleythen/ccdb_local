@@ -270,16 +270,9 @@ public class SQLBacked extends HttpServlet {
 
 		setHeaders(matchingObject, response);
 
-		for (final Integer replica : matchingObject.replicas)
-			if (replica.intValue() == 0) {
-				// local file
-				final File f = matchingObject.getLocalFile(false);
-
-				if (f != null)
-					f.delete();
-			}
-
 		response.sendError(HttpServletResponse.SC_NO_CONTENT);
+
+		AsyncPhyisicalRemovalThread.deleteReplicas(matchingObject);
 	}
 
 	private static void printUsage(final HttpServletRequest request, final HttpServletResponse response) throws IOException {
