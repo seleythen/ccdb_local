@@ -52,6 +52,12 @@ public class EmbeddedTomcat extends Tomcat {
 
 		setPort(Options.getIntOption("tomcat.port", 8080));
 		getConnector().setProperty("address", address);
+		getConnector().setProperty("maxKeepAliveRequests", String.valueOf(Options.getIntOption("maxKeepAliveRequests", 1000)));
+
+		getConnector().setProperty("connectionTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 10000))); // clients should be quick
+
+		getConnector().setProperty("disableUploadTimeout", "false");
+		getConnector().setProperty("connectionUploadTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 300000))); // 5 minutes max to upload an object
 
 		// Add a dummy ROOT context
 		ctx = (StandardContext) addWebapp("", new File(System.getProperty("java.io.tmpdir")).getAbsolutePath());
