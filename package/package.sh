@@ -45,7 +45,7 @@ jar -cfe local.jar \
 
 # Extra packages for the SQL backend
 
-for jar in postgresql.jar lazyj.jar; do
+for jar in postgresql.jar lazyj.jar alien.jar; do
     jar -xf $jar
 done
 
@@ -57,11 +57,12 @@ rm -rf src META-INF
 
 jar -cfe sql.jar \
     ch.alice.o2.ccdb.webserver.SQLBackedTomcat ch/alice/o2/ccdb/webserver/SQLBackedTomcat.class \
-    ch javax org lazyj
+    ch javax org lazyj \
+    alien config trusted_authorities.jks
 
 # further compression and remove debugging information
 #pack200 --repack -G -O local.jar
 #pack200 --repack -G -O sql.jar
 
 # remove all intermediate folders
-rm -rf javax org ch org lazyj
+rm -rf javax org ch org lazyj alien config utils trusted_authorities.jks

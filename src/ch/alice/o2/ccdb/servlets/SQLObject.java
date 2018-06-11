@@ -17,6 +17,8 @@ import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
@@ -32,6 +34,8 @@ import lazyj.Format;
  */
 public class SQLObject {
 	private static ExtProperties config = new ExtProperties(Options.getOption("config.dir", "."), Options.getOption("config.file", "config"));
+
+	private static final Monitor monitor = MonitorFactory.getMonitor(SQLObject.class.getCanonicalName());
 
 	/**
 	 * @return the database connection
@@ -668,20 +672,26 @@ public class SQLObject {
 	 * @return the object with this ID, if it exists. Or <code>null</code> if not.
 	 */
 	public static final SQLObject getObject(final UUID id) {
-		if (id == null)
-			return null;
+		final long lStart = System.nanoTime();
 
-		try (DBFunctions db = getDB()) {
-			if (!db.query("SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE id=?;", false, id)) {
-				System.err.println("Query execution error");
+		try {
+			if (id == null)
 				return null;
+
+			try (DBFunctions db = getDB()) {
+				if (!db.query("SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE id=?;", false, id)) {
+					System.err.println("Query execution error");
+					return null;
+				}
+
+				if (db.moveNext())
+					return new SQLObject(db);
 			}
 
-			if (db.moveNext())
-				return new SQLObject(db);
+			return null;
+		} finally {
+			monitor.addMeasurement("getObject_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
-
-		return null;
 	}
 
 	/**
@@ -689,98 +699,19 @@ public class SQLObject {
 	 * @return the most recent matching object
 	 */
 	public static final SQLObject getMatchingObject(final RequestParser parser) {
-		final Integer pathId = getPathID(parser.path, false);
+		final long lStart = System.nanoTime();
 
-		if (pathId == null)
-			return null;
+		try {
+			final Integer pathId = getPathID(parser.path, false);
 
-		final List<Object> arguments = new ArrayList<>();
-
-		try (DBFunctions db = getDB()) {
-			final StringBuilder q = new StringBuilder("SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
-
-			arguments.add(pathId);
-
-			if (parser.uuidConstraint != null) {
-				q.append(" AND id=?");
-
-				arguments.add(parser.uuidConstraint);
-			}
-
-			if (parser.startTimeSet) {
-				q.append(" AND to_timestamp(?) AT TIME ZONE 'UTC' <@ validity");
-
-				arguments.add(Double.valueOf(parser.startTime / 1000.));
-			}
-
-			if (parser.notAfter > 0) {
-				q.append(" AND createTime<=?");
-
-				arguments.add(Long.valueOf(parser.notAfter));
-			}
-
-			if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
-				for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
-					final String key = constraint.getKey();
-
-					final Integer metadataId = getMetadataID(key, false);
-
-					if (metadataId == null)
-						return null;
-
-					final String value = constraint.getValue();
-
-					q.append(" AND metadata -> ? = ?");
-
-					arguments.add(metadataId.toString());
-					arguments.add(value);
-				}
-
-			q.append(" ORDER BY createTime DESC LIMIT 1;");
-
-			db.query(q.toString(), false, arguments.toArray(new Object[0]));
-
-			if (db.moveNext())
-				return new SQLObject(db);
-
-			// System.err.println("No object for:\n" + q + "\nand\n" + arguments + "\n");
-
-			return null;
-		}
-	}
-
-	/**
-	 * @param parser
-	 * @return the most recent matching object
-	 */
-	public static final Collection<SQLObject> getAllMatchingObjects(final RequestParser parser) {
-		final Integer exactPathId = getPathID(parser.path, false);
-
-		final List<Integer> pathIDs;
-
-		if (exactPathId != null) {
-			pathIDs = Arrays.asList(exactPathId);
-		}
-		else {
-			// wildcard expression ?
-			if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
-				pathIDs = getPathIDs(parser.path);
-
-				if (pathIDs == null || pathIDs.size() == 0)
-					return null;
-			}
-			else
+			if (pathId == null)
 				return null;
-		}
 
-		final List<SQLObject> ret = new ArrayList<>();
+			final List<Object> arguments = new ArrayList<>();
 
-		try (DBFunctions db = getDB()) {
-			for (Integer pathId : pathIDs) {
+			try (DBFunctions db = getDB()) {
 				final StringBuilder q = new StringBuilder(
 						"SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
-
-				final List<Object> arguments = new ArrayList<>();
 
 				arguments.add(pathId);
 
@@ -819,19 +750,112 @@ public class SQLObject {
 						arguments.add(value);
 					}
 
-				q.append(" ORDER BY createTime DESC");
-
-				if (parser.latestFlag)
-					q.append(" LIMIT 1");
+				q.append(" ORDER BY createTime DESC LIMIT 1;");
 
 				db.query(q.toString(), false, arguments.toArray(new Object[0]));
 
-				while (db.moveNext())
-					ret.add(new SQLObject(db));
-			}
-		}
+				if (db.moveNext())
+					return new SQLObject(db);
 
-		return ret;
+				// System.err.println("No object for:\n" + q + "\nand\n" + arguments + "\n");
+
+				return null;
+			}
+		} finally {
+			monitor.addMeasurement("getMatchingObject_ms", (System.nanoTime() - lStart) / 1000000.);
+		}
+	}
+
+	/**
+	 * @param parser
+	 * @return the most recent matching object
+	 */
+	public static final Collection<SQLObject> getAllMatchingObjects(final RequestParser parser) {
+		final long lStart = System.nanoTime();
+
+		try {
+
+			final Integer exactPathId = getPathID(parser.path, false);
+
+			final List<Integer> pathIDs;
+
+			if (exactPathId != null) {
+				pathIDs = Arrays.asList(exactPathId);
+			}
+			else {
+				// wildcard expression ?
+				if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
+					pathIDs = getPathIDs(parser.path);
+
+					if (pathIDs == null || pathIDs.size() == 0)
+						return null;
+				}
+				else
+					return null;
+			}
+
+			final List<SQLObject> ret = new ArrayList<>();
+
+			try (DBFunctions db = getDB()) {
+				for (Integer pathId : pathIDs) {
+					final StringBuilder q = new StringBuilder(
+							"SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
+
+					final List<Object> arguments = new ArrayList<>();
+
+					arguments.add(pathId);
+
+					if (parser.uuidConstraint != null) {
+						q.append(" AND id=?");
+
+						arguments.add(parser.uuidConstraint);
+					}
+
+					if (parser.startTimeSet) {
+						q.append(" AND to_timestamp(?) AT TIME ZONE 'UTC' <@ validity");
+
+						arguments.add(Double.valueOf(parser.startTime / 1000.));
+					}
+
+					if (parser.notAfter > 0) {
+						q.append(" AND createTime<=?");
+
+						arguments.add(Long.valueOf(parser.notAfter));
+					}
+
+					if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
+						for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
+							final String key = constraint.getKey();
+
+							final Integer metadataId = getMetadataID(key, false);
+
+							if (metadataId == null)
+								return null;
+
+							final String value = constraint.getValue();
+
+							q.append(" AND metadata -> ? = ?");
+
+							arguments.add(metadataId.toString());
+							arguments.add(value);
+						}
+
+					q.append(" ORDER BY createTime DESC");
+
+					if (parser.latestFlag)
+						q.append(" LIMIT 1");
+
+					db.query(q.toString(), false, arguments.toArray(new Object[0]));
+
+					while (db.moveNext())
+						ret.add(new SQLObject(db));
+				}
+			}
+
+			return ret;
+		} finally {
+			monitor.addMeasurement("getAllMatchingObjects_ms", (System.nanoTime() - lStart) / 1000000.);
+		}
 	}
 
 	@Override

@@ -19,6 +19,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import lazyj.DBFunctions;
@@ -34,6 +36,8 @@ import lazyj.DBFunctions;
 public class SQLBacked extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	private static final Monitor monitor = MonitorFactory.getMonitor(SQLBacked.class.getCanonicalName());
+
 	/**
 	 * The base path of the file repository
 	 */
@@ -41,12 +45,24 @@ public class SQLBacked extends HttpServlet {
 
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, true);
+		final long lStart = System.nanoTime();
+
+		try {
+			doGet(request, response, true);
+		} finally {
+			monitor.addMeasurement("HEAD_ms", (System.nanoTime() - lStart) / 1000000.);
+		}
 	}
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, false);
+		final long lStart = System.nanoTime();
+
+		try {
+			doGet(request, response, false);
+		} finally {
+			monitor.addMeasurement("GET_ms", (System.nanoTime() - lStart) / 1000000.);
+		}
 	}
 
 	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head) throws IOException {
@@ -123,156 +139,174 @@ public class SQLBacked extends HttpServlet {
 		// if end time is missing then it will be set to the same value as start time
 		// flags are in the form "key=value"
 
-		final RequestParser parser = new RequestParser(request);
-
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
-		}
-
-		final Collection<Part> parts = request.getParts();
-
-		if (parts.size() == 0) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "POST request doesn't contain the data to upload");
-			return;
-		}
-
-		if (parts.size() > 1) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A single object can be uploaded at a time");
-			return;
-		}
-
-		final Part part = parts.iterator().next();
-
-		final SQLObject newObject = new SQLObject(request, parser.path);
-
-		final File targetFile = newObject.getLocalFile(true);
-
-		if (targetFile == null) {
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot create target file to perform the upload");
-			return;
-		}
-
-		final MessageDigest md5;
+		final long lStart = System.nanoTime();
 
 		try {
-			md5 = MessageDigest.getInstance("MD5");
-		} catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot initialize the MD5 digester");
-			return;
-		}
+			final RequestParser parser = new RequestParser(request);
 
-		newObject.size = 0;
-
-		try (FileOutputStream fos = new FileOutputStream(targetFile); InputStream is = part.getInputStream()) {
-			final byte[] buffer = new byte[1024 * 16];
-
-			int n;
-
-			while ((n = is.read(buffer)) >= 0) {
-				fos.write(buffer, 0, n);
-				md5.update(buffer, 0, n);
-				newObject.size += n;
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
 			}
-		} catch (@SuppressWarnings("unused") final IOException ioe) {
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot upload the blob to the local file " + targetFile.getAbsolutePath());
-			targetFile.delete();
-			return;
+
+			final Collection<Part> parts = request.getParts();
+
+			if (parts.size() == 0) {
+				response.sendError(HttpServletResponse.SC_BAD_REQUEST, "POST request doesn't contain the data to upload");
+				return;
+			}
+
+			if (parts.size() > 1) {
+				response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A single object can be uploaded at a time");
+				return;
+			}
+
+			final Part part = parts.iterator().next();
+
+			final SQLObject newObject = new SQLObject(request, parser.path);
+
+			final File targetFile = newObject.getLocalFile(true);
+
+			if (targetFile == null) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot create target file to perform the upload");
+				return;
+			}
+
+			final MessageDigest md5;
+
+			try {
+				md5 = MessageDigest.getInstance("MD5");
+			} catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot initialize the MD5 digester");
+				return;
+			}
+
+			newObject.size = 0;
+
+			try (FileOutputStream fos = new FileOutputStream(targetFile); InputStream is = part.getInputStream()) {
+				final byte[] buffer = new byte[1024 * 16];
+
+				int n;
+
+				while ((n = is.read(buffer)) >= 0) {
+					fos.write(buffer, 0, n);
+					md5.update(buffer, 0, n);
+					newObject.size += n;
+				}
+			} catch (@SuppressWarnings("unused") final IOException ioe) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot upload the blob to the local file " + targetFile.getAbsolutePath());
+				targetFile.delete();
+				return;
+			}
+
+			for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet())
+				newObject.setProperty(constraint.getKey(), constraint.getValue());
+
+			newObject.uploadedFrom = request.getRemoteHost();
+			newObject.fileName = part.getSubmittedFileName();
+			newObject.contentType = part.getContentType();
+			newObject.md5 = String.format("%032x", new BigInteger(1, md5.digest())); // UUIDTools.getMD5(targetFile);
+			newObject.setProperty("partName", part.getName());
+
+			newObject.replicas.add(Integer.valueOf(0));
+
+			newObject.validFrom = parser.startTime;
+
+			newObject.setValidityLimit(parser.endTime);
+
+			if (!newObject.save(request)) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot insert the object in the database");
+				return;
+			}
+
+			// TODO queue for replication to EOS/AliEn
+
+			setHeaders(newObject, response);
+
+			final String location = newObject.getAddress(Integer.valueOf(0));
+
+			response.setHeader("Location", location);
+			response.setHeader("Content-Location", location);
+
+			response.sendError(HttpServletResponse.SC_CREATED);
+		} finally {
+			monitor.addMeasurement("POST_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
-
-		for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet())
-			newObject.setProperty(constraint.getKey(), constraint.getValue());
-
-		newObject.uploadedFrom = request.getRemoteHost();
-		newObject.fileName = part.getSubmittedFileName();
-		newObject.contentType = part.getContentType();
-		newObject.md5 = String.format("%032x", new BigInteger(1, md5.digest())); // UUIDTools.getMD5(targetFile);
-		newObject.setProperty("partName", part.getName());
-
-		newObject.replicas.add(Integer.valueOf(0));
-
-		newObject.validFrom = parser.startTime;
-
-		newObject.setValidityLimit(parser.endTime);
-
-		if (!newObject.save(request)) {
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot insert the object in the database");
-			return;
-		}
-
-		// TODO queue for replication to EOS/AliEn
-
-		setHeaders(newObject, response);
-
-		final String location = newObject.getAddress(Integer.valueOf(0));
-
-		response.setHeader("Location", location);
-		response.setHeader("Content-Location", location);
-
-		response.sendError(HttpServletResponse.SC_CREATED);
 	}
 
 	@Override
 	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final RequestParser parser = new RequestParser(request);
+		final long lStart = System.nanoTime();
 
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
+		try {
+			final RequestParser parser = new RequestParser(request);
+
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
+			}
+
+			final SQLObject matchingObject = SQLObject.getMatchingObject(parser);
+
+			if (matchingObject == null) {
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+				return;
+			}
+
+			for (final Map.Entry<String, String[]> param : request.getParameterMap().entrySet())
+				if (param.getValue().length > 0)
+					matchingObject.setProperty(param.getKey(), param.getValue()[0]);
+
+			if (parser.endTimeSet)
+				matchingObject.setValidityLimit(parser.endTime);
+
+			final boolean changed = matchingObject.save(request);
+
+			setHeaders(matchingObject, response);
+
+			response.setHeader("Location", matchingObject.getAddresses().iterator().next());
+
+			if (changed)
+				response.sendError(HttpServletResponse.SC_NO_CONTENT);
+			else
+				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
+		} finally {
+			monitor.addMeasurement("PUT_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
-
-		final SQLObject matchingObject = SQLObject.getMatchingObject(parser);
-
-		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
-		}
-
-		for (final Map.Entry<String, String[]> param : request.getParameterMap().entrySet())
-			if (param.getValue().length > 0)
-				matchingObject.setProperty(param.getKey(), param.getValue()[0]);
-
-		if (parser.endTimeSet)
-			matchingObject.setValidityLimit(parser.endTime);
-
-		final boolean changed = matchingObject.save(request);
-
-		setHeaders(matchingObject, response);
-
-		response.setHeader("Location", matchingObject.getAddresses().iterator().next());
-
-		if (changed)
-			response.sendError(HttpServletResponse.SC_NO_CONTENT);
-		else
-			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 	}
 
 	@Override
 	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final RequestParser parser = new RequestParser(request);
+		final long lStart = System.nanoTime();
 
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
+		try {
+			final RequestParser parser = new RequestParser(request);
+
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
+			}
+
+			final SQLObject matchingObject = SQLObject.getMatchingObject(parser);
+
+			if (matchingObject == null) {
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+				return;
+			}
+
+			if (!matchingObject.delete()) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not delete the underlying record");
+				return;
+			}
+
+			setHeaders(matchingObject, response);
+
+			response.sendError(HttpServletResponse.SC_NO_CONTENT);
+
+			AsyncPhyisicalRemovalThread.deleteReplicas(matchingObject);
+		} finally {
+			monitor.addMeasurement("DELETE_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
-
-		final SQLObject matchingObject = SQLObject.getMatchingObject(parser);
-
-		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
-		}
-
-		if (!matchingObject.delete()) {
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not delete the underlying record");
-			return;
-		}
-
-		setHeaders(matchingObject, response);
-
-		response.sendError(HttpServletResponse.SC_NO_CONTENT);
-
-		AsyncPhyisicalRemovalThread.deleteReplicas(matchingObject);
 	}
 
 	private static void printUsage(final HttpServletRequest request, final HttpServletResponse response) throws IOException {
@@ -296,21 +330,27 @@ public class SQLBacked extends HttpServlet {
 
 	@Override
 	protected void doOptions(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		response.setHeader("Allow", "GET, POST, PUT, DELETE, OPTIONS");
+		final long lStart = System.nanoTime();
 
-		final RequestParser parser = new RequestParser(request);
+		try {
+			response.setHeader("Allow", "GET, POST, PUT, DELETE, OPTIONS");
 
-		if (!parser.ok)
-			return;
+			final RequestParser parser = new RequestParser(request);
 
-		final SQLObject matchingObject = SQLObject.getMatchingObject(parser);
+			if (!parser.ok)
+				return;
 
-		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
+			final SQLObject matchingObject = SQLObject.getMatchingObject(parser);
+
+			if (matchingObject == null) {
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+				return;
+			}
+
+			setHeaders(matchingObject, response);
+		} finally {
+			monitor.addMeasurement("OPTIONS_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
-
-		setHeaders(matchingObject, response);
 	}
 
 	static {
