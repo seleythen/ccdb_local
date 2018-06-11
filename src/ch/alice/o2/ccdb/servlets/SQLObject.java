@@ -517,7 +517,7 @@ public class SQLObject {
 				db.query("SELECT pathid FROM ccdb_paths WHERE path LIKE ?", false, pathPattern);
 			}
 			else {
-				db.query("SELECT pathid FROM ccdb_paths WHERE path ~ ?", false, pathPattern);
+				db.query("SELECT pathid FROM ccdb_paths WHERE path ~ ?", false, "^" + pathPattern);
 			}
 
 			while (db.moveNext()) {
