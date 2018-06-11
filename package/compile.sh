@@ -13,7 +13,7 @@ T=apache-tomcat
 
 CLASSPATH=
 
-for jar in $T/bin/*.jar $T/lib/*.jar lazyj.jar alien.jar; do
+for jar in $T/bin/*.jar $T/lib/*.jar ../lib/lazyj.jar ../lib/alien.jar; do
     CLASSPATH="$CLASSPATH:$jar"
 done
 

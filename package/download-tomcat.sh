@@ -21,12 +21,12 @@ fi
 rm -f apache-tomcat
 ln -s "$T" apache-tomcat
 
-if [ ! -f lazyj.jar ]; then
+if [ ! -f ../lib/lazyj.jar ]; then
     echo "Downloading lazyj"
-    wget -nv "http://lazyj.sf.net/download/lazyj.jar" -O lazyj.jar
+    wget -nv "http://lazyj.sf.net/download/lazyj.jar" -O ../lib/lazyj.jar
 fi
 
-if [ ! -f postgresql.jar ]; then
+if [ ! -f ../lib/postgresql.jar ]; then
     echo "Downloading PostgreSQL JDBC driver"
-    wget -nv "https://jdbc.postgresql.org/download/postgresql-42.2.2.jar" -O postgresql.jar
+    wget -nv "https://jdbc.postgresql.org/download/postgresql-42.2.2.jar" -O ../lib/postgresql.jar
 fi
