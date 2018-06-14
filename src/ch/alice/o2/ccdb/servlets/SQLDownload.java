@@ -22,6 +22,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.tomcat.util.http.fileupload.IOUtils;
 
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
 import ch.alice.o2.ccdb.UUIDTools;
 
 /**
@@ -35,14 +37,28 @@ import ch.alice.o2.ccdb.UUIDTools;
 public class SQLDownload extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	private static final Monitor monitor = MonitorFactory.getMonitor(SQLDownload.class.getCanonicalName());
+
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, true);
+		final long lStart = System.nanoTime();
+
+		try {
+			doGet(request, response, true);
+		} finally {
+			monitor.addMeasurement("HEAD_ms", (System.nanoTime() - lStart) / 1000000.);
+		}
 	}
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, false);
+		final long lStart = System.nanoTime();
+
+		try {
+			doGet(request, response, false);
+		} finally {
+			monitor.addMeasurement("GET_ms", (System.nanoTime() - lStart) / 1000000.);
+		}
 	}
 
 	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head) throws IOException {

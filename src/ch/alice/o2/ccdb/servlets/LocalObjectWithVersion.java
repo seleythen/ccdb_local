@@ -10,7 +10,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 
-import ch.alice.o2.ccdb.UUIDTools;
+import alien.catalogue.GUIDUtils;
 
 /**
  * Handle all interactions with a local file, including the metadata access (backed by a .properties file with the same base name as the referenced file)
@@ -152,7 +152,7 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		} catch (@SuppressWarnings("unused") NumberFormatException | NullPointerException ignore) {
 			try {
 				final UUID uuid = UUID.fromString(referenceFile.getName());
-				createTime = UUIDTools.epochTime(uuid);
+				createTime = GUIDUtils.epochTime(uuid);
 				return createTime;
 			} catch (@SuppressWarnings("unused") final Throwable t) {
 				// if everything else fails use as last resort the start time of the interval, normally these two are the same

@@ -9,6 +9,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
 import ch.alice.o2.ccdb.RequestParser;
 
 /**
@@ -22,28 +24,36 @@ import ch.alice.o2.ccdb.RequestParser;
 public class SQLTruncate extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	private static final Monitor monitor = MonitorFactory.getMonitor(SQLTruncate.class.getCanonicalName());
+
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final RequestParser parser = new RequestParser(request, true);
+		final long lStart = System.nanoTime();
 
-		final Collection<SQLObject> matchingObjects = SQLObject.getAllMatchingObjects(parser);
+		try {
+			final RequestParser parser = new RequestParser(request, true);
 
-		if (matchingObjects != null && matchingObjects.size() > 0) {
-			for (final SQLObject object : matchingObjects) {
-				if (!object.delete()) {
-					response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot delete " + object.id);
-					return;
+			final Collection<SQLObject> matchingObjects = SQLObject.getAllMatchingObjects(parser);
+
+			if (matchingObjects != null && matchingObjects.size() > 0) {
+				for (final SQLObject object : matchingObjects) {
+					if (!object.delete()) {
+						response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot delete " + object.id);
+						return;
+					}
+
+					AsyncPhyisicalRemovalThread.queueDeletion(object);
 				}
 
-				AsyncPhyisicalRemovalThread.queueDeletion(object);
+				response.setHeader("Deleted", matchingObjects.size() + " objects");
+
+				response.sendError(HttpServletResponse.SC_NO_CONTENT);
 			}
-
-			response.setHeader("Deleted", matchingObjects.size() + " objects");
-
-			response.sendError(HttpServletResponse.SC_NO_CONTENT);
-		}
-		else {
-			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
+			else {
+				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
+			}
+		} finally {
+			monitor.addMeasurement("HEAD_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 }

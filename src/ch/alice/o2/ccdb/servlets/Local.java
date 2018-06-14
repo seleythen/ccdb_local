@@ -130,7 +130,7 @@ public class Local extends HttpServlet {
 
 		try {
 			if (md5 == null || md5.isEmpty())
-				md5 = UUIDTools.getMD5(obj.referenceFile);
+				md5 = alien.io.IOUtils.getMD5(obj.referenceFile);
 		} catch (@SuppressWarnings("unused") final IOException ioe) {
 			// ignore IO exceptions
 		}
@@ -403,7 +403,7 @@ public class Local extends HttpServlet {
 		newObject.setProperty("Content-Type", part.getContentType());
 		newObject.setProperty("UploadedFrom", request.getRemoteHost());
 		newObject.setProperty("File-Size", String.valueOf(targetFile.length()));
-		newObject.setProperty("Content-MD5", UUIDTools.getMD5(targetFile));
+		newObject.setProperty("Content-MD5", alien.io.IOUtils.getMD5(targetFile));
 
 		if (newObject.getProperty("CreateTime") == null)
 			newObject.setProperty("CreateTime", String.valueOf(newObjectTime));

@@ -1,8 +1,18 @@
 package ch.alice.o2.ccdb.servlets;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import alien.catalogue.GUID;
+import alien.catalogue.PFN;
+import alien.catalogue.access.AccessType;
+import alien.catalogue.access.AuthorizationFactory;
+import alien.io.protocols.Factory;
+import alien.io.protocols.Xrootd;
+import alien.se.SE;
+import alien.se.SEUtils;
 
 /**
  * Physical removal of files is expensive so don't make the client wait until it happens but instead return control immediately and do the physical removal asynchronously
@@ -58,7 +68,33 @@ public class AsyncPhyisicalRemovalThread extends Thread {
 					f.delete();
 			}
 			else {
-				// TODO: remote removal
+				final SE se = SEUtils.getSE(replica.intValue());
+
+				if (se != null) {
+					final GUID guid = object.toGUID();
+
+					if (guid == null)
+						continue;
+
+					final PFN delpfn = new PFN(object.getAddress(replica), guid, se);
+
+					final String reason = AuthorizationFactory.fillAccess(AuthorizationFactory.getDefaultUser(), delpfn, AccessType.DELETE, true);
+
+					if (reason != null) {
+						System.err.println("Cannot get the access tokens to remove this pfn: " + delpfn.getPFN() + ", reason is: " + reason);
+						continue;
+					}
+
+					Xrootd xrd = Factory.xrootd;
+
+					try {
+						if (!xrd.delete(delpfn)) {
+							System.err.println("Cannot physically remove this file: " + delpfn.getPFN());
+						}
+					} catch (IOException e) {
+						System.err.println("Exception removing this pfn: " + delpfn.getPFN() + " : " + e.getMessage());
+					}
+				}
 			}
 	}
 }

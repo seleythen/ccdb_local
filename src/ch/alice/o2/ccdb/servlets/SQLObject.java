@@ -17,14 +17,19 @@ import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 
+import alien.catalogue.GUID;
+import alien.catalogue.GUIDUtils;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
+import alien.se.SE;
+import alien.se.SEUtils;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
 import lazyj.DBFunctions;
 import lazyj.ExtProperties;
 import lazyj.Format;
+import lazyj.StringFactory;
 
 /**
  * SQL backing for a CCDB/QC object
@@ -326,14 +331,27 @@ public class SQLObject {
 
 				pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
 			}
-			else
-				pattern = "alien:///alice/ccdb/FOLDER/UUID";
+			else {
+				final SE se = SEUtils.getSE(replica.intValue());
+
+				if (se != null) {
+					pattern = se.generateProtocol();
+					if (!pattern.endsWith("/"))
+						pattern += "/";
+
+					pattern += "PATH.ccdb";
+				}
+				else {
+					pattern += "alien:///alice/ccdb/FOLDER/UUID";
+				}
+			}
 
 			config.set("server." + replica + ".urlPattern", pattern);
 		}
 
 		pattern = Format.replace(pattern, "UUID", id.toString());
 		pattern = Format.replace(pattern, "FOLDER", getFolder());
+		pattern = Format.replace(pattern, "PATH", SE.generatePath(id.toString()));
 
 		return pattern;
 	}
@@ -881,4 +899,24 @@ public class SQLObject {
 		return sb.toString();
 	}
 
+	GUID toGUID() {
+		final GUID guid = GUIDUtils.getGUID(id, true);
+
+		if (guid.exists()) {
+			// It should not exist in AliEn, these UUIDs are created only in CCDB's space
+			return null;
+		}
+
+		guid.size = size;
+		guid.md5 = StringFactory.get(md5);
+		guid.owner = StringFactory.get("ccdb");
+		guid.gowner = StringFactory.get("ccdb");
+		guid.perm = "755";
+		guid.ctime = new Date(createTime);
+		guid.expiretime = null;
+		guid.type = 0;
+		guid.aclId = -1;
+
+		return guid;
+	}
 }

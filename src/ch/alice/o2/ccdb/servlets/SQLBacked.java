@@ -91,10 +91,10 @@ public class SQLBacked extends HttpServlet {
 			return;
 		}
 
-		// Can I serve it directly?
+		setAltLocationHeaders(response, matchingObject);
 
+		// Can I serve it directly?
 		if (matchingObject.replicas.contains(Integer.valueOf(0))) {
-			response.setHeader("Content-Location", "/download/" + matchingObject.id);
 			SQLDownload.download(head, matchingObject, request, response);
 			return;
 		}
@@ -102,6 +102,16 @@ public class SQLBacked extends HttpServlet {
 		setHeaders(matchingObject, response);
 
 		response.sendRedirect(matchingObject.getAddresses().iterator().next());
+	}
+
+	private static void setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj) {
+		for (final Integer replica : obj.replicas) {
+			if (replica.intValue() == 0) {
+				response.addHeader("Content-Location", "/download/" + obj.id);
+			}
+			else
+				response.addHeader("Content-Location", obj.getAddress(replica));
+		}
 	}
 
 	static void setMD5Header(final SQLObject obj, final HttpServletResponse response) {
@@ -219,7 +229,7 @@ public class SQLBacked extends HttpServlet {
 				return;
 			}
 
-			// TODO queue for replication to EOS/AliEn
+			AsyncReplication.queueDefaultReplication(newObject);
 
 			setHeaders(newObject, response);
 

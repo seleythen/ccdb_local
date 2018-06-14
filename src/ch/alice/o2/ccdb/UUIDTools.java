@@ -1,13 +1,9 @@
 package ch.alice.o2.ccdb;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
+
+import alien.catalogue.GUID;
+import alien.monitoring.MonitorFactory;
 
 /**
  * Helper class to generate version 1 (time based) UUIDs. This class doesn't implement fully the object since the MAC address is hardcoded to a fixed value. Since for this project the objects are
@@ -17,54 +13,11 @@ import java.util.UUID;
  * @since 2017-10-02
  */
 public class UUIDTools {
-	private static int clockSequence = getSelfProcessID();
+	private static int clockSequence = MonitorFactory.getSelfProcessID();
 
 	private static long lastTimestamp = System.nanoTime() / 100 + 122192928000000000L;
 
 	private static long lastTimestamp2 = System.nanoTime() / 100 + 122192928000000000L;
-
-	private static int selfProcessID = 0;
-
-	private static final String PROC_SELF = "/proc/self";
-
-	/**
-	 * Get JVM's process ID
-	 *
-	 * @return the process id, if it can be determined, or <code>-1</code> if not
-	 */
-	public static final int getSelfProcessID() {
-		if (selfProcessID != 0)
-			return selfProcessID;
-
-		try {
-			// on Linux
-			selfProcessID = Integer.parseInt((new File(PROC_SELF)).getCanonicalFile().getName());
-
-			return selfProcessID;
-		} catch (@SuppressWarnings("unused") final Throwable t) {
-			// ignore
-		}
-
-		try {
-			selfProcessID = Integer.parseInt(System.getProperty("pid"));
-
-			return selfProcessID;
-		} catch (@SuppressWarnings("unused") final Throwable t) {
-			// ignore
-		}
-
-		try {
-			final String s = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-
-			selfProcessID = Integer.parseInt(s.substring(0, s.indexOf('@')));
-		} catch (@SuppressWarnings("unused") final Throwable t) {
-			// ignore
-		}
-
-		// selfProcessID = -1;
-
-		return selfProcessID;
-	}
 
 	private static final byte[] macAddress = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66 };
 
@@ -124,67 +77,6 @@ public class UUIDTools {
 		contents[8] &= (byte) 0x3F;
 		contents[8] |= (byte) 0x80;
 
-		return getUUID(contents);
-	}
-
-	/**
-	 * @param data
-	 * @return the UUID objected created from these bytes
-	 */
-	public static final UUID getUUID(final byte[] data) {
-		assert data.length == 16;
-
-		long msb = 0;
-		long lsb = 0;
-
-		for (int i = 0; i < 8; i++)
-			msb = (msb << 8) | (data[i] & 0xff);
-		for (int i = 8; i < 16; i++)
-			lsb = (lsb << 8) | (data[i] & 0xff);
-
-		return new UUID(msb, lsb);
-	}
-
-	/**
-	 * @param uuid
-	 * @return epoch time of this uuid
-	 */
-	public static final long epochTime(final UUID uuid) {
-		return (uuid.timestamp() - 0x01b21dd213814000L) / 10000;
-	}
-
-	/**
-	 * Get the MD5 checksum of a file
-	 *
-	 * @param f
-	 * @return the MD5 checksum of the entire file
-	 * @throws IOException
-	 */
-	public static String getMD5(final File f) throws IOException {
-		if (f == null || !f.isFile() || !f.canRead())
-			throw new IOException("Cannot read from this file: " + f);
-
-		MessageDigest md;
-		try {
-			md = MessageDigest.getInstance("MD5");
-		} catch (final NoSuchAlgorithmException e1) {
-			throw new IOException("Could not initialize MD5 digester", e1);
-		}
-
-		try (DigestInputStream dis = new DigestInputStream(new FileInputStream(f), md)) {
-			final byte[] buff = new byte[10240];
-
-			int cnt;
-
-			do
-				cnt = dis.read(buff);
-			while (cnt == buff.length);
-
-			final byte[] digest = md.digest();
-
-			return String.format("%032x", new BigInteger(1, digest));
-		} catch (final IOException ioe) {
-			throw ioe;
-		}
+		return GUID.getUUID(contents);
 	}
 }
