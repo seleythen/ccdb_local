@@ -11,7 +11,7 @@ TB="$T/bin"
 TL="$T/lib"
 
 # the minimal set of JARs to start Tomcat and load the servler
-for jar in $TB/tomcat-juli.jar $TL/{catalina.jar,servlet-api.jar,tomcat-api.jar,tomcat-util.jar,tomcat-util-scan.jar,tomcat-coyote.jar,tomcat-jni.jar,annotations-api.jar,jaspic-api.jar,jasper.jar}; do
+for jar in $TB/tomcat-juli.jar $TL/{catalina.jar,servlet-api.jar,tomcat-api.jar,tomcat-util.jar,tomcat-util-scan.jar,tomcat-coyote.jar,tomcat-jni.jar,annotations-api.jar,jaspic-api.jar,jasper.jar} ../lib/alien.jar ../lib/lazyj.jar; do
     jar -xf $jar
 done
 
@@ -41,11 +41,11 @@ ln -s ../build/classes/ch .
 # package everything in a single JAR
 jar -cfe local.jar \
     ch.alice.o2.ccdb.webserver.LocalEmbeddedTomcat ch/alice/o2/ccdb/webserver/LocalEmbeddedTomcat.class \
-    ch javax org
+    ch javax org alien lazyj
 
 # Extra packages for the SQL backend
 
-for jar in postgresql.jar lazyj.jar alien.jar apmon.jar FarmMonitor.jar; do
+for jar in postgresql.jar lazyj.jar alien.jar apmon.jar FarmMonitor.jar mysql-connector-java-5.1.46.jar bcpkix-jdk15on-152.jar bcprov-jdk15on-152.jar; do
     jar -xf ../lib/$jar
 done
 
@@ -57,7 +57,7 @@ rm -rf src META-INF
 
 jar -cfe sql.jar \
     ch.alice.o2.ccdb.webserver.SQLBackedTomcat ch/alice/o2/ccdb/webserver/SQLBackedTomcat.class \
-    ch javax org lazyj lia apmon \
+    ch javax org lazyj lia apmon com org utils \
     alien config trusted_authorities.jks
 
 # further compression and remove debugging information
@@ -65,4 +65,4 @@ jar -cfe sql.jar \
 #pack200 --repack -G -O sql.jar
 
 # remove all intermediate folders
-rm -rf javax org ch org lazyj alien config utils lia com hep apmon trusted_authorities.jks
+rm -rf javax org ch org lazyj alien config utils lia com org hep apmon trusted_authorities.jks
