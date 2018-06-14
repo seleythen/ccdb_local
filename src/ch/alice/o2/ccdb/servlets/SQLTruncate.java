@@ -49,9 +49,8 @@ public class SQLTruncate extends HttpServlet {
 
 				response.sendError(HttpServletResponse.SC_NO_CONTENT);
 			}
-			else {
+			else
 				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
-			}
 		} finally {
 			monitor.addMeasurement("HEAD_ms", (System.nanoTime() - lStart) / 1000000.);
 		}

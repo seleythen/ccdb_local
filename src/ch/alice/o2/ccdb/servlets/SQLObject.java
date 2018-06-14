@@ -341,9 +341,8 @@ public class SQLObject {
 
 					pattern += "PATH.ccdb";
 				}
-				else {
+				else
 					pattern += "alien:///alice/ccdb/FOLDER/UUID";
-				}
 			}
 
 			config.set("server." + replica + ".urlPattern", pattern);
@@ -531,16 +530,13 @@ public class SQLObject {
 		final List<Integer> ret = new ArrayList<>();
 
 		try (DBFunctions db = getDB()) {
-			if (pathPattern.contains("%")) {
+			if (pathPattern.contains("%"))
 				db.query("SELECT pathid FROM ccdb_paths WHERE path LIKE ?", false, pathPattern);
-			}
-			else {
+			else
 				db.query("SELECT pathid FROM ccdb_paths WHERE path ~ ?", false, "^" + pathPattern);
-			}
 
-			while (db.moveNext()) {
+			while (db.moveNext())
 				ret.add(Integer.valueOf(db.geti(1)));
-			}
 		}
 
 		return ret;
@@ -797,10 +793,9 @@ public class SQLObject {
 
 			final List<Integer> pathIDs;
 
-			if (exactPathId != null) {
+			if (exactPathId != null)
 				pathIDs = Arrays.asList(exactPathId);
-			}
-			else {
+			else
 				// wildcard expression ?
 				if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
 					pathIDs = getPathIDs(parser.path);
@@ -810,12 +805,11 @@ public class SQLObject {
 				}
 				else
 					return null;
-			}
 
 			final List<SQLObject> ret = new ArrayList<>();
 
 			try (DBFunctions db = getDB()) {
-				for (Integer pathId : pathIDs) {
+				for (final Integer pathId : pathIDs) {
 					final StringBuilder q = new StringBuilder(
 							"SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
 
@@ -902,10 +896,9 @@ public class SQLObject {
 	GUID toGUID() {
 		final GUID guid = GUIDUtils.getGUID(id, true);
 
-		if (guid.exists()) {
+		if (guid.exists())
 			// It should not exist in AliEn, these UUIDs are created only in CCDB's space
 			return null;
-		}
 
 		guid.size = size;
 		guid.md5 = StringFactory.get(md5);

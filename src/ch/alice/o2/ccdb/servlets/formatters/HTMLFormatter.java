@@ -65,7 +65,7 @@ public class HTMLFormatter implements SQLFormatter {
 
 		writer.print("</td><td align=right nowrap>");
 		writer.print(obj.size);
-		
+
 		writer.print("</td><td align=left nowrap>");
 		writer.print(Format.escHtml(obj.getPath()));
 

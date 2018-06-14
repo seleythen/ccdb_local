@@ -48,7 +48,7 @@ public class JSONFormatter implements SQLFormatter {
 
 		writer.print("\",\n  \"size\":\"");
 		writer.print(obj.size);
-		
+
 		writer.print("\",\n  \"path\":\"");
 		writer.print(Format.escJS(obj.getPath()));
 

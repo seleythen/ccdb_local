@@ -16,7 +16,7 @@ import alien.se.SEUtils;
 
 /**
  * Physical removal of files is expensive so don't make the client wait until it happens but instead return control immediately and do the physical removal asynchronously
- * 
+ *
  * @author costing
  * @since 2018-06-08
  */
@@ -34,7 +34,7 @@ public class AsyncPhyisicalRemovalThread extends Thread {
 
 				if (object != null)
 					deleteReplicas(object);
-			} catch (InterruptedException e) {
+			} catch (final InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -85,13 +85,12 @@ public class AsyncPhyisicalRemovalThread extends Thread {
 						continue;
 					}
 
-					Xrootd xrd = Factory.xrootd;
+					final Xrootd xrd = Factory.xrootd;
 
 					try {
-						if (!xrd.delete(delpfn)) {
+						if (!xrd.delete(delpfn))
 							System.err.println("Cannot physically remove this file: " + delpfn.getPFN());
-						}
-					} catch (IOException e) {
+					} catch (final IOException e) {
 						System.err.println("Exception removing this pfn: " + delpfn.getPFN() + " : " + e.getMessage());
 					}
 				}

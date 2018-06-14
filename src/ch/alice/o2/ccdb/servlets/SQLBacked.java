@@ -105,13 +105,11 @@ public class SQLBacked extends HttpServlet {
 	}
 
 	private static void setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj) {
-		for (final Integer replica : obj.replicas) {
-			if (replica.intValue() == 0) {
+		for (final Integer replica : obj.replicas)
+			if (replica.intValue() == 0)
 				response.addHeader("Content-Location", "/download/" + obj.id);
-			}
 			else
 				response.addHeader("Content-Location", obj.getAddress(replica));
-		}
 	}
 
 	static void setMD5Header(final SQLObject obj, final HttpServletResponse response) {

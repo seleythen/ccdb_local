@@ -20,7 +20,7 @@ import lazyj.StringFactory;
 
 /**
  * Physical removal of files is expensive so don't make the client wait until it happens but instead return control immediately and do the physical removal asynchronously
- * 
+ *
  * @author costing
  * @since 2018-06-08
  */
@@ -71,7 +71,7 @@ public class AsyncReplication extends Thread {
 				try (DBFunctions db = SQLObject.getDB()) {
 					db.query("update ccdb set replicas=replicas || ? where id=? and NOT ? = ANY(replicas);", false, seNumber, object.id, seNumber);
 				}
-			} catch (IOException e) {
+			} catch (final IOException e) {
 				System.err.println("Could not upload to: " + newpfn.pfn + ", reason was: " + e.getMessage());
 			}
 		}
@@ -86,7 +86,7 @@ public class AsyncReplication extends Thread {
 
 				if (target != null)
 					target.run();
-			} catch (InterruptedException e) {
+			} catch (final InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -109,10 +109,9 @@ public class AsyncReplication extends Thread {
 	static boolean queueDefaultReplication(final SQLObject object) {
 		boolean anyOk = false;
 
-		for (final String seName : new String[] { "ALICE::CERN::EOS", "ALICE::LBL_HPCS::EOS", "ALICE::Torino::SE", "ALICE::SARA::DCACHE", "ALICE::GSI::AF_SE" }) {
+		for (final String seName : new String[] { "ALICE::CERN::EOS", "ALICE::LBL_HPCS::EOS", "ALICE::Torino::SE", "ALICE::SARA::DCACHE", "ALICE::GSI::AF_SE" })
 			if (queueMirror(object, seName))
 				anyOk = true;
-		}
 
 		return anyOk;
 	}
@@ -145,10 +144,9 @@ public class AsyncReplication extends Thread {
 				if (se != null) {
 					final GUID guid = GUIDUtils.getGUID(object.id, true);
 
-					if (guid.exists()) {
+					if (guid.exists())
 						// It should not exist in AliEn, these UUIDs are created only in CCDB's space
 						continue;
-					}
 
 					guid.size = object.size;
 					guid.md5 = StringFactory.get(object.md5);
@@ -169,13 +167,12 @@ public class AsyncReplication extends Thread {
 						continue;
 					}
 
-					Xrootd xrd = Factory.xrootd;
+					final Xrootd xrd = Factory.xrootd;
 
 					try {
-						if (!xrd.delete(delpfn)) {
+						if (!xrd.delete(delpfn))
 							System.err.println("Cannot physically remove this file: " + delpfn.getPFN());
-						}
-					} catch (IOException e) {
+					} catch (final IOException e) {
 						System.err.println("Exception removing this pfn: " + delpfn.getPFN() + " : " + e.getMessage());
 					}
 				}
