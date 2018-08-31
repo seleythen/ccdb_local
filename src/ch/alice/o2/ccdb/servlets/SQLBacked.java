@@ -385,6 +385,7 @@ public class SQLBacked extends HttpServlet {
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_paths (pathId SERIAL PRIMARY KEY, path text UNIQUE NOT NULL);");
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_metadata (metadataId SERIAL PRIMARY KEY, metadataKey text UNIQUE NOT NULL);");
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
+				db.query("CREATE TABLE IF NOT EXISTS config(key TEXT PRIMARY KEY, value TEXT);");
 
 				if (!db.query("SELECT * FROM ccdb LIMIT 0")) {
 					System.err.println("Database communication cannot be established, please fix config.properties and/or the PostgreSQL server and try again");
