@@ -494,6 +494,29 @@ public class SQLObject {
 	private static Map<String, Integer> PATHS = new HashMap<>();
 	private static Map<Integer, String> PATHS_REVERSE = new HashMap<>();
 
+	static List<Integer> getPathIDsWithPatternFallback(final RequestParser parser) {
+		final Integer exactPathId = parser.wildcardMatching ? null : getPathID(parser.path, false);
+
+		final List<Integer> pathIDs;
+
+		if (exactPathId != null)
+			pathIDs = Arrays.asList(exactPathId);
+		else
+			// wildcard expression ?
+			if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
+				pathIDs = getPathIDs(parser.path);
+
+				parser.wildcardMatching = true;
+
+				if (pathIDs == null || pathIDs.size() == 0)
+					return null;
+			}
+			else
+				return null;
+
+		return pathIDs;
+	}
+
 	private static synchronized Integer getPathID(final String path, final boolean createIfNotExists) {
 		Integer value = PATHS.get(path);
 
@@ -524,6 +547,15 @@ public class SQLObject {
 		}
 
 		return null;
+	}
+
+	static synchronized String removePathID(final Integer pathID) {
+		final String path = PATHS_REVERSE.remove(pathID);
+
+		if (path != null)
+			PATHS.remove(path);
+
+		return path;
 	}
 
 	private static List<Integer> getPathIDs(final String pathPattern) {
@@ -788,23 +820,10 @@ public class SQLObject {
 		final long lStart = System.nanoTime();
 
 		try {
+			final List<Integer> pathIDs = getPathIDsWithPatternFallback(parser);
 
-			final Integer exactPathId = getPathID(parser.path, false);
-
-			final List<Integer> pathIDs;
-
-			if (exactPathId != null)
-				pathIDs = Arrays.asList(exactPathId);
-			else
-				// wildcard expression ?
-				if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
-					pathIDs = getPathIDs(parser.path);
-
-					if (pathIDs == null || pathIDs.size() == 0)
-						return null;
-				}
-				else
-					return null;
+			if (pathIDs == null || pathIDs.isEmpty())
+				return null;
 
 			final List<SQLObject> ret = new ArrayList<>();
 
