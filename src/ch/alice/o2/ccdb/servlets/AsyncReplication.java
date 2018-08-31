@@ -2,7 +2,10 @@ package ch.alice.o2.ccdb.servlets;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.StringTokenizer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -106,10 +109,46 @@ public class AsyncReplication extends Thread {
 		return instance;
 	}
 
+	private static volatile long lastRefreshed = 0;
+
+	private static volatile List<String> targetSEs = null;
+
+	private static List<String> getTargetSEs() {
+		if (System.currentTimeMillis() - lastRefreshed > 1000 * 60) {
+			lastRefreshed = System.currentTimeMillis();
+
+			List<String> newValue = null;
+
+			try (DBFunctions db = SQLObject.getDB()) {
+				db.query("SELECT value FROM config WHERE key='replication.ses';");
+
+				if (db.moveNext()) {
+					final StringTokenizer st = new StringTokenizer(db.gets(1), ",; \t\n\r");
+
+					if (st.hasMoreTokens()) {
+						newValue = new ArrayList<>(st.countTokens());
+
+						while (st.hasMoreTokens())
+							newValue.add(st.nextToken());
+					}
+				}
+			}
+
+			targetSEs = newValue;
+		}
+
+		return targetSEs;
+	}
+
 	static boolean queueDefaultReplication(final SQLObject object) {
+		final List<String> targets = getTargetSEs();
+
+		if (targets == null || targets.isEmpty())
+			return true; // nothing to do, but it's expected to be ok
+
 		boolean anyOk = false;
 
-		for (final String seName : new String[] { "ALICE::CERN::EOS", "ALICE::LBL_HPCS::EOS", "ALICE::Torino::SE", "ALICE::SARA::DCACHE", "ALICE::GSI::AF_SE" })
+		for (final String seName : targets)
 			if (queueMirror(object, seName))
 				anyOk = true;
 
