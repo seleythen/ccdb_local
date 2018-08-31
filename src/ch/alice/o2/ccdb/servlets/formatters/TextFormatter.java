@@ -37,12 +37,12 @@ public class TextFormatter implements SQLFormatter {
 
 	@Override
 	public void subfoldersListingHeader(final PrintWriter writer) {
-		writer.println("\n\nSubfolders:\n");
+		writer.println("\n\nSubfolders:");
 	}
 
 	@Override
 	public void subfoldersListing(final PrintWriter writer, final String path, final String url) {
-		writer.println(path);
+		writer.println("  " + path);
 	}
 
 	@Override
