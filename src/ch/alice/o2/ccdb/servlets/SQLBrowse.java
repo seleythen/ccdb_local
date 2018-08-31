@@ -102,49 +102,53 @@ public class SQLBrowse extends HttpServlet {
 
 			formatter.footer(pw);
 
-			formatter.subfoldersListingHeader(pw);
+			if (!parser.wildcardMatching) {
+				// It is not clear which subfolders to list in case of a wildcard matching of objects. As the full hierarchy was included in the search there is no point in showing them, so just skip
+				// this section.
+				formatter.subfoldersListingHeader(pw);
 
-			try (DBFunctions db = SQLObject.getDB()) {
-				String prefix = "";
+				try (DBFunctions db = SQLObject.getDB()) {
+					String prefix = "";
 
-				String suffix = "";
+					String suffix = "";
 
-				if (parser.path == null || parser.path.length() == 0)
-					db.query("select distinct split_part(path,'/',1) from ccdb_paths order by 1;");
-				else {
-					int cnt = 0;
+					if (parser.path == null || parser.path.length() == 0)
+						db.query("select distinct split_part(path,'/',1) from ccdb_paths order by 1;");
+					else {
+						int cnt = 0;
 
-					for (final char c : parser.path.toCharArray())
-						if (c == '/')
-							cnt++;
+						for (final char c : parser.path.toCharArray())
+							if (c == '/')
+								cnt++;
 
-					db.query("select distinct split_part(path,'/'," + (cnt + 2) + ") from ccdb_paths where path like '" + Format.escSQL(parser.path) + "/%' order by 1;");
+						db.query("select distinct split_part(path,'/'," + (cnt + 2) + ") from ccdb_paths where path like '" + Format.escSQL(parser.path) + "/%' order by 1;");
 
-					prefix = parser.path + "/";
+						prefix = parser.path + "/";
+					}
+
+					if (parser.startTimeSet)
+						suffix += "/" + parser.startTime;
+
+					if (parser.uuidConstraint != null)
+						suffix += "/" + parser.uuidConstraint;
+
+					for (final Map.Entry<String, String> entry : parser.flagConstraints.entrySet())
+						suffix += "/" + entry.getKey() + "=" + entry.getValue();
+
+					first = true;
+
+					while (db.moveNext()) {
+						if (first)
+							first = false;
+						else
+							formatter.middle(pw);
+
+						formatter.subfoldersListing(pw, prefix + db.gets(1), prefix + db.gets(1) + suffix);
+					}
 				}
 
-				if (parser.startTimeSet)
-					suffix += "/" + parser.startTime;
-
-				if (parser.uuidConstraint != null)
-					suffix += "/" + parser.uuidConstraint;
-
-				for (final Map.Entry<String, String> entry : parser.flagConstraints.entrySet())
-					suffix += "/" + entry.getKey() + "=" + entry.getValue();
-
-				first = true;
-
-				while (db.moveNext()) {
-					if (first)
-						first = false;
-					else
-						formatter.middle(pw);
-
-					formatter.subfoldersListing(pw, prefix + db.gets(1), prefix + db.gets(1) + suffix);
-				}
+				formatter.subfoldersListingFooter(pw);
 			}
-
-			formatter.subfoldersListingFooter(pw);
 
 			formatter.end(pw);
 		}
