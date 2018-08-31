@@ -74,6 +74,11 @@ public class RequestParser {
 	public boolean latestFlag = true;
 
 	/**
+	 * Will be set to true when during the processing it is found to be a pattern
+	 */
+	public boolean wildcardMatching = false;
+
+	/**
 	 * @param request
 	 *            request to wrap around
 	 */
