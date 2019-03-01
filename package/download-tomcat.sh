@@ -3,14 +3,14 @@
 cd `dirname $0`
 
 # Tomcat version to embed in this project
-VER="9.0.11"
+VER="9.0.16"
 
 T="apache-tomcat-$VER"
 
 if [ ! -d "$T" ]; then
     echo "Downloading Tomcat $VER"
 
-    wget -nv "http://mirror.switch.ch/mirror/apache/dist/tomcat/tomcat-9/v$VER/bin/apache-tomcat-$VER.tar.gz" -O apache-tomcat.tar.gz || exit 1
+    wget -nv "https://www-eu.apache.org/dist/tomcat/tomcat-9/v$VER/bin/apache-tomcat-$VER.tar.gz" -O apache-tomcat.tar.gz || exit 1
 
     tar -xf apache-tomcat.tar.gz || exit 2
     rm apache-tomcat.tar.gz
