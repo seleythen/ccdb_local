@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -38,10 +40,12 @@ import ch.alice.o2.ccdb.UUIDTools;
  * @author costing
  * @since 2017-09-20
  */
-@WebServlet("/Local/*")
+@WebServlet("/*")
 @MultipartConfig
 public class Local extends HttpServlet {
 	private static final long serialVersionUID = 1L;
+
+	private static Logger logger = Logger.getLogger(Local.class.getCanonicalName());
 
 	/**
 	 * The base path of the file repository
@@ -50,6 +54,41 @@ public class Local extends HttpServlet {
 
 	private static String getURLPrefix(final HttpServletRequest request) {
 		return request.getContextPath() + request.getServletPath();
+	}
+
+	private static boolean basePathSupportsMSTimestamps = false;
+
+	static {
+		try {
+			final File f1 = File.createTempFile("timestampCheck", "tmp", new File(basePath));
+
+			basePathSupportsMSTimestamps = true;
+
+			for (long lTest = 1000001; lTest <= 1000003; lTest++) {
+				f1.setLastModified(lTest);
+
+				if (f1.lastModified() != lTest)
+					basePathSupportsMSTimestamps = false;
+			}
+
+			f1.delete();
+
+			if (basePathSupportsMSTimestamps)
+				logger.log(Level.INFO, "Underlying filesystem of " + basePath + " supports millisecond-level resolution, trusting the last modification time of the blob files");
+			else
+				logger.log(Level.WARNING,
+						"Underlying filesystem of " + basePath + " doesn't support millisecond-level resolution, falling back to reading the end of validity interval from the *.properties files");
+		}
+		catch (final IOException e) {
+			logger.log(Level.SEVERE, "Cannot test the underlying filesystem of " + basePath + " for time resolution, assuming it doesn't support millisecond-level modify times", e);
+		}
+	}
+
+	/**
+	 * @return <code>true</code> if the filesystem where the repository is located has millisecond support for the last modified field
+	 */
+	public static boolean hasMillisecondSupport() {
+		return basePathSupportsMSTimestamps;
 	}
 
 	@Override
@@ -120,7 +159,8 @@ public class Local extends HttpServlet {
 
 		try {
 			response.setDateHeader("Last-Modified", Long.parseLong(obj.getProperty("Last-Modified")));
-		} catch (@SuppressWarnings("unused") NullPointerException | NumberFormatException ignore) {
+		}
+		catch (@SuppressWarnings("unused") NullPointerException | NumberFormatException ignore) {
 			response.setDateHeader("Last-Modified", (obj.getCreateTime()));
 		}
 	}
@@ -131,7 +171,8 @@ public class Local extends HttpServlet {
 		try {
 			if (md5 == null || md5.isEmpty())
 				md5 = alien.io.IOUtils.getMD5(obj.referenceFile);
-		} catch (@SuppressWarnings("unused") final IOException ioe) {
+		}
+		catch (@SuppressWarnings("unused") final IOException ioe) {
 			// ignore IO exceptions
 		}
 
@@ -379,7 +420,8 @@ public class Local extends HttpServlet {
 			final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
 
 			remoteAddress = ia.getAddress();
-		} catch (@SuppressWarnings("unused") final Throwable t) {
+		}
+		catch (@SuppressWarnings("unused") final Throwable t) {
 			// ignore
 		}
 
@@ -538,7 +580,8 @@ public class Local extends HttpServlet {
 							if (owv.compareTo(mostRecent) < 0)
 								mostRecent = owv;
 				}
-			} catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
+			}
+			catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 				// ignore
 			}
 

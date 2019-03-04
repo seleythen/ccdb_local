@@ -33,6 +33,23 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		this.startTime = startTime;
 		this.endTime = entry.lastModified();
 		this.referenceFile = entry;
+
+		if (!Local.hasMillisecondSupport()) {
+			// we can't trust the filesystem to keep accurate modification times, we'll have to load it from the metadata
+			final String validUntil = getProperty("ValidUntil");
+
+			if (validUntil != null && validUntil.length() > 0) {
+				try {
+					this.endTime = Long.parseLong(validUntil);
+				}
+				catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
+					System.err.println("Invalid timestamp format for " + entry.getAbsolutePath());
+				}
+			}
+		}
+
+		if (this.endTime <= this.startTime)
+			this.endTime = this.startTime;
 	}
 
 	public String getProperty(final String key) {
@@ -80,7 +97,8 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 
 		loadProperties();
 
-		search: for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
+		search:
+		for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
 			final String key = entry.getKey().trim();
 			final String value = entry.getValue().trim();
 
@@ -124,7 +142,8 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 
 			try (FileReader reader = new FileReader(referenceFile.getAbsolutePath() + ".properties")) {
 				objectProperties.load(reader);
-			} catch (@SuppressWarnings("unused") final IOException e) {
+			}
+			catch (@SuppressWarnings("unused") final IOException e) {
 				// .properties file is missing
 			}
 		}
@@ -149,12 +168,14 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 
 		try {
 			createTime = Long.parseLong(getProperty("CreateTime"));
-		} catch (@SuppressWarnings("unused") NumberFormatException | NullPointerException ignore) {
+		}
+		catch (@SuppressWarnings("unused") NumberFormatException | NullPointerException ignore) {
 			try {
 				final UUID uuid = UUID.fromString(referenceFile.getName());
 				createTime = GUIDUtils.epochTime(uuid);
 				return createTime;
-			} catch (@SuppressWarnings("unused") final Throwable t) {
+			}
+			catch (@SuppressWarnings("unused") final Throwable t) {
 				// if everything else fails use as last resort the start time of the interval, normally these two are the same
 				return startTime;
 			}
