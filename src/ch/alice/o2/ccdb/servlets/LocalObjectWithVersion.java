@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import alien.catalogue.GUIDUtils;
+import lazyj.cache.ExpirationCache;
 
 /**
  * Handle all interactions with a local file, including the metadata access (backed by a .properties file with the same base name as the referenced file)
@@ -29,13 +30,34 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 
 	boolean taintedProperties = false;
 
+	boolean completeEndTime = true;
+
+	private final static ExpirationCache<String, Long> validityInterval = Local.hasMillisecondSupport() ? null : new ExpirationCache<>(65536);
+
 	public LocalObjectWithVersion(final long startTime, final File entry) {
 		this.startTime = startTime;
 		this.endTime = entry.lastModified();
 		this.referenceFile = entry;
 
-		if (!Local.hasMillisecondSupport()) {
-			// we can't trust the filesystem to keep accurate modification times, we'll have to load it from the metadata
+		completeEndTime = Local.hasMillisecondSupport();
+
+		if (this.endTime <= this.startTime)
+			this.endTime = this.startTime + 1;
+	}
+
+	public long getEndTime() {
+		if (completeEndTime)
+			return this.endTime;
+
+		// we can't trust the filesystem to keep accurate modification times, we'll have to load it from the metadata
+		final String refFilePath = this.referenceFile.getAbsolutePath();
+
+		final Long previouslyCachedValue = validityInterval.get(refFilePath);
+
+		if (previouslyCachedValue != null) {
+			this.endTime = previouslyCachedValue.longValue();
+		}
+		else {
 			final String validUntil = getProperty("ValidUntil");
 
 			if (validUntil != null && validUntil.length() > 0) {
@@ -43,13 +65,19 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 					this.endTime = Long.parseLong(validUntil);
 				}
 				catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
-					System.err.println("Invalid timestamp format for " + entry.getAbsolutePath());
+					System.err.println("Invalid timestamp format for " + refFilePath);
 				}
 			}
+
+			if (this.endTime <= this.startTime)
+				this.endTime = this.startTime + 1;
+
+			validityInterval.put(refFilePath, Long.valueOf(this.endTime), 1000 * 60 * 60);
 		}
 
-		if (this.endTime <= this.startTime)
-			this.endTime = this.startTime;
+		completeEndTime = true;
+
+		return this.endTime;
 	}
 
 	public String getProperty(final String key) {
@@ -133,7 +161,7 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 	}
 
 	public boolean covers(final long referenceTime) {
-		return this.startTime <= referenceTime && this.endTime > referenceTime;
+		return this.startTime <= referenceTime && getEndTime() > referenceTime;
 	}
 
 	private void loadProperties() {
@@ -199,7 +227,11 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 
 	public void setValidityLimit(final long endTime) {
 		this.endTime = endTime;
+		this.completeEndTime = true;
 		referenceFile.setLastModified(endTime);
 		setProperty("ValidUntil", String.valueOf(endTime));
+
+		if (validityInterval != null)
+			validityInterval.put(referenceFile.getAbsolutePath(), Long.valueOf(this.endTime), 1000 * 60 * 60);
 	}
 }

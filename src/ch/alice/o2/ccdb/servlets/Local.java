@@ -152,7 +152,7 @@ public class Local extends HttpServlet {
 
 	private static void setHeaders(final LocalObjectWithVersion obj, final HttpServletResponse response) {
 		response.setDateHeader("Date", System.currentTimeMillis());
-		response.setHeader("Valid-Until", String.valueOf(obj.endTime));
+		response.setHeader("Valid-Until", String.valueOf(obj.getEndTime()));
 		response.setHeader("Valid-From", String.valueOf(obj.startTime));
 		response.setHeader("Created", String.valueOf(obj.getCreateTime()));
 		response.setHeader("ETag", '"' + obj.referenceFile.getName() + '"');
