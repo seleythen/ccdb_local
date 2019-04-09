@@ -60,6 +60,21 @@ public class Local extends HttpServlet {
 
 	static {
 		try {
+			final File testBasePath = new File(basePath);
+
+			if (!testBasePath.exists()) {
+				if (!testBasePath.mkdirs()) {
+					logger.log(Level.SEVERE, "Base directory cannot be created: " + basePath);
+					System.exit(1);
+				}
+				else
+					logger.log(Level.INFO, "Base directory created: " + basePath);
+			}
+
+			if (!testBasePath.isDirectory() || !testBasePath.canWrite()) {
+				logger.log(Level.WARNING, "Base directory is not writable: " + basePath + " . Existing content will be returned but you won't be able to upload new objects.");
+			}
+
 			final File f1 = File.createTempFile("timestampCheck", "tmp", new File(basePath));
 
 			basePathSupportsMSTimestamps = true;
