@@ -50,7 +50,16 @@ public class Local extends HttpServlet {
 	/**
 	 * The base path of the file repository
 	 */
-	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + "QC");
+	public static final String basePath;
+
+	static {
+		String location = Options.getOption("file.repository.location", System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + "QC");
+
+		while (location.endsWith("/"))
+			location = location.substring(0, location.length() - 1);
+
+		basePath = location;
+	}
 
 	private static String getURLPrefix(final HttpServletRequest request) {
 		return request.getContextPath() + request.getServletPath();
