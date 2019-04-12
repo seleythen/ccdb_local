@@ -224,7 +224,7 @@ public class LocalBrowse extends HttpServlet {
 			try {
 				final long lValidityStart = Long.parseLong(fInterval.getName());
 
-				if (matchingPattern != null || (parser.startTimeSet && lValidityStart >= parser.startTime))
+				if (matchingPattern != null || (parser.startTimeSet && lValidityStart > parser.startTime))
 					continue;
 
 				final File[] intervalFileList = fInterval.listFiles((f) -> f.isFile() && !f.getName().contains("."));
