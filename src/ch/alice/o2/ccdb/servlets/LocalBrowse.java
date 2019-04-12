@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -20,6 +22,7 @@ import ch.alice.o2.ccdb.servlets.formatters.JSONFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.SQLFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.TextFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.XMLFormatter;
+import lazyj.Format;
 
 /**
  * SQL-backed implementation of CCDB. This servlet implements browsing of objects in a particular path
@@ -118,18 +121,20 @@ public class LocalBrowse extends HttpServlet {
 
 				final File[] baseDirListing = fBaseDir.listFiles((f) -> f.isDirectory());
 
+				first = true;
+
 				if (baseDirListing != null)
-					for (File fSubdir : baseDirListing) {
+					for (final File fSubdir : baseDirListing) {
 						try {
 							Long.parseLong(fSubdir.getName());
 						}
-						catch (@SuppressWarnings("unused") NumberFormatException nfe) {
+						catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 							if (first)
 								first = false;
 							else
 								formatter.middle(pw);
 
-							formatter.subfoldersListing(pw, prefix + fSubdir.getName(), prefix + fSubdir.getName() + suffix);
+							formatter.subfoldersListing(pw, "/" + parser.path + fSubdir.getName(), parser.path + fSubdir.getName() + suffix);
 						}
 					}
 
@@ -145,28 +150,64 @@ public class LocalBrowse extends HttpServlet {
 	 * @return all matching objects given the parser constraints
 	 */
 	public static final Collection<LocalObjectWithVersion> getAllMatchingObjects(final RequestParser parser) {
-		final File fBaseDir = new File(Local.basePath + "/" + parser.path);
+		final int idxStar = parser.path.indexOf('*');
+		final int idxPercent = parser.path.indexOf('%');
 
-		if (parser.startTime > 0 && parser.uuidConstraint != null) {
-			// is this the full path to a file? if so then download it
+		final File fBaseDir;
 
-			final File toDownload = new File(fBaseDir, parser.startTime + "/" + parser.uuidConstraint.toString());
+		final Pattern matchingPattern;
 
-			if (toDownload.exists() && toDownload.isFile())
-				return Arrays.asList(new LocalObjectWithVersion(parser.startTime, toDownload));
+		if (idxStar >= 0 || idxPercent >= 0) {
+			parser.wildcardMatching = true;
 
-			// a particular object was requested but it doesn't exist
-			return null;
+			final int idxFirst = idxStar >= 0 && idxPercent >= 0 ? Math.min(idxStar, idxPercent) : Math.max(idxStar, idxPercent);
+
+			final int idxLastSlash = parser.path.lastIndexOf('/', idxFirst);
+
+			String fixedPath = Local.basePath;
+
+			String pattern = parser.path;
+
+			if (idxLastSlash >= 0) {
+				fixedPath += "/" + parser.path.substring(0, idxLastSlash);
+				pattern = parser.path.substring(idxLastSlash + 1);
+			}
+
+			pattern = Format.replace(pattern, "*", "[^/]*");
+			pattern = Format.replace(pattern, "%", "[^/]*");
+
+			pattern += "/.*";
+
+			matchingPattern = Pattern.compile(fixedPath + "/" + pattern);
+
+			fBaseDir = new File(fixedPath);
+		}
+		else {
+			fBaseDir = new File(Local.basePath + "/" + parser.path);
+
+			if (parser.startTime > 0 && parser.uuidConstraint != null) {
+				// is this the full path to a file? if so then download it
+
+				final File toDownload = new File(fBaseDir, parser.startTime + "/" + parser.uuidConstraint.toString());
+
+				if (toDownload.exists() && toDownload.isFile())
+					return Arrays.asList(new LocalObjectWithVersion(parser.startTime, toDownload));
+
+				// a particular object was requested but it doesn't exist
+				return null;
+			}
+
+			matchingPattern = null;
 		}
 
 		final Collection<LocalObjectWithVersion> ret = new ArrayList<>();
 
-		recursiveMatching(parser, ret, fBaseDir);
+		recursiveMatching(parser, ret, fBaseDir, matchingPattern);
 
 		return ret;
 	}
 
-	private static void recursiveMatching(final RequestParser parser, final Collection<LocalObjectWithVersion> ret, final File fBaseDir) {
+	private static void recursiveMatching(final RequestParser parser, final Collection<LocalObjectWithVersion> ret, final File fBaseDir, final Pattern matchingPattern) {
 		LocalObjectWithVersion mostRecent = null;
 
 		final File[] baseDirListing = fBaseDir.listFiles((f) -> f.isDirectory());
@@ -178,7 +219,7 @@ public class LocalBrowse extends HttpServlet {
 			try {
 				final long lValidityStart = Long.parseLong(fInterval.getName());
 
-				if (parser.startTimeSet && lValidityStart < parser.startTime)
+				if (matchingPattern != null || (parser.startTimeSet && lValidityStart < parser.startTime))
 					continue;
 
 				final File[] intervalFileList = fInterval.listFiles((f) -> f.isFile() && !f.getName().contains("."));
@@ -201,11 +242,26 @@ public class LocalBrowse extends HttpServlet {
 							ret.add(owv);
 					}
 				}
+
+				if (parser.latestFlag && mostRecent != null)
+					ret.add(mostRecent);
 			}
 			catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 				// When the subfolder is not a number then it can be another level of objects, to be inspected as well
 
-				recursiveMatching(parser, ret, fInterval);
+				if (parser.wildcardMatching) {
+					if (matchingPattern != null) {
+						final Matcher m = matchingPattern.matcher(fInterval.getAbsolutePath() + "/");
+
+						if (m.matches()) {
+							// full pattern match, from here on we can list files in the subfolders
+							recursiveMatching(parser, ret, fInterval, null);
+							continue;
+						}
+					}
+
+					recursiveMatching(parser, ret, fInterval, matchingPattern);
+				}
 			}
 	}
 }
