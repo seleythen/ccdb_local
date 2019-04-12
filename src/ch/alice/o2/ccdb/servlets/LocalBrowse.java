@@ -134,7 +134,9 @@ public class LocalBrowse extends HttpServlet {
 							else
 								formatter.middle(pw);
 
-							formatter.subfoldersListing(pw, "/" + parser.path + fSubdir.getName(), parser.path + fSubdir.getName() + suffix);
+							final String pathPrefix = parser.path.length() > 0 ? parser.path + "/" : "";
+
+							formatter.subfoldersListing(pw, "/" + pathPrefix + fSubdir.getName(), pathPrefix + fSubdir.getName() + suffix);
 						}
 					}
 
@@ -150,6 +152,9 @@ public class LocalBrowse extends HttpServlet {
 	 * @return all matching objects given the parser constraints
 	 */
 	public static final Collection<LocalObjectWithVersion> getAllMatchingObjects(final RequestParser parser) {
+		if (parser.path == null)
+			parser.path = "";
+
 		final int idxStar = parser.path.indexOf('*');
 		final int idxPercent = parser.path.indexOf('%');
 
@@ -219,7 +224,7 @@ public class LocalBrowse extends HttpServlet {
 			try {
 				final long lValidityStart = Long.parseLong(fInterval.getName());
 
-				if (matchingPattern != null || (parser.startTimeSet && lValidityStart < parser.startTime))
+				if (matchingPattern != null || (parser.startTimeSet && lValidityStart >= parser.startTime))
 					continue;
 
 				final File[] intervalFileList = fInterval.listFiles((f) -> f.isFile() && !f.getName().contains("."));
@@ -230,7 +235,7 @@ public class LocalBrowse extends HttpServlet {
 				for (final File f : intervalFileList) {
 					final LocalObjectWithVersion owv = new LocalObjectWithVersion(lValidityStart, f);
 
-					if (owv.covers(parser.startTime) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter) && owv.matches(parser.flagConstraints)) {
+					if ((!parser.startTimeSet || owv.covers(parser.startTime)) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter) && owv.matches(parser.flagConstraints)) {
 						if (parser.latestFlag) {
 							if (mostRecent == null)
 								mostRecent = owv;
