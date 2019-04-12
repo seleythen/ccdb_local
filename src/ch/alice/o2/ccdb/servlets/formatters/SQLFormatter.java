@@ -2,6 +2,7 @@ package ch.alice.o2.ccdb.servlets.formatters;
 
 import java.io.PrintWriter;
 
+import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 
 /**
@@ -33,6 +34,16 @@ public interface SQLFormatter {
 	 *            current element to serialize
 	 */
 	public void format(PrintWriter writer, SQLObject obj);
+
+	/**
+	 * Formatting one object at a time
+	 *
+	 * @param writer
+	 *            object to append to
+	 * @param obj
+	 *            current element to serialize
+	 */
+	public void format(PrintWriter writer, LocalObjectWithVersion obj);
 
 	/**
 	 * If there is more than one element in the list and there has to be a separator between consecutive elements, this is one separator

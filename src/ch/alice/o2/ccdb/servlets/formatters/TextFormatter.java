@@ -2,6 +2,7 @@ package ch.alice.o2.ccdb.servlets.formatters;
 
 import java.io.PrintWriter;
 
+import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 
 /**
@@ -17,6 +18,11 @@ public class TextFormatter implements SQLFormatter {
 
 	@Override
 	public void format(final PrintWriter writer, final SQLObject obj) {
+		writer.println(obj.toString());
+	}
+	
+	@Override
+	public void format(final PrintWriter writer, final LocalObjectWithVersion obj){
 		writer.println(obj.toString());
 	}
 

@@ -3,6 +3,7 @@ package ch.alice.o2.ccdb.servlets.formatters;
 import java.io.PrintWriter;
 import java.util.Map;
 
+import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
 
@@ -108,5 +109,64 @@ public class XMLFormatter implements SQLFormatter {
 	@Override
 	public void end(final PrintWriter writer) {
 		writer.println("</document>");
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see ch.alice.o2.ccdb.servlets.formatters.SQLFormatter#format(java.io.PrintWriter, ch.alice.o2.ccdb.servlets.LocalObjectWithVersion)
+	 */
+	@Override
+	public void format(PrintWriter writer, LocalObjectWithVersion obj) {
+		writer.print("<object id='");
+		writer.print(Format.escHtml(obj.getID()));
+
+		writer.print("' validFrom='");
+		writer.print(obj.getStartTime());
+
+		writer.print("' validUntil='");
+		writer.print(obj.getEndTime());
+
+		writer.print("' initialValidity='");
+		writer.print(obj.getInitialValidity());
+
+		writer.print("' created='");
+		writer.print(obj.getCreateTime());
+
+		writer.print("' lastModified='");
+		writer.print(obj.getLastModified());
+
+		writer.print("' md5='");
+		writer.print(obj.getProperty("Content-MD5"));
+
+		writer.print("' fileName='");
+		writer.print(Format.escHtml(obj.getOriginalName()));
+
+		writer.print("' contentType='");
+		writer.print(Format.escHtml(obj.getProperty("Content-Type", "application/octet-stream")));
+
+		writer.print("' size='");
+		writer.print(obj.getSize());
+
+		writer.print("'  path='");
+		writer.print(Format.escHtml(obj.getPath()));
+
+		writer.print("'>\n");
+
+		for (final Object key : obj.getPropertiesKeys()) {
+			writer.print("  <metadata key='");
+			writer.print(Format.escHtml(key.toString()));
+			writer.print("' value='");
+			writer.print(Format.escHtml(obj.getProperty(key.toString())));
+			writer.print("'/>\n");
+		}
+
+		writer.print("  <replica id='");
+		writer.print(0);
+		writer.print("' addr='");
+		writer.print(Format.escHtml(obj.getPath()));
+		writer.print("'/>\n");
+
+		writer.print("</object>\n");
 	}
 }

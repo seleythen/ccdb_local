@@ -588,6 +588,9 @@ public class Local extends HttpServlet {
 		for (final File fInterval : baseDirListing)
 			try {
 				final long lValidityStart = Long.parseLong(fInterval.getName());
+				
+				if (parser.startTimeSet && lValidityStart < parser.startTime)
+					continue;
 
 				final File[] intervalFileList = fInterval.listFiles((f) -> f.isFile() && !f.getName().contains("."));
 

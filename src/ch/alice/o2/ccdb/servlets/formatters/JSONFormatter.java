@@ -3,6 +3,7 @@ package ch.alice.o2.ccdb.servlets.formatters;
 import java.io.PrintWriter;
 import java.util.Map;
 
+import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
 
@@ -107,5 +108,63 @@ public class JSONFormatter implements SQLFormatter {
 	@Override
 	public void end(final PrintWriter writer) {
 		writer.write("}");
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see ch.alice.o2.ccdb.servlets.formatters.SQLFormatter#format(java.io.PrintWriter, ch.alice.o2.ccdb.servlets.LocalObjectWithVersion)
+	 */
+	@Override
+	public void format(PrintWriter writer, LocalObjectWithVersion obj) {
+		writer.print("{\n  \"id\":\"");
+		writer.print(Format.escJS(obj.getID()));
+
+		writer.print("\",\n  \"validFrom\":\"");
+		writer.print(obj.getStartTime());
+
+		writer.print("\",\n  \"validUntil\":\"");
+		writer.print(obj.getEndTime());
+
+		writer.print("\",\n  \"initialValidity\":\"");
+		writer.print(obj.getInitialValidity());
+
+		writer.print("\",\n  \"createTime\":\"");
+		writer.print(obj.getCreateTime());
+
+		writer.print("\",\n  \"lastModified\":\"");
+		writer.print(obj.getLastModified());
+
+		writer.print("\",\n  \"MD5\":\"");
+		writer.print(obj.getProperty("Content-MD5"));
+
+		writer.print("\",\n  \"fileName\":\"");
+		writer.print(Format.escJS(obj.getOriginalName()));
+
+		writer.print("\",\n  \"contentType\":\"");
+		writer.print(Format.escJS(obj.getProperty("Content-Type", "application/octet-stream")));
+
+		writer.print("\",\n  \"size\":\"");
+		writer.print(obj.getSize());
+
+		writer.print("\",\n  \"path\":\"");
+		writer.print(Format.escJS(obj.getPath()));
+
+		writer.print("\"");
+		for (final Object key : obj.getPropertiesKeys()) {
+			writer.print(",\n  \"");
+			writer.print(Format.escJS(key.toString()));
+			writer.print("\":\"");
+			writer.print(Format.escJS(obj.getProperty(key.toString())));
+			writer.print("\"");
+		}
+
+		writer.print(",\n  \"replica");
+		writer.print(0);
+		writer.print("\":\"");
+		writer.print(Format.escHtml(obj.getPath()));
+		writer.print("\"");
+
+		writer.print("\n}");
 	}
 }

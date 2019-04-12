@@ -3,8 +3,10 @@ package ch.alice.o2.ccdb.webserver;
 import javax.servlet.ServletException;
 
 import org.apache.catalina.LifecycleException;
+import org.apache.catalina.Wrapper;
 
 import ch.alice.o2.ccdb.servlets.Local;
+import ch.alice.o2.ccdb.servlets.LocalBrowse;
 
 /**
  * Start an embedded Tomcat with the local servlet mapping (localhost:8080/Local/) by default
@@ -28,6 +30,8 @@ public class LocalEmbeddedTomcat {
 			return;
 		}
 
+		final Wrapper browser = tomcat.addServlet(LocalBrowse.class.getName(), "/browse/*");
+		browser.addMapping("/latest/*");
 		tomcat.addServlet(Local.class.getName(), "/*");
 
 		// Start the server

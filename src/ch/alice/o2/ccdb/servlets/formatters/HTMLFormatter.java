@@ -4,6 +4,7 @@ import java.io.PrintWriter;
 import java.util.Date;
 import java.util.Map;
 
+import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
 
@@ -87,6 +88,75 @@ public class HTMLFormatter implements SQLFormatter {
 			writer.print(replica);
 			writer.print("</a></li>\n");
 		}
+
+		writer.print("</ul></td></tr>\n");
+	}
+
+	@Override
+	public void format(final PrintWriter writer, final LocalObjectWithVersion obj) {
+		writer.print("<tr><td nowrap align=left>");
+		writer.print(obj.getID());
+
+		writer.print("</td><td nowrap align=right>");
+		writer.print(obj.getStartTime());
+		writer.println("<br>");
+		final Date dFrom = new Date(obj.getStartTime());
+		writer.print(Format.showDate(dFrom));
+
+		writer.print("</td><td nowrap align=right>");
+		writer.print(obj.getEndTime());
+		writer.println("<br>");
+		final Date dUntil = new Date(obj.getEndTime());
+		writer.print(Format.showDate(dUntil));
+
+		writer.print("</td><td align=right>");
+		writer.print(obj.getInitialValidity());
+		writer.println("<br>");
+		final Date dInitial = new Date(obj.getInitialValidity());
+		writer.print(Format.showDate(dInitial));
+
+		writer.print("</td><td align=right>");
+		writer.print(obj.getCreateTime());
+		writer.println("<br>");
+		final Date dCreated = new Date(obj.getCreateTime());
+		writer.print(Format.showDate(dCreated));
+
+		writer.print("</td><td align=right>");
+		writer.print(obj.getLastModified());
+		writer.println("<br>");
+		final Date dLastModified = new Date(obj.getLastModified());
+		writer.print(Format.showDate(dLastModified));
+
+		writer.print("</td><td align=center nowrap>");
+		writer.print(Format.escHtml(obj.getProperty("Content-MD5")));
+
+		writer.print("</td><td align=right nowrap>");
+		writer.print(Format.escHtml(obj.getOriginalName()));
+
+		writer.print("</td><td align=right nowrap>");
+		writer.print(Format.escHtml(obj.getProperty("Content-Type", "application/octet-stream")));
+
+		writer.print("</td><td align=right nowrap>");
+		writer.print(obj.getSize());
+
+		writer.print("</td><td align=left nowrap>");
+		writer.print(Format.escHtml(obj.getPath()));
+
+		writer.print("</td><td align=left><dl>");
+		for (final Object key : obj.getPropertiesKeys()) {
+			writer.print("<dt>");
+			writer.print(Format.escHtml(key.toString()));
+			writer.print("</dt><dd>");
+			writer.print(Format.escHtml(obj.getProperty(key.toString())));
+			writer.print("</dd>\n");
+		}
+
+		writer.print("</dl></td><td align=left><ul>");
+
+		writer.print("<li><a href='");
+		writer.print(Format.escHtml(obj.getPath()));
+		writer.print("'>0");
+		writer.print("</a></li>\n");
 
 		writer.print("</ul></td></tr>\n");
 	}

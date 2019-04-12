@@ -19,21 +19,50 @@ import lazyj.cache.ExpirationCache;
  * @author costing
  * @since 2017-09-21
  */
-class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
+public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
+	/**
+	 * Start of validity interval. Cannot be modified at a later time.
+	 */
 	final long startTime;
+
+	/**
+	 * End of validity interval. Can be modified by {@link #setValidityLimit(long)}
+	 */
 	long endTime;
+
+	/**
+	 * Object creation time
+	 */
 	private long createTime = -1;
 
+	/**
+	 * File on disk with the blob content of this object
+	 */
 	final File referenceFile;
 
+	/**
+	 * Metadata keys and values, stored in an additional <i>{@link #referenceFile}.properties</i> file next to the blob object.
+	 */
 	private Properties objectProperties = null;
 
+	/**
+	 * Whether or not the metadata is tainted and should be updated on disk
+	 */
 	boolean taintedProperties = false;
 
-	boolean completeEndTime = true;
+	/**
+	 * Whether or not the end time was fully inferred already, from reading the .properties file if necessary.
+	 */
+	private boolean completeEndTime = true;
 
 	private final static ExpirationCache<String, Long> validityInterval = Local.hasMillisecondSupport() ? null : new ExpirationCache<>(65536);
 
+	/**
+	 * Create a local object based on a local file.
+	 * 
+	 * @param startTime
+	 * @param entry
+	 */
 	public LocalObjectWithVersion(final long startTime, final File entry) {
 		this.startTime = startTime;
 		this.endTime = entry.lastModified();
@@ -45,6 +74,23 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 			this.endTime = this.startTime + 1;
 	}
 
+	/**
+	 * @return the unique identifier of this object
+	 */
+	public String getID() {
+		return referenceFile.getName();
+	}
+
+	/**
+	 * @return the start of validity interval, in epoch millis. Interval contains this value.
+	 */
+	public long getStartTime() {
+		return startTime;
+	}
+
+	/**
+	 * @return the end of validity interval, in epoch millis. Interval excludes this value.
+	 */
 	public long getEndTime() {
 		if (completeEndTime)
 			return this.endTime;
@@ -64,7 +110,8 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 				try {
 					this.endTime = Long.parseLong(validUntil);
 				}
-				catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
+				catch (@SuppressWarnings("unused")
+				final NumberFormatException nfe) {
 					System.err.println("Invalid timestamp format for " + refFilePath);
 				}
 			}
@@ -80,12 +127,28 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		return this.endTime;
 	}
 
+	/**
+	 * @return the size of the binary content
+	 */
+	public long getSize() {
+		return referenceFile.length();
+	}
+
+	/**
+	 * @param key
+	 * @return the metadata value for this key, or <code>null</code> if not found
+	 */
 	public String getProperty(final String key) {
 		loadProperties();
 
 		return objectProperties.getProperty(key);
 	}
 
+	/**
+	 * @param key
+	 * @param defaultValue
+	 * @return the value of this key, either from the metadata or falling back to the default value if not set
+	 */
 	public String getProperty(final String key, final String defaultValue) {
 		loadProperties();
 
@@ -109,24 +172,33 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		return changed;
 	}
 
+	/**
+	 * @return all the metadata keys defined for this object
+	 */
 	public Set<Object> getPropertiesKeys() {
 		loadProperties();
 
 		return objectProperties.keySet();
 	}
 
+	/**
+	 * @return the original file name, as uploaded by the client.
+	 */
 	public String getOriginalName() {
 		return getProperty("OriginalFileName", referenceFile.getName());
 	}
 
+	/**
+	 * @param flagConstraints
+	 * @return <code>true</code> if this object matches the given constraints
+	 */
 	public boolean matches(final Map<String, String> flagConstraints) {
 		if (flagConstraints.isEmpty())
 			return true;
 
 		loadProperties();
 
-		search:
-		for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
+		search: for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
 			final String key = entry.getKey().trim();
 			final String value = entry.getValue().trim();
 
@@ -160,6 +232,17 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		return true;
 	}
 
+	/**
+	 * @return relative path to the folder storing this file
+	 */
+	public String getPath() {
+		return referenceFile.getPath().substring(Local.basePath.length());
+	}
+
+	/**
+	 * @param referenceTime
+	 * @return <code>true</code> if the reference time falls between start time (inclusive) and end time (exclusive).
+	 */
 	public boolean covers(final long referenceTime) {
 		return this.startTime <= referenceTime && getEndTime() > referenceTime;
 	}
@@ -171,12 +254,19 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 			try (FileReader reader = new FileReader(referenceFile.getAbsolutePath() + ".properties")) {
 				objectProperties.load(reader);
 			}
-			catch (@SuppressWarnings("unused") final IOException e) {
+			catch (@SuppressWarnings("unused")
+			final IOException e) {
 				// .properties file is missing
 			}
 		}
 	}
 
+	/**
+	 * Save the metadata to a persistent file on disk.
+	 * 
+	 * @param remoteAddress
+	 * @throws IOException
+	 */
 	void saveProperties(final String remoteAddress) throws IOException {
 		if (objectProperties != null && taintedProperties) {
 			objectProperties.setProperty("Last-Modified", String.valueOf(System.currentTimeMillis()));
@@ -190,6 +280,37 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		}
 	}
 
+	/**
+	 * @return the end of validity interval as set by the initial upload. In epoch millis.
+	 */
+	public long getInitialValidity() {
+		if (objectProperties != null) {
+			String s = objectProperties.getProperty("InitialValidityLimit");
+
+			if (s != null)
+				return Long.parseLong(s);
+		}
+
+		return getEndTime();
+	}
+
+	/**
+	 * @return the last time when the object data or metadata was modified. In epoch millis.
+	 */
+	public long getLastModified() {
+		if (objectProperties != null) {
+			String s = objectProperties.getProperty("Last-Modified");
+
+			if (s != null)
+				return Long.parseLong(s);
+		}
+
+		return -1;
+	}
+
+	/**
+	 * @return when the object was first uploaded. In epoch millis.
+	 */
 	public long getCreateTime() {
 		if (createTime > 0)
 			return createTime;
@@ -197,13 +318,15 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		try {
 			createTime = Long.parseLong(getProperty("CreateTime"));
 		}
-		catch (@SuppressWarnings("unused") NumberFormatException | NullPointerException ignore) {
+		catch (@SuppressWarnings("unused")
+				NumberFormatException | NullPointerException ignore) {
 			try {
 				final UUID uuid = UUID.fromString(referenceFile.getName());
 				createTime = GUIDUtils.epochTime(uuid);
 				return createTime;
 			}
-			catch (@SuppressWarnings("unused") final Throwable t) {
+			catch (@SuppressWarnings("unused")
+			final Throwable t) {
 				// if everything else fails use as last resort the start time of the interval, normally these two are the same
 				return startTime;
 			}
@@ -225,6 +348,10 @@ class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion> {
 		return 0;
 	}
 
+	/**
+	 * @param endTime
+	 *            the new end validity interval
+	 */
 	public void setValidityLimit(final long endTime) {
 		this.endTime = endTime;
 		this.completeEndTime = true;
