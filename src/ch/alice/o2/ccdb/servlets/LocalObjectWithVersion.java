@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -110,8 +111,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 				try {
 					this.endTime = Long.parseLong(validUntil);
 				}
-				catch (@SuppressWarnings("unused")
-				final NumberFormatException nfe) {
+				catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 					System.err.println("Invalid timestamp format for " + refFilePath);
 				}
 			}
@@ -254,8 +254,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 			try (FileReader reader = new FileReader(referenceFile.getAbsolutePath() + ".properties")) {
 				objectProperties.load(reader);
 			}
-			catch (@SuppressWarnings("unused")
-			final IOException e) {
+			catch (@SuppressWarnings("unused") final IOException e) {
 				// .properties file is missing
 			}
 		}
@@ -318,15 +317,13 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 		try {
 			createTime = Long.parseLong(getProperty("CreateTime"));
 		}
-		catch (@SuppressWarnings("unused")
-				NumberFormatException | NullPointerException ignore) {
+		catch (@SuppressWarnings("unused") NumberFormatException | NullPointerException ignore) {
 			try {
 				final UUID uuid = UUID.fromString(referenceFile.getName());
 				createTime = GUIDUtils.epochTime(uuid);
 				return createTime;
 			}
-			catch (@SuppressWarnings("unused")
-			final Throwable t) {
+			catch (@SuppressWarnings("unused") final Throwable t) {
 				// if everything else fails use as last resort the start time of the interval, normally these two are the same
 				return startTime;
 			}
@@ -360,5 +357,29 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 
 		if (validityInterval != null)
 			validityInterval.put(referenceFile.getAbsolutePath(), Long.valueOf(this.endTime), 1000 * 60 * 60);
+	}
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder();
+
+		sb.append("ID: ").append(getID()).append('\n');
+		sb.append("Path: ").append(getPath()).append('\n');
+		sb.append("Validity: ").append(getStartTime()).append(" - ").append(getEndTime()).append(" (").append(new Date(getStartTime())).append(" - ").append(new Date(getEndTime())).append(")\n");
+		sb.append("Initial validity limit: ").append(getInitialValidity()).append(" (").append(new Date(getInitialValidity())).append(")\n");
+		sb.append("Created: ").append(createTime).append(" (").append(new Date(createTime)).append(")\n");
+		sb.append("Last modified: ").append(getLastModified()).append(" (").append(new Date(getLastModified())).append(")\n");
+		sb.append("Original file: ").append(getOriginalName()).append(", size: ").append(getSize()).append(", md5: ").append(getProperty("Content-MD5"));
+		sb.append(", content type: ").append(getProperty("Content-Type", "application/octet-stream")).append('\n');
+		sb.append("Uploaded from: ").append(getProperty("UploadedFrom")).append('\n');
+
+		if (objectProperties != null && objectProperties.size() > 0) {
+			sb.append("Metadata:\n");
+
+			for (final Object key : objectProperties.keySet())
+				sb.append("  ").append(key.toString()).append(" = ").append(objectProperties.getProperty(key.toString())).append('\n');
+		}
+
+		return sb.toString();
 	}
 }
