@@ -90,7 +90,6 @@ public class AsyncReplication extends Thread {
 				if (target != null)
 					target.run();
 			} catch (final InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

@@ -80,7 +80,6 @@ public class EmbeddedTomcat extends Tomcat {
 
 	@Override
 	public void start() throws LifecycleException {
-		// TODO Auto-generated method stub
 		super.start();
 		if (getService().findConnectors()[0].getState() == LifecycleState.FAILED) {
 			System.err.println("Failed to start the embedded Tomcat listening on " + address + ":" + port + ".");

@@ -35,7 +35,6 @@ public class AsyncPhyisicalRemovalThread extends Thread {
 				if (object != null)
 					deleteReplicas(object);
 			} catch (final InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
