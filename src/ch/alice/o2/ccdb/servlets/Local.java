@@ -1,12 +1,13 @@
 package ch.alice.o2.ccdb.servlets;
 
+import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.util.AbstractMap;
@@ -545,24 +546,6 @@ public class Local extends HttpServlet {
 		response.sendError(HttpServletResponse.SC_NO_CONTENT);
 	}
 
-	private static void printUsage(final HttpServletRequest request, final HttpServletResponse response) throws IOException {
-		response.setContentType("text/plain");
-
-		try (PrintWriter pw = response.getWriter()) {
-			pw.append("Usage:\n\n");
-			pw.append("GET:\n  task name / detector name / start time / <UUID> - return the content of that UUID, or\n  task name / detector name / [ / time [ / key = value]* ]\n\n");
-			pw.append("POST:\n  task name / detector name / start time [ / end time ] [ / UUID ] [ / key = value ]*\n  binary blob as multipart parameter called 'blob'\n\n");
-			pw.append("PUT:\n  task name / detector name / start time [ / new end time ] [ / UUID ] [? (key=newvalue&)* ]\n\n");
-			pw.append("DELETE:\n  task name / detector name / start time / UUID\n  or any other selection string, the matching object will be deleted\n\n");
-			pw.append("Was called with:\n  servlet path: " + request.getServletPath());
-			pw.append("\n  context path: " + request.getContextPath());
-			pw.append("\n  HTTP method: " + request.getMethod());
-			pw.append("\n  path info: " + request.getPathInfo());
-			pw.append("\n  query string: " + request.getQueryString());
-			pw.append("\n  request URI: " + request.getRequestURI());
-		}
-	}
-
 	private static LocalObjectWithVersion getMatchingObject(final RequestParser parser) {
 		final File fBaseDir = new File(Local.basePath + "/" + parser.path);
 
@@ -588,7 +571,7 @@ public class Local extends HttpServlet {
 		for (final File fInterval : baseDirListing)
 			try {
 				final long lValidityStart = Long.parseLong(fInterval.getName());
-				
+
 				if (parser.startTimeSet && lValidityStart < parser.startTime)
 					continue;
 

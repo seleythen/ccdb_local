@@ -1,10 +1,11 @@
 package ch.alice.o2.ccdb.servlets;
 
+import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -49,7 +50,8 @@ public class SQLBacked extends HttpServlet {
 
 		try {
 			doGet(request, response, true);
-		} finally {
+		}
+		finally {
 			monitor.addMeasurement("HEAD_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
@@ -60,7 +62,8 @@ public class SQLBacked extends HttpServlet {
 
 		try {
 			doGet(request, response, false);
-		} finally {
+		}
+		finally {
 			monitor.addMeasurement("GET_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
@@ -184,7 +187,8 @@ public class SQLBacked extends HttpServlet {
 
 			try {
 				md5 = MessageDigest.getInstance("MD5");
-			} catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
+			}
+			catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
 				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot initialize the MD5 digester");
 				return;
 			}
@@ -201,7 +205,8 @@ public class SQLBacked extends HttpServlet {
 					md5.update(buffer, 0, n);
 					newObject.size += n;
 				}
-			} catch (@SuppressWarnings("unused") final IOException ioe) {
+			}
+			catch (@SuppressWarnings("unused") final IOException ioe) {
 				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot upload the blob to the local file " + targetFile.getAbsolutePath());
 				targetFile.delete();
 				return;
@@ -237,7 +242,8 @@ public class SQLBacked extends HttpServlet {
 			response.setHeader("Content-Location", location);
 
 			response.sendError(HttpServletResponse.SC_CREATED);
-		} finally {
+		}
+		finally {
 			monitor.addMeasurement("POST_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
@@ -278,7 +284,8 @@ public class SQLBacked extends HttpServlet {
 				response.sendError(HttpServletResponse.SC_NO_CONTENT);
 			else
 				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
-		} finally {
+		}
+		finally {
 			monitor.addMeasurement("PUT_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
@@ -312,27 +319,9 @@ public class SQLBacked extends HttpServlet {
 			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 
 			AsyncPhyisicalRemovalThread.deleteReplicas(matchingObject);
-		} finally {
-			monitor.addMeasurement("DELETE_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
-	}
-
-	private static void printUsage(final HttpServletRequest request, final HttpServletResponse response) throws IOException {
-		response.setContentType("text/plain");
-
-		try (PrintWriter pw = response.getWriter()) {
-			pw.append("Usage of /*:\n\n");
-			pw.append("GET:\n  task name / detector name / start time / <UUID> - return the content of that UUID, or\n  task name / detector name / [ / time [ / key = value]* ]\n\n");
-			pw.append("POST:\n  task name / detector name / start time [ / end time ] [ / UUID ] [ / key = value ]*\n  binary blob as multipart parameter called 'blob'\n\n");
-			pw.append("PUT:\n  task name / detector name / start time [ / new end time ] [ / UUID ] [? (key=newvalue&)* ]\n\n");
-			pw.append("DELETE:\n  task name / detector name / start time / UUID\n  or any other selection string, the matching object will be deleted\n\n");
-			pw.append("Was called with:\n  servlet path: " + request.getServletPath());
-			pw.append("\n  context path: " + request.getContextPath());
-			pw.append("\n  HTTP method: " + request.getMethod());
-			pw.append("\n  path info: " + request.getPathInfo());
-			pw.append("\n  query string: " + request.getQueryString());
-			pw.append("\n  request URI: " + request.getRequestURI());
-			pw.append("\n");
+		finally {
+			monitor.addMeasurement("DELETE_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 
@@ -356,7 +345,8 @@ public class SQLBacked extends HttpServlet {
 			}
 
 			setHeaders(matchingObject, response);
-		} finally {
+		}
+		finally {
 			monitor.addMeasurement("OPTIONS_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
