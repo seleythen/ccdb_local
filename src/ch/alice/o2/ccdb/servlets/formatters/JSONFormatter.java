@@ -12,7 +12,6 @@ import lazyj.Format;
  * @since 2018-04-26
  */
 public class JSONFormatter implements SQLFormatter {
-
 	@Override
 	public void header(final PrintWriter writer) {
 		writer.print("\"objects\":[\n");
@@ -101,7 +100,13 @@ public class JSONFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void subfoldersListingFooter(final PrintWriter writer) {
+	public void subfoldersListing(final PrintWriter writer, final String path, final String url, final long ownCount, final long ownSize, final long subfolderCount, final long subfolderSize) {
+		// TODO implement its own extended listing
+		subfoldersListing(writer, path, url);
+	}
+
+	@Override
+	public void subfoldersListingFooter(final PrintWriter writer, final long ownCount, final long ownSize) {
 		writer.write("]\n");
 	}
 
@@ -112,11 +117,11 @@ public class JSONFormatter implements SQLFormatter {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see ch.alice.o2.ccdb.servlets.formatters.SQLFormatter#format(java.io.PrintWriter, ch.alice.o2.ccdb.servlets.LocalObjectWithVersion)
 	 */
 	@Override
-	public void format(PrintWriter writer, LocalObjectWithVersion obj) {
+	public void format(final PrintWriter writer, final LocalObjectWithVersion obj) {
 		writer.print("{\n  \"id\":\"");
 		writer.print(Format.escJS(obj.getID()));
 
@@ -166,5 +171,10 @@ public class JSONFormatter implements SQLFormatter {
 		writer.print("\"");
 
 		writer.print("\n}");
+	}
+
+	@Override
+	public void setExtendedReport(final boolean extendedReport) {
+		// Extended reporting not implemented for JSON dump
 	}
 }

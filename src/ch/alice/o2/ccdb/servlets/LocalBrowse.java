@@ -140,7 +140,7 @@ public class LocalBrowse extends HttpServlet {
 						}
 					}
 
-				formatter.subfoldersListingFooter(pw);
+				formatter.subfoldersListingFooter(pw, 0, 0);
 			}
 
 			formatter.end(pw);

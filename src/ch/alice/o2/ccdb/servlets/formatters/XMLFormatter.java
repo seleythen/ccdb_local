@@ -12,7 +12,6 @@ import lazyj.Format;
  * @since 2018-04-26
  */
 public class XMLFormatter implements SQLFormatter {
-
 	@Override
 	public void header(final PrintWriter writer) {
 		writer.print("<objects>\n");
@@ -102,7 +101,13 @@ public class XMLFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void subfoldersListingFooter(final PrintWriter writer) {
+	public void subfoldersListing(final PrintWriter writer, final String path, final String url, final long ownCount, final long ownSize, final long subfolderCount, final long subfolderSize) {
+		subfoldersListing(writer, path, url);
+		// TODO actual implementation of extended listing
+	}
+
+	@Override
+	public void subfoldersListingFooter(final PrintWriter writer, final long ownCount, final long ownSize) {
 		writer.println("</folders>");
 	}
 
@@ -113,11 +118,11 @@ public class XMLFormatter implements SQLFormatter {
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see ch.alice.o2.ccdb.servlets.formatters.SQLFormatter#format(java.io.PrintWriter, ch.alice.o2.ccdb.servlets.LocalObjectWithVersion)
 	 */
 	@Override
-	public void format(PrintWriter writer, LocalObjectWithVersion obj) {
+	public void format(final PrintWriter writer, final LocalObjectWithVersion obj) {
 		writer.print("<object id='");
 		writer.print(Format.escHtml(obj.getID()));
 
@@ -168,5 +173,10 @@ public class XMLFormatter implements SQLFormatter {
 		writer.print("'/>\n");
 
 		writer.print("</object>\n");
+	}
+
+	@Override
+	public void setExtendedReport(final boolean extendedReport) {
+		// Extended report not implemented for XML dump
 	}
 }

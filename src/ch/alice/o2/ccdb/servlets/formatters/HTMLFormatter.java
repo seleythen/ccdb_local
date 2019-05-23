@@ -14,6 +14,8 @@ import lazyj.Format;
  */
 public class HTMLFormatter implements SQLFormatter {
 
+	private boolean extendedReport = false;
+
 	@Override
 	public void header(final PrintWriter writer) {
 		writer.print(
@@ -178,7 +180,12 @@ public class HTMLFormatter implements SQLFormatter {
 
 	@Override
 	public void subfoldersListingHeader(final PrintWriter writer) {
-		writer.write("<br><br><table style='font-size:10px' border=1 cellspacing=0 cellpadding=2><thead><tr><th>Subfolder</th></tr>\n");
+		writer.write("<br><br><table style='font-size:10px' border=1 cellspacing=0 cellpadding=2><thead><tr><th>Subfolder</th>");
+
+		if (extendedReport)
+			writer.write("<th>Own objects</th><th>Own size</th><th>Subfolder objects</th><th>Subfolder total size</th>");
+
+		writer.write("</tr></thead>\n");
 	}
 
 	@Override
@@ -190,13 +197,59 @@ public class HTMLFormatter implements SQLFormatter {
 		writer.write("</a></td></tr>\n");
 	}
 
+	private long objectCount = 0;
+	private long objectSize = 0;
+
 	@Override
-	public void subfoldersListingFooter(final PrintWriter writer) {
+	public void subfoldersListing(final PrintWriter writer, final String path, final String url, final long ownCount, final long ownSize, final long subfolderCount, final long subfolderSize) {
+		writer.write("<tr><td><a href='/browse/");
+		writer.write(Format.escHtml(url));
+		writer.write("?report=true'>");
+		writer.write(Format.escHtml(path));
+		writer.write("</a></td>");
+
+		if (extendedReport) {
+			writer.write("<td align=right>");
+			writer.write(ownCount > 0 ? String.valueOf(ownCount) : "-");
+			writer.write("</td><td align=right>");
+			writer.write(ownSize > 0 ? Format.size(ownSize) : "-");
+			writer.write("</td><td align=right>");
+			writer.write(subfolderCount > 0 ? String.valueOf(subfolderCount) : "-");
+			writer.write("</td><td align=right>");
+			writer.write(subfolderSize > 0 ? Format.size(subfolderSize) : "-");
+			writer.write("</td>");
+		}
+
+		objectCount += ownCount + subfolderCount;
+		objectSize += ownSize + subfolderSize;
+
+		writer.write("</tr>\n");
+	}
+
+	@Override
+	public void subfoldersListingFooter(final PrintWriter writer, final long ownCount, final long ownSize) {
+		if (extendedReport) {
+			writer.write("<tfoot><tr><th>TOTAL</th><th align=right>");
+			writer.write(ownCount > 0 ? String.valueOf(ownCount) : "-");
+			writer.write("</th><th align=right>");
+			writer.write(ownSize > 0 ? Format.size(ownSize) : "-");
+			writer.write("</th><th align=right>");
+			writer.write(objectCount > 0 ? String.valueOf(objectCount) : "-");
+			writer.write("</th><th align=right>");
+			writer.write(objectSize > 0 ? Format.size(objectSize) : "-");
+			writer.write("</th></tfoot>");
+		}
+
 		writer.write("</table>\n");
 	}
 
 	@Override
 	public void end(final PrintWriter writer) {
 		writer.write("</html>");
+	}
+
+	@Override
+	public void setExtendedReport(final boolean extendedReport) {
+		this.extendedReport = extendedReport;
 	}
 }

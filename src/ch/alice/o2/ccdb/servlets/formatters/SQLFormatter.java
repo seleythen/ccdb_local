@@ -80,11 +80,26 @@ public interface SQLFormatter {
 	public void subfoldersListing(PrintWriter writer, String path, String url);
 
 	/**
+	 * One subpath, for extended reports
+	 *
+	 * @param writer
+	 * @param path
+	 * @param url
+	 * @param ownCount number of objects stored in this particular folder
+	 * @param ownSize total size of the objects in this folder directly
+	 * @param subfolderCount number of objects in all of its subfolders
+	 * @param subfolderSize size of all objects in all its subfolders
+	 */
+	public void subfoldersListing(PrintWriter writer, String path, String url, long ownCount, long ownSize, long subfolderCount, long subfolderSize);
+
+	/**
 	 * End of subfolders listing
 	 *
 	 * @param writer
+	 * @param ownCount objects in this folder
+	 * @param ownSize total size of objects in this folder
 	 */
-	public void subfoldersListingFooter(PrintWriter writer);
+	public void subfoldersListingFooter(PrintWriter writer, long ownCount, long ownSize);
 
 	/**
 	 * End of document
@@ -92,4 +107,11 @@ public interface SQLFormatter {
 	 * @param writer
 	 */
 	public void end(PrintWriter writer);
+
+	/**
+	 * Set the extended report flag. When set the browsing will include size and count of objects in the given path and all its subfolders.
+	 *
+	 * @param extendedReport
+	 */
+	public void setExtendedReport(boolean extendedReport);
 }
