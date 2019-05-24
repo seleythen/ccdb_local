@@ -11,7 +11,7 @@ import ch.alice.o2.ccdb.servlets.SQLDownload;
 import ch.alice.o2.ccdb.servlets.SQLTruncate;
 
 /**
- * Start an embedded Tomcat with the local servlet mapping (*:8080/Local/) by default
+ * Start an embedded Tomcat with the SQL servlet mapping (*:8080/) by default
  *
  * @author costing
  * @since 2017-10-13
@@ -27,7 +27,8 @@ public class SQLBackedTomcat {
 
 		try {
 			tomcat = new EmbeddedTomcat("*");
-		} catch (final ServletException se) {
+		}
+		catch (final ServletException se) {
 			System.err.println("Cannot create the Tomcat server: " + se.getMessage());
 			return;
 		}
@@ -42,7 +43,8 @@ public class SQLBackedTomcat {
 		// Start the server
 		try {
 			tomcat.start();
-		} catch (final LifecycleException le) {
+		}
+		catch (final LifecycleException le) {
 			System.err.println("Cannot start the Tomcat server: " + le.getMessage());
 			return;
 		}
