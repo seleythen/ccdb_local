@@ -35,8 +35,8 @@ public class SQLStatsExporter implements MonitoringObject {
 				paramValues.add(Double.valueOf(pathObjectSize));
 			}
 
-			paramNames.add("_TOTAL__count");
-			paramNames.add("_TOTAL__size");
+			paramNames.add("_TOTALS__count");
+			paramNames.add("_TOTALS__size");
 
 			paramValues.add(Double.valueOf(totalCount));
 			paramValues.add(Double.valueOf(totalSize));
