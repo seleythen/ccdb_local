@@ -39,6 +39,10 @@ public class SQLBacked extends HttpServlet {
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLBacked.class.getCanonicalName());
 
+	static {
+		monitor.addMonitoring("stats", new SQLStatsExporter());
+	}
+
 	/**
 	 * The base path of the file repository
 	 */
@@ -383,9 +387,48 @@ public class SQLBacked extends HttpServlet {
 				}
 
 				System.err.println("Database connection is verified to work");
+
+				db.query("CREATE TABLE IF NOT EXISTS ccdb_stats (pathid int primary key, object_count bigint default 0, object_size bigint default 0);");
+
+				db.query("SELECT count(1) FROM ccdb_stats;");
+
+				if (db.geti(1) == 0)
+					recomputeStatistics();
+
+				db.query("CREATE OR REPLACE FUNCTION ccdb_increment() RETURNS TRIGGER AS $_$\n" +
+						"    BEGIN\n" +
+						"        INSERT INTO \n" +
+						"            ccdb_stats (pathid, object_count, object_size) VALUES (NEW.pathid, 1, NEW.size)\n" +
+						"        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" +
+						"\n" +
+						"        INSERT INTO\n" +
+						"            ccdb_stats (pathid, object_count, object_size) VALUES (0, 1, NEW.size)\n" +
+						"        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" +
+						"\n" +
+						"        RETURN NEW;\n" +
+						"    END\n" +
+						"$_$ LANGUAGE 'plpgsql';");
+
+				db.query("CREATE OR REPLACE FUNCTION ccdb_decrement() RETURNS TRIGGER AS $_$\n" +
+						"    BEGIN\n" +
+						"        UPDATE ccdb_stats SET object_count=object_count-1, object_size=object_size-OLD.size WHERE pathid IN (0, OLD.pathid);\n" +
+						"        RETURN NEW;\n" +
+						"    END\n" +
+						"$_$ LANGUAGE 'plpgsql';");
+
+				db.query("CREATE TRIGGER ccdb_increment_trigger AFTER INSERT ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_increment();", true);
+				db.query("CREATE TRIGGER ccdb_decrement_trigger AFTER DELETE ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_decrement();", true);
 			}
 			else
 				throw new IllegalArgumentException("Only PostgreSQL support is implemented at the moment");
+		}
+	}
+
+	private static void recomputeStatistics() {
+		try (DBFunctions db = SQLObject.getDB()) {
+			db.query("TRUNCATE ccdb_stats;");
+			db.query("INSERT INTO ccdb_stats SELECT pathid, count(1), sum(size) FROM ccdb GROUP BY 1;");
+			db.query("INSERT INTO ccdb_stats SELECT 0, sum(object_count), sum(object_size) FROM ccdb_stats WHERE pathid!=0;");
 		}
 	}
 }

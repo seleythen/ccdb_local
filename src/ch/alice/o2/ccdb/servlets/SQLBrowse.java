@@ -153,12 +153,12 @@ public class SQLBrowse extends HttpServlet {
 
 						if (sizeReport) {
 							try (DBFunctions db2 = SQLObject.getDB()) {
-								db2.query("SELECT count(1), sum(size) FROM ccdb WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path='" + prefix + db.gets(1) + "');");
+								db2.query("SELECT object_count, object_size FROM ccdb_stats WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path='" + prefix + db.gets(1) + "');");
 
 								final long ownCount = db2.getl(1);
 								final long ownSize = db2.getl(2);
 
-								db2.query("SELECT count(1), sum(size) FROM ccdb WHERE pathid IN (SELECT pathid FROM ccdb_paths WHERE path LIKE '" + prefix + db.gets(1) + "/%');");
+								db2.query("SELECT sum(object_count), sum(object_size) FROM ccdb_stats WHERE pathid IN (SELECT pathid FROM ccdb_paths WHERE path LIKE '" + prefix + db.gets(1) + "/%');");
 
 								final long subfoldersCount = db2.getl(1);
 								final long subfoldersSize = db2.getl(2);
@@ -171,7 +171,7 @@ public class SQLBrowse extends HttpServlet {
 					}
 
 					if (sizeReport) {
-						db.query("SELECT count(1), sum(size) FROM ccdb WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path='" + parser.path + "');");
+						db.query("SELECT object_count, object_size FROM ccdb_stats WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path='" + parser.path + "');");
 
 						thisFolderCount = db.getl(1);
 						thisFolderSize = db.getl(2);
