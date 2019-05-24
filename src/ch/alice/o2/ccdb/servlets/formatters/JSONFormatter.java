@@ -65,7 +65,7 @@ public class JSONFormatter implements SQLFormatter {
 			writer.print(",\n  \"replica");
 			writer.print(replica);
 			writer.print("\":\"");
-			writer.print(Format.escHtml(obj.getAddress(replica)));
+			writer.print(Format.escJS(obj.getAddress(replica)));
 			writer.print("\"");
 		}
 
@@ -141,7 +141,7 @@ public class JSONFormatter implements SQLFormatter {
 		writer.print(obj.getLastModified());
 
 		writer.print("\",\n  \"MD5\":\"");
-		writer.print(obj.getProperty("Content-MD5"));
+		writer.print(Format.escJS(obj.getProperty("Content-MD5")));
 
 		writer.print("\",\n  \"fileName\":\"");
 		writer.print(Format.escJS(obj.getOriginalName()));
@@ -167,7 +167,7 @@ public class JSONFormatter implements SQLFormatter {
 		writer.print(",\n  \"replica");
 		writer.print(0);
 		writer.print("\":\"");
-		writer.print(Format.escHtml(obj.getPath()));
+		writer.print(Format.escJS(obj.getPath()));
 		writer.print("\"");
 
 		writer.print("\n}");

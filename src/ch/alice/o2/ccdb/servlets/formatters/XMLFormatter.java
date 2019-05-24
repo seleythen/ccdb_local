@@ -38,7 +38,7 @@ public class XMLFormatter implements SQLFormatter {
 		writer.print(obj.getLastModified());
 
 		writer.print("' md5='");
-		writer.print(obj.md5);
+		writer.print(Format.escHtml(obj.md5));
 
 		writer.print("' fileName='");
 		writer.print(Format.escHtml(obj.fileName));
@@ -142,7 +142,7 @@ public class XMLFormatter implements SQLFormatter {
 		writer.print(obj.getLastModified());
 
 		writer.print("' md5='");
-		writer.print(obj.getProperty("Content-MD5"));
+		writer.print(Format.escHtml(obj.getProperty("Content-MD5")));
 
 		writer.print("' fileName='");
 		writer.print(Format.escHtml(obj.getOriginalName()));

@@ -58,7 +58,7 @@ public class HTMLFormatter implements SQLFormatter {
 		writer.print(Format.showDate(dLastModified));
 
 		writer.print("</td><td align=center nowrap>");
-		writer.print(obj.md5);
+		writer.print(Format.escHtml(obj.md5));
 
 		writer.print("</td><td align=right nowrap>");
 		writer.print(Format.escHtml(obj.fileName));
