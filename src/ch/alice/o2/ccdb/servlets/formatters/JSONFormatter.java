@@ -41,23 +41,23 @@ public class JSONFormatter implements SQLFormatter {
 		writer.print(obj.md5);
 
 		writer.print("\",\n  \"fileName\":\"");
-		writer.print(Format.escJS(obj.fileName));
+		writer.print(Format.escJSON(obj.fileName));
 
 		writer.print("\",\n  \"contentType\":\"");
-		writer.print(Format.escJS(obj.contentType));
+		writer.print(Format.escJSON(obj.contentType));
 
 		writer.print("\",\n  \"size\":\"");
 		writer.print(obj.size);
 
 		writer.print("\",\n  \"path\":\"");
-		writer.print(Format.escJS(obj.getPath()));
+		writer.print(Format.escJSON(obj.getPath()));
 
 		writer.print("\"");
 		for (final Map.Entry<Integer, String> entry : obj.metadata.entrySet()) {
 			writer.print(",\n  \"");
-			writer.print(Format.escJS(SQLObject.getMetadataString(entry.getKey())));
+			writer.print(Format.escJSON(SQLObject.getMetadataString(entry.getKey())));
 			writer.print("\":\"");
-			writer.print(Format.escJS(entry.getValue()));
+			writer.print(Format.escJSON(entry.getValue()));
 			writer.print("\"");
 		}
 
@@ -65,7 +65,7 @@ public class JSONFormatter implements SQLFormatter {
 			writer.print(",\n  \"replica");
 			writer.print(replica);
 			writer.print("\":\"");
-			writer.print(Format.escJS(obj.getAddress(replica)));
+			writer.print(Format.escJSON(obj.getAddress(replica)));
 			writer.print("\"");
 		}
 
@@ -95,7 +95,7 @@ public class JSONFormatter implements SQLFormatter {
 	@Override
 	public void subfoldersListing(final PrintWriter writer, final String path, final String url) {
 		writer.write("\"");
-		writer.write(Format.escJS(path));
+		writer.write(Format.escJSON(path));
 		writer.write("\"");
 	}
 
@@ -123,7 +123,7 @@ public class JSONFormatter implements SQLFormatter {
 	@Override
 	public void format(final PrintWriter writer, final LocalObjectWithVersion obj) {
 		writer.print("{\n  \"id\":\"");
-		writer.print(Format.escJS(obj.getID()));
+		writer.print(Format.escJSON(obj.getID()));
 
 		writer.print("\",\n  \"validFrom\":\"");
 		writer.print(obj.getStartTime());
@@ -141,33 +141,33 @@ public class JSONFormatter implements SQLFormatter {
 		writer.print(obj.getLastModified());
 
 		writer.print("\",\n  \"MD5\":\"");
-		writer.print(Format.escJS(obj.getProperty("Content-MD5")));
+		writer.print(Format.escJSON(obj.getProperty("Content-MD5")));
 
 		writer.print("\",\n  \"fileName\":\"");
-		writer.print(Format.escJS(obj.getOriginalName()));
+		writer.print(Format.escJSON(obj.getOriginalName()));
 
 		writer.print("\",\n  \"contentType\":\"");
-		writer.print(Format.escJS(obj.getProperty("Content-Type", "application/octet-stream")));
+		writer.print(Format.escJSON(obj.getProperty("Content-Type", "application/octet-stream")));
 
 		writer.print("\",\n  \"size\":\"");
 		writer.print(obj.getSize());
 
 		writer.print("\",\n  \"path\":\"");
-		writer.print(Format.escJS(obj.getPath()));
+		writer.print(Format.escJSON(obj.getPath()));
 
 		writer.print("\"");
 		for (final Object key : obj.getPropertiesKeys()) {
 			writer.print(",\n  \"");
-			writer.print(Format.escJS(key.toString()));
+			writer.print(Format.escJSON(key.toString()));
 			writer.print("\":\"");
-			writer.print(Format.escJS(obj.getProperty(key.toString())));
+			writer.print(Format.escJSON(obj.getProperty(key.toString())));
 			writer.print("\"");
 		}
 
 		writer.print(",\n  \"replica");
 		writer.print(0);
 		writer.print("\":\"");
-		writer.print(Format.escJS(obj.getPath()));
+		writer.print(Format.escJSON(obj.getPath()));
 		writer.print("\"");
 
 		writer.print("\n}");
