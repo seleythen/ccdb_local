@@ -1,6 +1,5 @@
 package ch.alice.o2.ccdb.webserver;
 
-import java.io.File;
 import java.util.logging.LogManager;
 
 import javax.servlet.ServletException;
@@ -57,13 +56,10 @@ public class EmbeddedTomcat extends Tomcat {
 		getConnector().setProperty("connectionTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 10000))); // clients should be quick
 
 		getConnector().setProperty("disableUploadTimeout", "false");
-		getConnector().setProperty("connectionUploadTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 300000))); // 5 minutes max to upload an object
-
+		getConnector().setProperty("connectionUploadTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 300000))); // 5 minutes max to upload an object		
+		
 		// Add a dummy ROOT context
-		ctx = (StandardContext) addWebapp("", new File(System.getProperty("java.io.tmpdir")).getAbsolutePath());
-
-		// disable per context work directories too
-		ctx.setWorkDir(".");
+		ctx = (StandardContext) addContext("", null);
 	}
 
 	/**
