@@ -154,11 +154,11 @@ public class XMLFormatter implements SQLFormatter {
 		writer.print(obj.getSize());
 
 		writer.print("'  path='");
-		writer.print(Format.escHtml(obj.getPath()));
+		writer.print(Format.escHtml(obj.getFolder()));
 
 		writer.print("'>\n");
 
-		for (final Object key : obj.getPropertiesKeys()) {
+		for (final Object key : obj.getUserPropertiesKeys()) {
 			writer.print("  <metadata key='");
 			writer.print(Format.escHtml(key.toString()));
 			writer.print("' value='");

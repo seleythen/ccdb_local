@@ -142,10 +142,10 @@ public class HTMLFormatter implements SQLFormatter {
 		writer.print(obj.getSize());
 
 		writer.print("</td><td align=left nowrap>");
-		writer.print(Format.escHtml(obj.getPath()));
+		writer.print(Format.escHtml(obj.getFolder()));
 
 		writer.print("</td><td align=left><dl>");
-		for (final Object key : obj.getPropertiesKeys()) {
+		for (final Object key : obj.getUserPropertiesKeys()) {
 			writer.print("<dt>");
 			writer.print(Format.escHtml(key.toString()));
 			writer.print("</dt><dd>");

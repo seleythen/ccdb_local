@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -181,6 +182,25 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 		return objectProperties.keySet();
 	}
 
+	private static final Set<String> DEFAULT_KEYS = Set.of("InitialValidityLimit", "OriginalFileName", "CreateTime", "Last-Modified", "Content-Type", "File-Size", "Content-MD5", "ValidUntil",
+			"UploadedFrom", "UpdatedFrom");
+
+	/**
+	 * @return the user-defined keys, ignoring all the default set ones
+	 */
+	public Set<String> getUserPropertiesKeys() {
+		final Set<String> ret = new LinkedHashSet<>();
+
+		for (final Object oKey : getPropertiesKeys()) {
+			final String sKey = oKey.toString();
+
+			if (!DEFAULT_KEYS.contains(sKey))
+				ret.add(sKey);
+		}
+
+		return ret;
+	}
+
 	/**
 	 * @return the original file name, as uploaded by the client.
 	 */
@@ -234,10 +254,10 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	}
 
 	/**
-	 * @return relative path to the folder storing this file
+	 * @return the folder to which this object belongs
 	 */
-	public String getPath() {
-		String path = referenceFile.getPath().substring(Local.basePath.length() + 1);
+	public String getFolder() {
+		String path = getPath();
 
 		int idx = path.lastIndexOf('/');
 
@@ -245,9 +265,16 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 			idx = path.lastIndexOf('/', idx - 1);
 
 		if (idx >= 0)
-			path = path.substring(0, idx);
+			path = path.substring(1, idx);
 
 		return path;
+	}
+
+	/**
+	 * @return relative path to the folder storing this file
+	 */
+	public String getPath() {
+		return referenceFile.getPath().substring(Local.basePath.length());
 	}
 
 	/**
@@ -378,7 +405,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 		sb.append("Path: ").append(getPath()).append('\n');
 		sb.append("Validity: ").append(getStartTime()).append(" - ").append(getEndTime()).append(" (").append(new Date(getStartTime())).append(" - ").append(new Date(getEndTime())).append(")\n");
 		sb.append("Initial validity limit: ").append(getInitialValidity()).append(" (").append(new Date(getInitialValidity())).append(")\n");
-		sb.append("Created: ").append(createTime).append(" (").append(new Date(createTime)).append(")\n");
+		sb.append("Created: ").append(getCreateTime()).append(" (").append(new Date(getCreateTime())).append(")\n");
 		sb.append("Last modified: ").append(getLastModified()).append(" (").append(new Date(getLastModified())).append(")\n");
 		sb.append("Original file: ").append(getOriginalName()).append(", size: ").append(getSize()).append(", md5: ").append(getProperty("Content-MD5"));
 		sb.append(", content type: ").append(getProperty("Content-Type", "application/octet-stream")).append('\n');
@@ -387,8 +414,8 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 		if (objectProperties != null && objectProperties.size() > 0) {
 			sb.append("Metadata:\n");
 
-			for (final Object key : objectProperties.keySet())
-				sb.append("  ").append(key.toString()).append(" = ").append(objectProperties.getProperty(key.toString())).append('\n');
+			for (final String key : getUserPropertiesKeys())
+				sb.append("  ").append(key).append(" = ").append(objectProperties.getProperty(key)).append('\n');
 		}
 
 		return sb.toString();

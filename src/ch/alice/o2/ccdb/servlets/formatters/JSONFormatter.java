@@ -153,10 +153,10 @@ public class JSONFormatter implements SQLFormatter {
 		writer.print(obj.getSize());
 
 		writer.print("\",\n  \"path\":\"");
-		writer.print(Format.escJSON(obj.getPath()));
+		writer.print(Format.escJSON(obj.getFolder()));
 
 		writer.print("\"");
-		for (final Object key : obj.getPropertiesKeys()) {
+		for (final Object key : obj.getUserPropertiesKeys()) {
 			writer.print(",\n  \"");
 			writer.print(Format.escJSON(key.toString()));
 			writer.print("\":\"");
