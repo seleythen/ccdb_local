@@ -198,7 +198,8 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 
 		loadProperties();
 
-		search: for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
+		search:
+		for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
 			final String key = entry.getKey().trim();
 			final String value = entry.getValue().trim();
 
@@ -236,7 +237,17 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	 * @return relative path to the folder storing this file
 	 */
 	public String getPath() {
-		return referenceFile.getPath().substring(Local.basePath.length());
+		String path = referenceFile.getPath().substring(Local.basePath.length() + 1);
+
+		int idx = path.lastIndexOf('/');
+
+		if (idx >= 0)
+			idx = path.lastIndexOf('/', idx - 1);
+
+		if (idx >= 0)
+			path = path.substring(0, idx);
+
+		return path;
 	}
 
 	/**
