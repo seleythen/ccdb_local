@@ -136,7 +136,7 @@ public class LocalBrowse extends HttpServlet {
 
 							final String pathPrefix = parser.path.length() > 0 ? parser.path + "/" : "";
 
-							formatter.subfoldersListing(pw, "/" + pathPrefix + fSubdir.getName(), pathPrefix + fSubdir.getName() + suffix);
+							formatter.subfoldersListing(pw, pathPrefix + fSubdir.getName(), pathPrefix + fSubdir.getName() + suffix);
 						}
 					}
 
