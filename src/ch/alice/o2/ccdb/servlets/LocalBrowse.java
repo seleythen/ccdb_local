@@ -6,6 +6,8 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,7 +46,9 @@ public class LocalBrowse extends HttpServlet {
 
 		final RequestParser parser = new RequestParser(request, true);
 
-		final Collection<LocalObjectWithVersion> matchingObjects = getAllMatchingObjects(parser);
+		final List<LocalObjectWithVersion> matchingObjects = getAllMatchingObjects(parser);
+
+		Collections.sort(matchingObjects, (o1, o2) -> o1.getPath().compareTo(o2.getPath()));
 
 		String sContentType;
 		SQLFormatter formatter = null;
@@ -151,7 +155,7 @@ public class LocalBrowse extends HttpServlet {
 	 * @param parser
 	 * @return all matching objects given the parser constraints
 	 */
-	public static final Collection<LocalObjectWithVersion> getAllMatchingObjects(final RequestParser parser) {
+	public static final List<LocalObjectWithVersion> getAllMatchingObjects(final RequestParser parser) {
 		if (parser.path == null)
 			parser.path = "";
 
@@ -205,7 +209,7 @@ public class LocalBrowse extends HttpServlet {
 			matchingPattern = null;
 		}
 
-		final Collection<LocalObjectWithVersion> ret = new ArrayList<>();
+		final List<LocalObjectWithVersion> ret = new ArrayList<>();
 
 		recursiveMatching(parser, ret, fBaseDir, matchingPattern);
 
@@ -247,9 +251,6 @@ public class LocalBrowse extends HttpServlet {
 							ret.add(owv);
 					}
 				}
-
-				if (parser.latestFlag && mostRecent != null)
-					ret.add(mostRecent);
 			}
 			catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 				// When the subfolder is not a number then it can be another level of objects, to be inspected as well
@@ -268,5 +269,8 @@ public class LocalBrowse extends HttpServlet {
 					recursiveMatching(parser, ret, fInterval, matchingPattern);
 				}
 			}
+		
+		if (parser.latestFlag && mostRecent != null)
+			ret.add(mostRecent);
 	}
 }
