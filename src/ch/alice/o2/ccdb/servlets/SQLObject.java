@@ -563,9 +563,9 @@ public class SQLObject {
 
 		try (DBFunctions db = getDB()) {
 			if (pathPattern.contains("%"))
-				db.query("SELECT pathid FROM ccdb_paths WHERE path LIKE ?", false, pathPattern);
+				db.query("SELECT pathid FROM ccdb_paths WHERE path LIKE ? ORDER BY path;", false, pathPattern);
 			else
-				db.query("SELECT pathid FROM ccdb_paths WHERE path ~ ?", false, "^" + pathPattern);
+				db.query("SELECT pathid FROM ccdb_paths WHERE path ~ ? ORDER BY path;", false, "^" + pathPattern);
 
 			while (db.moveNext())
 				ret.add(Integer.valueOf(db.geti(1)));
