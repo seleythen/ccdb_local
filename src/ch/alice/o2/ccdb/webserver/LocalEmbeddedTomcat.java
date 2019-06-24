@@ -7,6 +7,7 @@ import org.apache.catalina.Wrapper;
 
 import ch.alice.o2.ccdb.servlets.Local;
 import ch.alice.o2.ccdb.servlets.LocalBrowse;
+import ch.alice.o2.ccdb.servlets.LocalTruncate;
 
 /**
  * Start an embedded Tomcat with the local servlet mapping (localhost:8080/Local/) by default
@@ -33,6 +34,7 @@ public class LocalEmbeddedTomcat {
 		final Wrapper browser = tomcat.addServlet(LocalBrowse.class.getName(), "/browse/*");
 		browser.addMapping("/latest/*");
 		tomcat.addServlet(Local.class.getName(), "/*");
+		tomcat.addServlet(LocalTruncate.class.getName(), "/truncate/*");
 
 		// Start the server
 		try {
