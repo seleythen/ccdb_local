@@ -20,8 +20,8 @@ import alien.se.SEUtils;
  * @author costing
  * @since 2018-06-08
  */
-public class AsyncPhyisicalRemovalThread extends Thread {
-	private AsyncPhyisicalRemovalThread() {
+public class AsyncPhysicalRemovalThread extends Thread {
+	private AsyncPhysicalRemovalThread() {
 		// singleton
 	}
 
@@ -42,11 +42,11 @@ public class AsyncPhyisicalRemovalThread extends Thread {
 
 	private final BlockingQueue<SQLObject> asyncPhysicalRemovalQueue = new LinkedBlockingQueue<>();
 
-	private static AsyncPhyisicalRemovalThread instance = null;
+	private static AsyncPhysicalRemovalThread instance = null;
 
-	static synchronized AsyncPhyisicalRemovalThread getInstance() {
+	static synchronized AsyncPhysicalRemovalThread getInstance() {
 		if (instance == null) {
-			instance = new AsyncPhyisicalRemovalThread();
+			instance = new AsyncPhysicalRemovalThread();
 			instance.start();
 		}
 

@@ -44,7 +44,7 @@ public class SQLTruncate extends HttpServlet {
 						return;
 					}
 
-					AsyncPhyisicalRemovalThread.queueDeletion(object);
+					AsyncPhysicalRemovalThread.queueDeletion(object);
 				}
 
 				response.setHeader("Deleted", matchingObjects.size() + " objects");

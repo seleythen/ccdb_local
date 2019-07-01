@@ -322,7 +322,7 @@ public class SQLBacked extends HttpServlet {
 
 			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 
-			AsyncPhyisicalRemovalThread.deleteReplicas(matchingObject);
+			AsyncPhysicalRemovalThread.deleteReplicas(matchingObject);
 		}
 		finally {
 			monitor.addMeasurement("DELETE_ms", (System.nanoTime() - lStart) / 1000000.);
