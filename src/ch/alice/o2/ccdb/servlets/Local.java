@@ -31,6 +31,9 @@ import javax.servlet.http.Part;
 
 import org.apache.tomcat.util.http.fileupload.IOUtils;
 
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
@@ -47,6 +50,8 @@ public class Local extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
 	private static Logger logger = Logger.getLogger(Local.class.getCanonicalName());
+
+	private static final Monitor monitor = MonitorFactory.getMonitor(Local.class.getCanonicalName());
 
 	/**
 	 * The base path of the file repository
@@ -118,12 +123,16 @@ public class Local extends HttpServlet {
 
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, true);
+		try (Timing t = new Timing(monitor, "HEAD_ms")) {
+			doGet(request, response, true);
+		}
 	}
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, false);
+		try (Timing t = new Timing(monitor, "GET_ms")) {
+			doGet(request, response, false);
+		}
 	}
 
 	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head) throws IOException {
@@ -415,135 +424,141 @@ public class Local extends HttpServlet {
 		// if end time is missing then it will be set to the same value as start time
 		// flags are in the form "key=value"
 
-		final RequestParser parser = new RequestParser(request);
+		try (Timing t = new Timing(monitor, "POST_ms")) {
+			final RequestParser parser = new RequestParser(request);
 
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
-		}
-
-		final Collection<Part> parts = request.getParts();
-
-		if (parts.size() == 0) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "POST request doesn't contain the data to upload");
-			return;
-		}
-
-		final File folder = new File(basePath + "/" + parser.path + "/" + parser.startTime);
-
-		if (!folder.exists())
-			if (!folder.mkdirs()) {
-				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot create path " + folder.getAbsolutePath());
+			if (!parser.ok) {
+				printUsage(request, response);
 				return;
 			}
 
-		final long newObjectTime = System.currentTimeMillis();
+			final Collection<Part> parts = request.getParts();
 
-		byte[] remoteAddress = null;
+			if (parts.size() == 0) {
+				response.sendError(HttpServletResponse.SC_BAD_REQUEST, "POST request doesn't contain the data to upload");
+				return;
+			}
 
-		try {
-			final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
+			final File folder = new File(basePath + "/" + parser.path + "/" + parser.startTime);
 
-			remoteAddress = ia.getAddress();
+			if (!folder.exists())
+				if (!folder.mkdirs()) {
+					response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot create path " + folder.getAbsolutePath());
+					return;
+				}
+
+			final long newObjectTime = System.currentTimeMillis();
+
+			byte[] remoteAddress = null;
+
+			try {
+				final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
+
+				remoteAddress = ia.getAddress();
+			}
+			catch (@SuppressWarnings("unused") final Throwable th) {
+				// ignore
+			}
+
+			final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
+
+			final Part part = parts.iterator().next();
+
+			final File targetFile = new File(folder, targetUUID.toString());
+
+			try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+				IOUtils.copy(part.getInputStream(), fos);
+			}
+
+			final LocalObjectWithVersion newObject = new LocalObjectWithVersion(parser.startTime, targetFile);
+
+			for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet())
+				newObject.setProperty(constraint.getKey(), constraint.getValue());
+
+			newObject.setProperty("InitialValidityLimit", String.valueOf(parser.endTime));
+			newObject.setProperty("OriginalFileName", part.getSubmittedFileName());
+			newObject.setProperty("Content-Type", part.getContentType());
+			newObject.setProperty("UploadedFrom", request.getRemoteHost());
+			newObject.setProperty("File-Size", String.valueOf(targetFile.length()));
+			newObject.setProperty("Content-MD5", alien.io.IOUtils.getMD5(targetFile));
+
+			if (newObject.getProperty("CreateTime") == null)
+				newObject.setProperty("CreateTime", String.valueOf(newObjectTime));
+
+			newObject.setValidityLimit(parser.endTime);
+
+			newObject.saveProperties(request.getRemoteHost());
+
+			setHeaders(newObject, response);
+			response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
+			response.sendError(HttpServletResponse.SC_CREATED);
 		}
-		catch (@SuppressWarnings("unused") final Throwable t) {
-			// ignore
-		}
-
-		final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
-
-		final Part part = parts.iterator().next();
-
-		final File targetFile = new File(folder, targetUUID.toString());
-
-		try (FileOutputStream fos = new FileOutputStream(targetFile)) {
-			IOUtils.copy(part.getInputStream(), fos);
-		}
-
-		final LocalObjectWithVersion newObject = new LocalObjectWithVersion(parser.startTime, targetFile);
-
-		for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet())
-			newObject.setProperty(constraint.getKey(), constraint.getValue());
-
-		newObject.setProperty("InitialValidityLimit", String.valueOf(parser.endTime));
-		newObject.setProperty("OriginalFileName", part.getSubmittedFileName());
-		newObject.setProperty("Content-Type", part.getContentType());
-		newObject.setProperty("UploadedFrom", request.getRemoteHost());
-		newObject.setProperty("File-Size", String.valueOf(targetFile.length()));
-		newObject.setProperty("Content-MD5", alien.io.IOUtils.getMD5(targetFile));
-
-		if (newObject.getProperty("CreateTime") == null)
-			newObject.setProperty("CreateTime", String.valueOf(newObjectTime));
-
-		newObject.setValidityLimit(parser.endTime);
-
-		newObject.saveProperties(request.getRemoteHost());
-
-		setHeaders(newObject, response);
-		response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
-		response.sendError(HttpServletResponse.SC_CREATED);
 	}
 
 	@Override
 	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final RequestParser parser = new RequestParser(request);
+		try (Timing t = new Timing(monitor, "PUT_ms")) {
+			final RequestParser parser = new RequestParser(request);
 
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
+			}
+
+			final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
+
+			if (matchingObject == null) {
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+				return;
+			}
+
+			for (final Map.Entry<String, String[]> param : request.getParameterMap().entrySet())
+				if (param.getValue().length > 0)
+					matchingObject.setProperty(param.getKey(), param.getValue()[0]);
+
+			if (parser.endTimeSet)
+				matchingObject.setValidityLimit(parser.endTime);
+
+			matchingObject.saveProperties(request.getRemoteHost());
+
+			setHeaders(matchingObject, response);
+
+			response.setHeader("Location", getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
+
+			if (matchingObject.taintedProperties)
+				response.sendError(HttpServletResponse.SC_NO_CONTENT);
+			else
+				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 		}
-
-		final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
-
-		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
-		}
-
-		for (final Map.Entry<String, String[]> param : request.getParameterMap().entrySet())
-			if (param.getValue().length > 0)
-				matchingObject.setProperty(param.getKey(), param.getValue()[0]);
-
-		if (parser.endTimeSet)
-			matchingObject.setValidityLimit(parser.endTime);
-
-		matchingObject.saveProperties(request.getRemoteHost());
-
-		setHeaders(matchingObject, response);
-
-		response.setHeader("Location", getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
-
-		if (matchingObject.taintedProperties)
-			response.sendError(HttpServletResponse.SC_NO_CONTENT);
-		else
-			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 	}
 
 	@Override
 	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final RequestParser parser = new RequestParser(request);
+		try (Timing t = new Timing(monitor, "DELETE_ms")) {
+			final RequestParser parser = new RequestParser(request);
 
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
+			}
+
+			final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
+
+			if (matchingObject == null) {
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+				return;
+			}
+
+			if (!matchingObject.referenceFile.delete()) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not delete the underlying file");
+				return;
+			}
+
+			final File fProperties = new File(matchingObject.referenceFile.getPath() + ".properties");
+			fProperties.delete();
+
+			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 		}
-
-		final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
-
-		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
-		}
-
-		if (!matchingObject.referenceFile.delete()) {
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not delete the underlying file");
-			return;
-		}
-
-		final File fProperties = new File(matchingObject.referenceFile.getPath() + ".properties");
-		fProperties.delete();
-
-		response.sendError(HttpServletResponse.SC_NO_CONTENT);
 	}
 
 	private static LocalObjectWithVersion getMatchingObject(final RequestParser parser) {
@@ -600,24 +615,26 @@ public class Local extends HttpServlet {
 
 	@Override
 	protected void doOptions(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		response.setHeader("Allow", "GET, HEAD, POST, PUT, DELETE, OPTIONS");
-		response.setHeader("Accept-Ranges", "bytes");
+		try (Timing t = new Timing(monitor, "OPTIONS_ms")) {
+			response.setHeader("Allow", "GET, HEAD, POST, PUT, DELETE, OPTIONS");
+			response.setHeader("Accept-Ranges", "bytes");
 
-		final RequestParser parser = new RequestParser(request);
+			final RequestParser parser = new RequestParser(request);
 
-		if (!parser.ok)
-			return;
+			if (!parser.ok)
+				return;
 
-		final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
+			final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
 
-		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
+			if (matchingObject == null) {
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+				return;
+			}
+
+			for (final Object key : matchingObject.getPropertiesKeys())
+				response.setHeader(key.toString(), matchingObject.getProperty(key.toString()));
+
+			setHeaders(matchingObject, response);
 		}
-
-		for (final Object key : matchingObject.getPropertiesKeys())
-			response.setHeader(key.toString(), matchingObject.getProperty(key.toString()));
-
-		setHeaders(matchingObject, response);
 	}
 }
