@@ -21,6 +21,7 @@ import alien.catalogue.GUID;
 import alien.catalogue.GUIDUtils;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import alien.se.SE;
 import alien.se.SEUtils;
 import ch.alice.o2.ccdb.Options;
@@ -159,7 +160,8 @@ public class SQLObject {
 				final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
 
 				remoteAddress = ia.getAddress();
-			} catch (@SuppressWarnings("unused") final Throwable t) {
+			}
+			catch (@SuppressWarnings("unused") final Throwable t) {
 				// ignore
 			}
 
@@ -205,7 +207,8 @@ public class SQLObject {
 
 				for (final Integer i : r)
 					replicas.add(i);
-			} catch (@SuppressWarnings("unused") final SQLException e) {
+			}
+			catch (@SuppressWarnings("unused") final SQLException e) {
 				// ignore
 			}
 
@@ -294,7 +297,8 @@ public class SQLObject {
 				if (md != null)
 					return Long.parseLong(md);
 			}
-		} catch (@SuppressWarnings("unused") final Throwable t) {
+		}
+		catch (@SuppressWarnings("unused") final Throwable t) {
 			// ignore, the default below will
 		}
 
@@ -325,7 +329,8 @@ public class SQLObject {
 
 				try {
 					hostname = InetAddress.getLocalHost().getCanonicalHostName();
-				} catch (@SuppressWarnings("unused") final Throwable t) {
+				}
+				catch (@SuppressWarnings("unused") final Throwable t) {
 					hostname = "localhost";
 				}
 
@@ -718,9 +723,7 @@ public class SQLObject {
 	 * @return the object with this ID, if it exists. Or <code>null</code> if not.
 	 */
 	public static final SQLObject getObject(final UUID id) {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "getObject_ms")) {
 			if (id == null)
 				return null;
 
@@ -735,8 +738,6 @@ public class SQLObject {
 			}
 
 			return null;
-		} finally {
-			monitor.addMeasurement("getObject_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 
@@ -745,9 +746,7 @@ public class SQLObject {
 	 * @return the most recent matching object
 	 */
 	public static final SQLObject getMatchingObject(final RequestParser parser) {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "getMatchingObject_ms")) {
 			final Integer pathId = getPathID(parser.path, false);
 
 			if (pathId == null)
@@ -807,8 +806,6 @@ public class SQLObject {
 
 				return null;
 			}
-		} finally {
-			monitor.addMeasurement("getMatchingObject_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 
@@ -817,9 +814,7 @@ public class SQLObject {
 	 * @return the most recent matching object
 	 */
 	public static final Collection<SQLObject> getAllMatchingObjects(final RequestParser parser) {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "getAllMatchingObjects_ms")) {
 			final List<Integer> pathIDs = getPathIDsWithPatternFallback(parser);
 
 			if (pathIDs == null || pathIDs.isEmpty())
@@ -884,8 +879,6 @@ public class SQLObject {
 			}
 
 			return ret;
-		} finally {
-			monitor.addMeasurement("getAllMatchingObjects_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 

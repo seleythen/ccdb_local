@@ -22,6 +22,7 @@ import javax.servlet.http.Part;
 
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import lazyj.DBFunctions;
@@ -50,25 +51,15 @@ public class SQLBacked extends HttpServlet {
 
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "HEAD_ms")) {
 			doGet(request, response, true);
-		}
-		finally {
-			monitor.addMeasurement("HEAD_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "GET_ms")) {
 			doGet(request, response, false);
-		}
-		finally {
-			monitor.addMeasurement("GET_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 
@@ -154,9 +145,7 @@ public class SQLBacked extends HttpServlet {
 		// if end time is missing then it will be set to the same value as start time
 		// flags are in the form "key=value"
 
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "POST_ms")) {
 			final RequestParser parser = new RequestParser(request);
 
 			if (!parser.ok) {
@@ -247,16 +236,11 @@ public class SQLBacked extends HttpServlet {
 
 			response.sendError(HttpServletResponse.SC_CREATED);
 		}
-		finally {
-			monitor.addMeasurement("POST_ms", (System.nanoTime() - lStart) / 1000000.);
-		}
 	}
 
 	@Override
 	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "PUT_ms")) {
 			final RequestParser parser = new RequestParser(request);
 
 			if (!parser.ok) {
@@ -289,16 +273,11 @@ public class SQLBacked extends HttpServlet {
 			else
 				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 		}
-		finally {
-			monitor.addMeasurement("PUT_ms", (System.nanoTime() - lStart) / 1000000.);
-		}
 	}
 
 	@Override
 	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "DELETE_ms")) {
 			final RequestParser parser = new RequestParser(request);
 
 			if (!parser.ok) {
@@ -324,16 +303,11 @@ public class SQLBacked extends HttpServlet {
 
 			AsyncPhysicalRemovalThread.deleteReplicas(matchingObject);
 		}
-		finally {
-			monitor.addMeasurement("DELETE_ms", (System.nanoTime() - lStart) / 1000000.);
-		}
 	}
 
 	@Override
 	protected void doOptions(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "OPTIONS_ms")) {
 			response.setHeader("Allow", "GET, POST, PUT, DELETE, OPTIONS");
 
 			final RequestParser parser = new RequestParser(request);
@@ -349,9 +323,6 @@ public class SQLBacked extends HttpServlet {
 			}
 
 			setHeaders(matchingObject, response);
-		}
-		finally {
-			monitor.addMeasurement("OPTIONS_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 

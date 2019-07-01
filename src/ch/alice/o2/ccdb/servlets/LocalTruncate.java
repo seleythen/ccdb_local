@@ -34,9 +34,7 @@ public class LocalTruncate extends HttpServlet {
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		final Set<String> pathsToCheck = new HashSet<>();
 
-		final Timing timing = new Timing();
-
-		try {
+		try (Timing t = new Timing(monitor, "TRUNCATE_ms")) {
 			final RequestParser parser = new RequestParser(request, true);
 
 			final Collection<LocalObjectWithVersion> matchingObjects = LocalBrowse.getAllMatchingObjects(parser);
@@ -64,8 +62,6 @@ public class LocalTruncate extends HttpServlet {
 				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 		}
 		finally {
-			monitor.addMeasurement("TRUNCATE_ms", timing);
-
 			for (String pathToCheck : pathsToCheck) {
 				while (pathToCheck != null) {
 					final File f = new File(Local.basePath + "/" + pathToCheck);

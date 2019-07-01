@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.RequestParser;
 import lazyj.DBFunctions;
 
@@ -30,9 +31,7 @@ public class SQLTruncate extends HttpServlet {
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "TRUNCATE_ms")) {
 			final RequestParser parser = new RequestParser(request, true);
 
 			final Collection<SQLObject> matchingObjects = SQLObject.getAllMatchingObjects(parser);
@@ -66,8 +65,6 @@ public class SQLTruncate extends HttpServlet {
 			}
 			else
 				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
-		} finally {
-			monitor.addMeasurement("TRUNCATE_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 }

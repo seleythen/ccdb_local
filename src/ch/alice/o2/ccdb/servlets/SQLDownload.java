@@ -24,6 +24,7 @@ import org.apache.tomcat.util.http.fileupload.IOUtils;
 
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.UUIDTools;
 
 /**
@@ -41,23 +42,15 @@ public class SQLDownload extends HttpServlet {
 
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "HEAD_ms")) {
 			doGet(request, response, true);
-		} finally {
-			monitor.addMeasurement("HEAD_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		final long lStart = System.nanoTime();
-
-		try {
+		try (Timing t = new Timing(monitor, "GET_ms")) {
 			doGet(request, response, false);
-		} finally {
-			monitor.addMeasurement("GET_ms", (System.nanoTime() - lStart) / 1000000.);
 		}
 	}
 
@@ -68,7 +61,8 @@ public class SQLDownload extends HttpServlet {
 
 		try {
 			id = UUID.fromString(pathInfo.substring(1));
-		} catch (@SuppressWarnings("unused") final Throwable t) {
+		}
+		catch (@SuppressWarnings("unused") final Throwable t) {
 			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The only path information supported is the requested object ID, i.e. '/download/UUID'");
 			return;
 		}
