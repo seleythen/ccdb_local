@@ -90,8 +90,8 @@ public class RequestParser {
 	 * @param request
 	 *            request to wrap around
 	 * @param optionalTimeConstraints
-	 *            whether or not the time constraints are required. If <code>true</code> then at least one time parameter has to be indicated (start time / validity moment). If <code>false</code> then
-	 *            any object in that interval will match.
+	 *            whether or not the time constraints are required. If <code>false</code> then at least one time parameter has to be indicated (start time / validity moment). If <code>true</code> then
+	 *            the time constraint is optional, any object found for the given key would match.
 	 */
 	public RequestParser(final HttpServletRequest request, final boolean optionalTimeConstraints) {
 		if (request == null)
@@ -122,13 +122,15 @@ public class RequestParser {
 
 			if (previousUUID != null && previousUUID.length() > 0)
 				cachedValue = UUID.fromString(previousUUID);
-		} catch (@SuppressWarnings("unused") final Throwable t) {
+		}
+		catch (@SuppressWarnings("unused") final Throwable t) {
 			// ignore
 		}
 
 		try {
 			notAfter = Long.parseLong(request.getHeader("If-Not-After"));
-		} catch (@SuppressWarnings("unused") final Throwable t) {
+		}
+		catch (@SuppressWarnings("unused") final Throwable t) {
 			// ignore
 		}
 
@@ -146,7 +148,8 @@ public class RequestParser {
 				endTime = startTime + 1;
 				startTimeSet = true;
 				break;
-			} catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
+			}
+			catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 				final int idx = token.indexOf('=');
 
 				if (idx >= 0)
@@ -183,10 +186,12 @@ public class RequestParser {
 						ok = false;
 						return;
 					}
-				} catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
+				}
+				catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 					try {
 						uuidConstraint = UUID.fromString(token);
-					} catch (@SuppressWarnings("unused") final IllegalArgumentException iae) {
+					}
+					catch (@SuppressWarnings("unused") final IllegalArgumentException iae) {
 						ok = false;
 						return;
 					}
