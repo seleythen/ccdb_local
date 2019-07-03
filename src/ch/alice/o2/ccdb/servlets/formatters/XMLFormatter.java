@@ -102,8 +102,17 @@ public class XMLFormatter implements SQLFormatter {
 
 	@Override
 	public void subfoldersListing(final PrintWriter writer, final String path, final String url, final long ownCount, final long ownSize, final long subfolderCount, final long subfolderSize) {
-		subfoldersListing(writer, path, url);
-		// TODO actual implementation of extended listing
+		writer.print("<path name='");
+		writer.print(Format.escHtml(path));
+		writer.print("' ownFiles='");
+		writer.print(ownCount);
+		writer.print("' ownSize='");
+		writer.print(ownSize);
+		writer.print("' filesInSubfolders='");
+		writer.print(subfolderCount);
+		writer.print("' sizeOfSubfolders='");
+		writer.print(subfolderSize);
+		writer.println("'/>");
 	}
 
 	@Override
