@@ -101,9 +101,9 @@ public class JSONFormatter implements SQLFormatter {
 
 	@Override
 	public void subfoldersListing(final PrintWriter writer, final String path, final String url, final long ownCount, final long ownSize, final long subfolderCount, final long subfolderSize) {
-		writer.write("{\"");
+		writer.write("{\"name\": \"");
 		writer.write(Format.escJSON(path));
-		writer.write("\":{\"ownFiles\":");
+		writer.write("\", \"ownFiles\":");
 		writer.write(String.valueOf(ownCount));
 		writer.write(", \"ownSize\":");
 		writer.write(String.valueOf(ownSize));
@@ -111,7 +111,7 @@ public class JSONFormatter implements SQLFormatter {
 		writer.write(String.valueOf(subfolderCount));
 		writer.write(", \"sizeOfSubfolders\": ");
 		writer.write(String.valueOf(subfolderSize));
-		writer.write("}}\n");
+		writer.write("}\n");
 	}
 
 	@Override
