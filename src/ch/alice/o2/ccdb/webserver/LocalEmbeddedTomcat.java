@@ -8,6 +8,7 @@ import org.apache.catalina.Wrapper;
 import ch.alice.o2.ccdb.servlets.Local;
 import ch.alice.o2.ccdb.servlets.LocalBrowse;
 import ch.alice.o2.ccdb.servlets.LocalTruncate;
+import ch.alice.o2.ccdb.servlets.MonitorServlet;
 
 /**
  * Start an embedded Tomcat with the local servlet mapping (localhost:8080/Local/) by default
@@ -26,7 +27,8 @@ public class LocalEmbeddedTomcat {
 
 		try {
 			tomcat = new EmbeddedTomcat("localhost");
-		} catch (final ServletException se) {
+		}
+		catch (final ServletException se) {
 			System.err.println("Cannot create the Tomcat server: " + se.getMessage());
 			return;
 		}
@@ -35,11 +37,13 @@ public class LocalEmbeddedTomcat {
 		browser.addMapping("/latest/*");
 		tomcat.addServlet(Local.class.getName(), "/*");
 		tomcat.addServlet(LocalTruncate.class.getName(), "/truncate/*");
+		tomcat.addServlet(MonitorServlet.class.getName(), "/monitor/*");
 
 		// Start the server
 		try {
 			tomcat.start();
-		} catch (final LifecycleException le) {
+		}
+		catch (final LifecycleException le) {
 			System.err.println("Cannot start the Tomcat server: " + le.getMessage());
 			return;
 		}
