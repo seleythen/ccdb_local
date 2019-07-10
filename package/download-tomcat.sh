@@ -28,5 +28,5 @@ fi
 
 if [ ! -f ../lib/postgresql.jar ]; then
     echo "Downloading PostgreSQL JDBC driver"
-    wget -nv "https://jdbc.postgresql.org/download/postgresql-42.2.5.jar" -O ../lib/postgresql.jar
+    wget -nv "https://jdbc.postgresql.org/download/postgresql-42.2.6.jar" -O ../lib/postgresql.jar
 fi
