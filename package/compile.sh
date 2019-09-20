@@ -20,4 +20,4 @@ done
 export CLASSPATH
 
 # and compile the project
-find ../src -name \*.java | xargs javac -source 8 -target 8 -d ../build/classes
+find ../src -name \*.java | xargs javac -source 11 -target 11 -d ../build/classes
