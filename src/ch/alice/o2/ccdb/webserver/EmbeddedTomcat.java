@@ -201,14 +201,21 @@ public class EmbeddedTomcat extends Tomcat {
 
 		final String restrictToRole = Options.getOption("ldap.role", "ccdb");
 
-		// Require SSL
-		final SecurityConstraint securityConstraint = new SecurityConstraint();
-		securityConstraint.setDisplayName("SSL certificate required");
-		securityConstraint.addCollection(defaultPath);
-		securityConstraint.addCollection(truncateCalls);
-		securityConstraint.addAuthRole(restrictToRole);
-		securityConstraint.setAuthConstraint(true);
-		securityConstraint.setUserConstraint("CONFIDENTIAL");
+		// Require SSL for the data changing methods of the default path
+		final SecurityConstraint defaultConstraint = new SecurityConstraint();
+		defaultConstraint.setDisplayName("SSL certificate required");
+		defaultConstraint.addCollection(defaultPath);
+		defaultConstraint.addAuthRole(restrictToRole);
+		defaultConstraint.setAuthConstraint(true);
+		defaultConstraint.setUserConstraint("CONFIDENTIAL");
+
+		// restrict access to /truncate/ to admin
+		final SecurityConstraint truncateConstraint = new SecurityConstraint();
+		truncateConstraint.setDisplayName("SSL certificate required");
+		truncateConstraint.addCollection(truncateCalls);
+		truncateConstraint.addAuthRole(restrictToRole);
+		truncateConstraint.setAuthConstraint(true);
+		truncateConstraint.setUserConstraint("CONFIDENTIAL");
 
 		// Use AliEn's LDAP to look up users and roles
 		final LoginConfig loginConfig = new LoginConfig();
@@ -217,7 +224,9 @@ public class EmbeddedTomcat extends Tomcat {
 
 		ctx.setLoginConfig(loginConfig);
 		ctx.addSecurityRole(restrictToRole);
-		ctx.addConstraint(securityConstraint);
+		ctx.addSecurityRole("admin");
+		ctx.addConstraint(defaultConstraint);
+		ctx.addConstraint(truncateConstraint);
 		ctx.setRealm(ldapRealm);
 		ctx.getPipeline().addValve(new SSLAuthenticator());
 
