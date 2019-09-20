@@ -18,7 +18,6 @@ import lazyj.DBFunctions;
 
 /**
  * Remove all matching objects in a single operation.
- * TODO: protect or even disable it in production.
  *
  * @author costing
  * @since 2018-06-08
