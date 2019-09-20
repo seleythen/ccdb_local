@@ -45,7 +45,7 @@ jar -cfe local.jar \
 
 # Extra packages for the SQL backend
 
-for jar in postgresql.jar mysql-connector-java-5.1.46.jar bcpkix-jdk15on-152.jar bcprov-jdk15on-152.jar; do
+for jar in postgresql.jar mysql-connector-java-5.1.46.jar bcpkix-jdk15on-*.jar bcprov-jdk15on-*.jar; do
     jar -xf ../lib/$jar
 done
 
