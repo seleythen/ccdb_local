@@ -51,8 +51,14 @@ public class SQLBackedTomcat {
 			return;
 		}
 
-		if (tomcat.debugLevel >= 1)
-			System.err.println("Ready to accept HTTP calls on " + tomcat.address + ":" + tomcat.getPort());
+		if (tomcat.debugLevel >= 1) {
+			System.err.print("Ready to accept HTTP calls on " + tomcat.address + ":" + tomcat.getPort());
+
+			if (tomcat.getConnector().getRedirectPort() > 0)
+				System.err.print(" and HTTPS on " + tomcat.address + ":" + tomcat.getConnector().getRedirectPort());
+
+			System.err.println();
+		}
 
 		tomcat.blockWaiting();
 	}
