@@ -8,6 +8,7 @@ import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.Globals;
 import org.apache.catalina.LifecycleException;
@@ -187,35 +188,8 @@ public class EmbeddedTomcat extends Tomcat {
 		}
 
 		final LdapCertificateRealm ldapRealm = new LdapCertificateRealm();
+		ldapRealm.setTransportGuaranteeRedirectStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
 		getEngine().setRealm(ldapRealm);
-
-		// Protect all write operations
-		final SecurityCollection defaultPath = new SecurityCollection("defaultPath", "Default path protection");
-		defaultPath.addPattern("/*");
-		defaultPath.addMethod("POST");
-		defaultPath.addMethod("PUT");
-		defaultPath.addMethod("DELETE");
-
-		final SecurityCollection truncateCalls = new SecurityCollection("truncateCalls", "Protect TRUNCATE calls");
-		truncateCalls.addPattern("/truncate/*");
-
-		final String restrictToRole = Options.getOption("ldap.role", "ccdb");
-
-		// Require SSL for the data changing methods of the default path
-		final SecurityConstraint defaultConstraint = new SecurityConstraint();
-		defaultConstraint.setDisplayName("SSL certificate required");
-		defaultConstraint.addCollection(defaultPath);
-		defaultConstraint.addAuthRole(restrictToRole);
-		defaultConstraint.setAuthConstraint(true);
-		defaultConstraint.setUserConstraint("CONFIDENTIAL");
-
-		// restrict access to /truncate/ to admin
-		final SecurityConstraint truncateConstraint = new SecurityConstraint();
-		truncateConstraint.setDisplayName("SSL certificate required");
-		truncateConstraint.addCollection(truncateCalls);
-		truncateConstraint.addAuthRole(restrictToRole);
-		truncateConstraint.setAuthConstraint(true);
-		truncateConstraint.setUserConstraint("CONFIDENTIAL");
 
 		// Use AliEn's LDAP to look up users and roles
 		final LoginConfig loginConfig = new LoginConfig();
@@ -223,14 +197,60 @@ public class EmbeddedTomcat extends Tomcat {
 		loginConfig.setAuthMethod("CLIENT-CERT");
 
 		ctx.setLoginConfig(loginConfig);
-		ctx.addSecurityRole(restrictToRole);
-		ctx.addSecurityRole("admin");
-		ctx.addConstraint(defaultConstraint);
-		ctx.addConstraint(truncateConstraint);
+
+		addSecurityConstraint(getAddOrUpdateConstraint());
+		addSecurityConstraint(getRemovalConstraint());
+
 		ctx.setRealm(ldapRealm);
 		ctx.getPipeline().addValve(new SSLAuthenticator());
 
 		return true;
+	}
+
+	private void addSecurityConstraint(final SecurityConstraint constraint) {
+		for (final String role : constraint.findAuthRoles())
+			if (!ctx.findSecurityRole(role))
+				ctx.addSecurityRole(role);
+
+		ctx.addConstraint(constraint);
+	}
+
+	private static SecurityConstraint getAddOrUpdateConstraint() {
+		// Protect all write operations
+		final SecurityCollection defaultPath = new SecurityCollection("defaultPath", "Default path protection");
+		defaultPath.addPattern("/*");
+		defaultPath.addMethod("POST");
+		defaultPath.addMethod("PUT");
+
+		// Require SSL for the data changing methods of the default path
+		final SecurityConstraint addOrUpdateConstraint = new SecurityConstraint();
+		addOrUpdateConstraint.setDisplayName("SSL certificate required");
+		addOrUpdateConstraint.addCollection(defaultPath);
+		addOrUpdateConstraint.addAuthRole(Options.getOption("ldap.role", "ccdb"));
+		addOrUpdateConstraint.setAuthConstraint(true);
+		addOrUpdateConstraint.setUserConstraint("CONFIDENTIAL");
+
+		return addOrUpdateConstraint;
+	}
+
+	private static SecurityConstraint getRemovalConstraint() {
+		final SecurityCollection truncateCalls = new SecurityCollection("truncateCalls", "Protect TRUNCATE calls");
+		truncateCalls.addPattern("/truncate/*");
+
+		final SecurityCollection defaultPathRemoval = new SecurityCollection("defaultPathRemoval", "Removal requests on the default path");
+		defaultPathRemoval.addPattern("/*");
+		defaultPathRemoval.addMethod("DELETE");
+
+		// restrict access to /truncate/ and data removal requests to admin only
+		final SecurityConstraint removalConstraint = new SecurityConstraint();
+		removalConstraint.setDisplayName("SSL certificate required");
+		removalConstraint.addCollection(truncateCalls);
+		removalConstraint.addCollection(defaultPathRemoval);
+		removalConstraint.addAuthRole("admin");
+		removalConstraint.setAuthConstraint(true);
+		removalConstraint.setUserConstraint("CONFIDENTIAL");
+
+		return removalConstraint;
 	}
 
 	/**
