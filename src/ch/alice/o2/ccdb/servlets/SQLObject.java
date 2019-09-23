@@ -24,6 +24,8 @@ import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
 import alien.se.SE;
 import alien.se.SEUtils;
+import alien.user.AliEnPrincipal;
+import alien.user.UserFactory;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
@@ -222,8 +224,15 @@ public class SQLObject {
 	 */
 	public boolean save(final HttpServletRequest request) {
 		if (!existing || tainted) {
-			if (request != null && existing)
-				setProperty("UpdatedFrom", request.getRemoteHost());
+			if (request != null) {
+				if (existing)
+					setProperty("UpdatedFrom", request.getRemoteHost());
+
+				final AliEnPrincipal account = UserFactory.get(request);
+
+				if (account != null)
+					setProperty(existing ? "UpdatedBy" : "UploadedBy", account.getDefaultUser());
+			}
 
 			if (pathId == null)
 				pathId = getPathID(path, true);
