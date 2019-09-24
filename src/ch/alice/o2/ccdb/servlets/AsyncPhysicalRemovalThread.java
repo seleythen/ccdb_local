@@ -6,6 +6,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import alien.catalogue.GUID;
+import alien.catalogue.LFN;
+import alien.catalogue.LFNUtils;
 import alien.catalogue.PFN;
 import alien.catalogue.access.AccessType;
 import alien.catalogue.access.AuthorizationFactory;
@@ -34,7 +36,8 @@ public class AsyncPhysicalRemovalThread extends Thread {
 
 				if (object != null)
 					deleteReplicas(object);
-			} catch (final InterruptedException e) {
+			}
+			catch (final InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
@@ -66,33 +69,43 @@ public class AsyncPhysicalRemovalThread extends Thread {
 				if (f != null)
 					f.delete();
 			}
-			else {
-				final SE se = SEUtils.getSE(replica.intValue());
+			else
+				if (replica.intValue() < 0) {
+					final LFN l = LFNUtils.getLFN(object.getAddress(Integer.valueOf(-1), false).iterator().next());
 
-				if (se != null) {
-					final GUID guid = object.toGUID();
+					if (l != null)
+						l.delete(true, false);
+				}
+				else {
+					final SE se = SEUtils.getSE(replica.intValue());
 
-					if (guid == null)
-						continue;
+					if (se != null) {
+						final GUID guid = object.toGUID();
 
-					final PFN delpfn = new PFN(object.getAddress(replica), guid, se);
+						if (guid == null)
+							continue;
 
-					final String reason = AuthorizationFactory.fillAccess(AuthorizationFactory.getDefaultUser(), delpfn, AccessType.DELETE, true);
+						for (final String address : object.getAddress(replica)) {
+							final PFN delpfn = new PFN(address, guid, se);
 
-					if (reason != null) {
-						System.err.println("Cannot get the access tokens to remove this pfn: " + delpfn.getPFN() + ", reason is: " + reason);
-						continue;
-					}
+							final String reason = AuthorizationFactory.fillAccess(AuthorizationFactory.getDefaultUser(), delpfn, AccessType.DELETE, true);
 
-					final Xrootd xrd = Factory.xrootd;
+							if (reason != null) {
+								System.err.println("Cannot get the access tokens to remove this pfn: " + delpfn.getPFN() + ", reason is: " + reason);
+								continue;
+							}
 
-					try {
-						if (!xrd.delete(delpfn))
-							System.err.println("Cannot physically remove this file: " + delpfn.getPFN());
-					} catch (final IOException e) {
-						System.err.println("Exception removing this pfn: " + delpfn.getPFN() + " : " + e.getMessage());
+							final Xrootd xrd = Factory.xrootd;
+
+							try {
+								if (!xrd.delete(delpfn))
+									System.err.println("Cannot physically remove this file: " + delpfn.getPFN());
+							}
+							catch (final IOException e) {
+								System.err.println("Exception removing this pfn: " + delpfn.getPFN() + " : " + e.getMessage());
+							}
+						}
 					}
 				}
-			}
 	}
 }

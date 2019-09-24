@@ -11,13 +11,17 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import alien.catalogue.GUID;
 import alien.catalogue.GUIDUtils;
+import alien.catalogue.LFN;
+import alien.catalogue.LFNUtils;
 import alien.catalogue.PFN;
 import alien.catalogue.access.AccessType;
 import alien.catalogue.access.AuthorizationFactory;
+import alien.io.IOUtils;
 import alien.io.protocols.Factory;
 import alien.io.protocols.Xrootd;
 import alien.se.SE;
 import alien.se.SEUtils;
+import alien.user.UserFactory;
 import lazyj.DBFunctions;
 import lazyj.StringFactory;
 
@@ -57,25 +61,64 @@ public class AsyncReplication extends Thread {
 
 			final Integer seNumber = Integer.valueOf(se.seNumber);
 
-			final PFN newpfn = new PFN(object.getAddress(seNumber), guid, se);
+			for (final String address : object.getAddress(seNumber)) {
+				final PFN newpfn = new PFN(address, guid, se);
 
-			final String reason = AuthorizationFactory.fillAccess(newpfn, AccessType.WRITE);
+				final String reason = AuthorizationFactory.fillAccess(newpfn, AccessType.WRITE);
 
-			if (reason != null) {
-				System.err.println("Cannot get the write envelope for " + newpfn.getPFN() + ", reason is: " + reason);
+				if (reason != null) {
+					System.err.println("Cannot get the write envelope for " + newpfn.getPFN() + ", reason is: " + reason);
+					return;
+				}
+
+				final Xrootd xrootd = Factory.xrootd;
+
+				try {
+					xrootd.put(newpfn, localFile);
+
+					try (DBFunctions db = SQLObject.getDB()) {
+						db.query("update ccdb set replicas=replicas || ? where id=? and NOT ? = ANY(replicas);", false, seNumber, object.id, seNumber);
+					}
+				}
+				catch (final IOException e) {
+					System.err.println("Could not upload to: " + newpfn.pfn + ", reason was: " + e.getMessage());
+				}
+			}
+		}
+	}
+
+	static class AliEnReplicationTarget implements Runnable {
+		final SQLObject object;
+
+		public AliEnReplicationTarget(final SQLObject object) {
+			this.object = object;
+		}
+
+		@Override
+		public void run() {
+			final File localFile = object.getLocalFile(false);
+
+			if (localFile == null || !localFile.exists()) {
+				System.err.println("No local file to read from");
 				return;
 			}
 
-			final Xrootd xrootd = Factory.xrootd;
+			final String targetObjectPath = object.getAddress(Integer.valueOf(-1), false).iterator().next();
+
+			final LFN l = LFNUtils.getLFN(targetObjectPath);
+
+			if (l != null)
+				return;
 
 			try {
-				xrootd.put(newpfn, localFile);
+				IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,disk:5");
 
 				try (DBFunctions db = SQLObject.getDB()) {
-					db.query("update ccdb set replicas=replicas || ? where id=? and NOT ? = ANY(replicas);", false, seNumber, object.id, seNumber);
+					db.query("update ccdb set replicas=replicas || ? where id=? AND NOT ? = ANY(replicas);", false, Integer.valueOf(-1), object.id, Integer.valueOf(-1));
 				}
-			} catch (final IOException e) {
-				System.err.println("Could not upload to: " + newpfn.pfn + ", reason was: " + e.getMessage());
+			}
+			catch (final IOException e) {
+				System.err.println("Could not upload " + localFile.getAbsolutePath() + " to " + targetObjectPath + ", reason was: " + e.getMessage());
 			}
 		}
 	}
@@ -83,19 +126,20 @@ public class AsyncReplication extends Thread {
 	@Override
 	public void run() {
 		while (true) {
-			AsyncReplicationTarget target;
+			Runnable target;
 			try {
 				target = asyncReplicationQueue.take();
 
 				if (target != null)
 					target.run();
-			} catch (final InterruptedException e) {
+			}
+			catch (final InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
 	}
 
-	private final BlockingQueue<AsyncReplicationTarget> asyncReplicationQueue = new LinkedBlockingQueue<>();
+	private final BlockingQueue<Runnable> asyncReplicationQueue = new LinkedBlockingQueue<>();
 
 	private static AsyncReplication instance = null;
 
@@ -147,9 +191,15 @@ public class AsyncReplication extends Thread {
 
 		boolean anyOk = false;
 
-		for (final String seName : targets)
-			if (queueMirror(object, seName))
-				anyOk = true;
+		for (final String seName : targets) {
+			if (seName.contains("::")) {
+				if (queueMirror(object, seName))
+					anyOk = true;
+			}
+			else
+				if (seName.equalsIgnoreCase("ALIEN"))
+					getInstance().asyncReplicationQueue.offer(new AliEnReplicationTarget(object));
+		}
 
 		return anyOk;
 	}
@@ -176,44 +226,54 @@ public class AsyncReplication extends Thread {
 				if (f != null)
 					f.delete();
 			}
-			else {
-				final SE se = SEUtils.getSE(replica.intValue());
+			else
+				if (replica.intValue() < 0) {
+					final LFN l = LFNUtils.getLFN(object.getAddress(Integer.valueOf(-1), false).iterator().next());
 
-				if (se != null) {
-					final GUID guid = GUIDUtils.getGUID(object.id, true);
+					if (l != null)
+						l.delete(true, false);
+				}
+				else {
+					final SE se = SEUtils.getSE(replica.intValue());
 
-					if (guid.exists())
-						// It should not exist in AliEn, these UUIDs are created only in CCDB's space
-						continue;
+					if (se != null) {
+						final GUID guid = GUIDUtils.getGUID(object.id, true);
 
-					guid.size = object.size;
-					guid.md5 = StringFactory.get(object.md5);
-					guid.owner = StringFactory.get("ccdb");
-					guid.gowner = StringFactory.get("ccdb");
-					guid.perm = "755";
-					guid.ctime = new Date(object.createTime);
-					guid.expiretime = null;
-					guid.type = 0;
-					guid.aclId = -1;
+						if (guid.exists())
+							// It should not exist in AliEn, these UUIDs are created only in CCDB's space
+							continue;
 
-					final PFN delpfn = new PFN(object.getAddress(replica), guid, se);
+						guid.size = object.size;
+						guid.md5 = StringFactory.get(object.md5);
+						guid.owner = StringFactory.get("ccdb");
+						guid.gowner = StringFactory.get("ccdb");
+						guid.perm = "755";
+						guid.ctime = new Date(object.createTime);
+						guid.expiretime = null;
+						guid.type = 0;
+						guid.aclId = -1;
 
-					final String reason = AuthorizationFactory.fillAccess(delpfn, AccessType.DELETE);
+						for (final String address : object.getAddress(replica)) {
+							final PFN delpfn = new PFN(address, guid, se);
 
-					if (reason != null) {
-						System.err.println("Cannot get the access tokens to remove this pfn: " + delpfn.getPFN() + ", reason is: " + reason);
-						continue;
-					}
+							final String reason = AuthorizationFactory.fillAccess(delpfn, AccessType.DELETE);
 
-					final Xrootd xrd = Factory.xrootd;
+							if (reason != null) {
+								System.err.println("Cannot get the access tokens to remove this pfn: " + delpfn.getPFN() + ", reason is: " + reason);
+								continue;
+							}
 
-					try {
-						if (!xrd.delete(delpfn))
-							System.err.println("Cannot physically remove this file: " + delpfn.getPFN());
-					} catch (final IOException e) {
-						System.err.println("Exception removing this pfn: " + delpfn.getPFN() + " : " + e.getMessage());
+							final Xrootd xrd = Factory.xrootd;
+
+							try {
+								if (!xrd.delete(delpfn))
+									System.err.println("Cannot physically remove this file: " + delpfn.getPFN());
+							}
+							catch (final IOException e) {
+								System.err.println("Exception removing this pfn: " + delpfn.getPFN() + " : " + e.getMessage());
+							}
+						}
 					}
 				}
-			}
 	}
 }
