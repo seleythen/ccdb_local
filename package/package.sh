@@ -57,7 +57,7 @@ rm -rf src META-INF
 
 jar -cfe sql.jar \
     ch.alice.o2.ccdb.webserver.SQLBackedTomcat ch/alice/o2/ccdb/webserver/SQLBackedTomcat.class \
-    ch javax org lazyj lia apmon com org utils \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
     alien config trusted_authorities.jks
 
 # further compression and remove debugging information
@@ -65,4 +65,4 @@ jar -cfe sql.jar \
 #pack200 --repack -G -O sql.jar
 
 # remove all intermediate folders
-rm -rf javax org ch org lazyj alien config utils lia com org hep apmon trusted_authorities.jks
+rm -rf javax org ch org lazyj alien config utils lia com org hep apmon trusted_authorities.jks io jline joptsimple
