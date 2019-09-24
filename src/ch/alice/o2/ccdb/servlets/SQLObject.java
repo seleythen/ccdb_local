@@ -7,18 +7,25 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 
 import alien.catalogue.GUID;
 import alien.catalogue.GUIDUtils;
+import alien.catalogue.LFN;
+import alien.catalogue.LFNUtils;
+import alien.catalogue.PFN;
+import alien.catalogue.access.AccessType;
+import alien.catalogue.access.AuthorizationFactory;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
@@ -90,7 +97,7 @@ public class SQLObject {
 	/**
 	 * Servers holding a replica of this object
 	 */
-	public Set<Integer> replicas = new HashSet<>();
+	public Set<Integer> replicas = new TreeSet<>();
 
 	/**
 	 * Size of the object
@@ -324,12 +331,23 @@ public class SQLObject {
 	}
 
 	/**
-	 * Return the full URL to the physical representation on this replica ID
+	 * Return the full URL(s) to the physical representation on this replica ID
 	 *
 	 * @param replica
 	 * @return full URL
 	 */
-	public String getAddress(final Integer replica) {
+	public List<String> getAddress(final Integer replica) {
+		return getAddress(replica, true);
+	}
+
+	/**
+	 * Return the full URL(s) to the physical representation on this replica ID
+	 *
+	 * @param replica
+	 * @param resolveAliEn whether or not to look up the PFNs for AliEn LFNs
+	 * @return full URL
+	 */
+	public List<String> getAddress(final Integer replica, final boolean resolveAliEn) {
 		String pattern = config.gets("server." + replica + ".urlPattern", null);
 
 		if (pattern == null) {
@@ -346,17 +364,20 @@ public class SQLObject {
 				pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
 			}
 			else {
-				final SE se = SEUtils.getSE(replica.intValue());
+				if (replica.intValue() > 0) {
+					final SE se = SEUtils.getSE(replica.intValue());
 
-				if (se != null) {
-					pattern = se.generateProtocol();
-					if (!pattern.endsWith("/"))
-						pattern += "/";
+					if (se != null) {
+						pattern = se.generateProtocol();
+						if (!pattern.endsWith("/"))
+							pattern += "/";
 
-					pattern += "PATH.ccdb";
+						pattern += "HASH.ccdb";
+					}
 				}
-				else
-					pattern += "alien:///alice/ccdb/FOLDER/UUID";
+
+				if (pattern == null)
+					pattern = "alien:///alice/data/CCDB/PATHHASH";
 			}
 
 			config.set("server." + replica + ".urlPattern", pattern);
@@ -364,9 +385,52 @@ public class SQLObject {
 
 		pattern = Format.replace(pattern, "UUID", id.toString());
 		pattern = Format.replace(pattern, "FOLDER", getFolder());
-		pattern = Format.replace(pattern, "PATH", SE.generatePath(id.toString()));
+		pattern = Format.replace(pattern, "PATH", getPath());
+		pattern = Format.replace(pattern, "HASH", SE.generatePath(id.toString()));
 
-		return pattern;
+		if (pattern.startsWith("alien://")) {
+			pattern = pattern.substring(8);
+
+			if (!resolveAliEn)
+				return Arrays.asList(pattern);
+
+			final LFN l = LFNUtils.getLFN(pattern);
+
+			if (l != null) {
+				final Set<PFN> pfns = l.whereisReal();
+				if (pfns != null) {
+					final List<String> ret = new ArrayList<>(pfns.size());
+
+					for (final PFN p : pfns) {
+						String envelope = null;
+
+						String reason;
+
+						if ((reason = AuthorizationFactory.fillAccess(p, AccessType.READ)) == null) {
+							if (p.ticket.envelope != null) {
+								envelope = p.ticket.envelope.getEncryptedEnvelope();
+
+								if (envelope == null)
+									envelope = p.ticket.envelope.getSignedEnvelope();
+							}
+						}
+						else
+							System.err.println("Cannot grant access to " + p.getPFN() + " : " + reason);
+
+						if (envelope != null)
+							ret.add(p.getPFN() + "?authz=" + Format.encode(envelope));
+						else
+							ret.add(p.getPFN());
+					}
+
+					return ret;
+				}
+
+				return Collections.emptyList();
+			}
+		}
+
+		return Arrays.asList(pattern);
 	}
 
 	/**
@@ -378,7 +442,7 @@ public class SQLObject {
 		final List<String> ret = new ArrayList<>(replicas.size());
 
 		for (final Integer replica : replicas)
-			ret.add(getAddress(replica));
+			ret.addAll(getAddress(replica));
 
 		return ret;
 	}

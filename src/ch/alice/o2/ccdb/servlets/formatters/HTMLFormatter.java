@@ -84,11 +84,21 @@ public class HTMLFormatter implements SQLFormatter {
 		writer.print("</dl></td><td align=left><ul>");
 
 		for (final Integer replica : obj.replicas) {
-			writer.print("<li><a href='");
-			writer.print(Format.escHtml(obj.getAddress(replica)));
-			writer.print("'>");
-			writer.print(replica);
-			writer.print("</a></li>\n");
+			for (final String address : obj.getAddress(replica)) {
+				writer.print("<li><a href='");
+				writer.print(Format.escHtml(address));
+				writer.print("'>");
+
+				if (replica.intValue() == 0)
+					writer.print("local");
+				else
+					if (replica.intValue() < 0)
+						writer.print("alien");
+					else
+						writer.print("SE #" + replica);
+
+				writer.print("</a></li>\n");
+			}
 		}
 
 		writer.print("</ul></td></tr>\n");

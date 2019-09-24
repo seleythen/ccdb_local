@@ -62,11 +62,13 @@ public class JSONFormatter implements SQLFormatter {
 		}
 
 		for (final Integer replica : obj.replicas) {
-			writer.print(",\n  \"replica");
-			writer.print(replica);
-			writer.print("\":\"");
-			writer.print(Format.escJSON(obj.getAddress(replica)));
-			writer.print("\"");
+			for (final String address : obj.getAddress(replica)) {
+				writer.print(",\n  \"replica");
+				writer.print(replica);
+				writer.print("\":\"");
+				writer.print(Format.escJSON(address));
+				writer.print("\"");
+			}
 		}
 
 		writer.print("\n}");

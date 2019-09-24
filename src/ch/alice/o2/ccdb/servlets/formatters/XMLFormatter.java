@@ -63,11 +63,13 @@ public class XMLFormatter implements SQLFormatter {
 		}
 
 		for (final Integer replica : obj.replicas) {
-			writer.print("  <replica id='");
-			writer.print(replica);
-			writer.print("' addr='");
-			writer.print(Format.escHtml(obj.getAddress(replica)));
-			writer.print("'/>\n");
+			for (final String address : obj.getAddress(replica)) {
+				writer.print("  <replica id='");
+				writer.print(replica);
+				writer.print("' addr='");
+				writer.print(Format.escHtml(address));
+				writer.print("'/>\n");
+			}
 		}
 
 		writer.print("</object>\n");
