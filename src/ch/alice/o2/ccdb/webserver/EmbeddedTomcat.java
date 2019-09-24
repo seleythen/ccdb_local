@@ -89,6 +89,12 @@ public class EmbeddedTomcat extends Tomcat {
 		connector.setProperty("address", address);
 		connector.setProperty("maxKeepAliveRequests", String.valueOf(Options.getIntOption("maxKeepAliveRequests", 1000)));
 
+		// large headers are needed since alternate locations include access envelopes, that are rather large (default is 8KB)
+		connector.setProperty("maxHttpHeaderSize", "100000");
+
+		// same, let's allow for a lot of custom headers to be set (default is 100)
+		connector.setProperty("maxHeaderCount", "1000");
+
 		connector.setProperty("connectionTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 10000))); // clients should be quick
 
 		connector.setProperty("disableUploadTimeout", "false");
