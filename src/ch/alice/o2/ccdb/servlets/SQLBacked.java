@@ -111,7 +111,7 @@ public class SQLBacked extends HttpServlet {
 			}
 			else
 				for (final String address : obj.getAddress(replica))
-					response.addHeader("Content-Location", address);
+					response.addHeader("Content-Location", address.replace('\n', '|'));
 
 		return hasLocalReplica;
 	}

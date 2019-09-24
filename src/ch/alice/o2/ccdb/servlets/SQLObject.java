@@ -418,7 +418,7 @@ public class SQLObject {
 							System.err.println("Cannot grant access to " + p.getPFN() + " : " + reason);
 
 						if (envelope != null)
-							ret.add(p.getPFN() + "?authz=" + Format.encode(envelope));
+							ret.add(p.getPFN() + "?authz=" + envelope);
 						else
 							ret.add(p.getPFN());
 					}
