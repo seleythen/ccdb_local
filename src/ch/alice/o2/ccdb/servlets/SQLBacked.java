@@ -89,10 +89,7 @@ public class SQLBacked extends HttpServlet {
 			return;
 		}
 
-		setAltLocationHeaders(response, matchingObject);
-
-		// Can I serve it directly?
-		if (matchingObject.replicas.contains(Integer.valueOf(0))) {
+		if (setAltLocationHeaders(response, matchingObject)) {
 			SQLDownload.download(head, matchingObject, request, response);
 			return;
 		}
@@ -102,12 +99,21 @@ public class SQLBacked extends HttpServlet {
 		response.sendRedirect(matchingObject.getAddresses().iterator().next());
 	}
 
-	private static void setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj) {
+	private static boolean setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj) {
+		boolean hasLocalReplica = false;
+
 		for (final Integer replica : obj.replicas)
-			if (replica.intValue() == 0)
-				response.addHeader("Content-Location", "/download/" + obj.id);
+			if (replica.intValue() == 0) {
+				if (obj.getLocalFile(false) != null) {
+					response.addHeader("Content-Location", "/download/" + obj.id);
+					hasLocalReplica = true;
+				}
+			}
 			else
-				response.addHeader("Content-Location", obj.getAddress(replica));
+				for (final String address : obj.getAddress(replica))
+					response.addHeader("Content-Location", address);
+
+		return hasLocalReplica;
 	}
 
 	static void setMD5Header(final SQLObject obj, final HttpServletResponse response) {
@@ -229,7 +235,7 @@ public class SQLBacked extends HttpServlet {
 
 			setHeaders(newObject, response);
 
-			final String location = newObject.getAddress(Integer.valueOf(0));
+			final String location = newObject.getAddress(Integer.valueOf(0)).iterator().next();
 
 			response.setHeader("Location", location);
 			response.setHeader("Content-Location", location);
