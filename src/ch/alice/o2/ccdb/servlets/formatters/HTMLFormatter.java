@@ -90,10 +90,20 @@ public class HTMLFormatter implements SQLFormatter {
 				writer.print("'>");
 
 				if (replica.intValue() == 0)
-					writer.print("local");
+					writer.print("local repo (http)");
 				else
-					if (replica.intValue() < 0)
+					if (replica.intValue() < 0) {
 						writer.print("alien");
+
+						if (address.startsWith("root://"))
+							writer.print(" (root)");
+						else
+							if (address.startsWith("http"))
+								writer.print(" (http)");
+							else
+								if (address.startsWith("alien://"))
+									writer.print(" (plugin)");
+					}
 					else
 						writer.print("SE #" + replica);
 
