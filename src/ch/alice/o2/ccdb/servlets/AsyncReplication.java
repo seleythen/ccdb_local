@@ -31,7 +31,7 @@ import lazyj.StringFactory;
  * @author costing
  * @since 2018-06-08
  */
-public class AsyncReplication extends Thread {
+public class AsyncReplication extends Thread implements SQLNotifier {
 	private AsyncReplication() {
 		// singleton
 	}
@@ -183,32 +183,36 @@ public class AsyncReplication extends Thread {
 		return targetSEs;
 	}
 
-	static boolean queueDefaultReplication(final SQLObject object) {
+	@Override
+	public void newObject(final SQLObject object) {
 		final List<String> targets = getTargetSEs();
 
 		if (targets == null || targets.isEmpty())
-			return true; // nothing to do, but it's expected to be ok
-
-		boolean anyOk = false;
+			return; // nothing to do, but it's expected to be ok
 
 		for (final String seName : targets) {
-			if (seName.contains("::")) {
-				if (queueMirror(object, seName))
-					anyOk = true;
-			}
+			if (seName.contains("::"))
+				queueMirror(object, seName);
 			else
 				if (seName.equalsIgnoreCase("ALIEN"))
 					getInstance().asyncReplicationQueue.offer(new AliEnReplicationTarget(object));
+				else
+					System.err.println("Don't know how to handle the replication target of " + seName);
 		}
 
-		return anyOk;
+		return;
 	}
 
 	static boolean queueMirror(final SQLObject object, final String seName) {
-		final SE se = SEUtils.getSE(seName);
+		try {
+			final SE se = SEUtils.getSE(seName);
 
-		if (se != null)
-			return queueMirror(object, se);
+			if (se != null)
+				return queueMirror(object, se);
+		}
+		catch (final Throwable t) {
+			System.err.println("Could not call getSE(" + seName + ") : " + t.getMessage());
+		}
 
 		return false;
 	}
@@ -217,7 +221,8 @@ public class AsyncReplication extends Thread {
 		return getInstance().asyncReplicationQueue.offer(new AsyncReplicationTarget(object, se));
 	}
 
-	static void deleteReplicas(final SQLObject object) {
+	@Override
+	public void deletedObject(final SQLObject object) {
 		for (final Integer replica : object.replicas)
 			if (replica.intValue() == 0) {
 				// local file
@@ -275,5 +280,10 @@ public class AsyncReplication extends Thread {
 						}
 					}
 				}
+	}
+
+	@Override
+	public void updatedObject(final SQLObject object) {
+		// nothing to do on update, the underlying backend doesn't need to know of metadata changes
 	}
 }

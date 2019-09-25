@@ -9,7 +9,9 @@ import java.io.InputStream;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
@@ -23,6 +25,7 @@ import javax.servlet.http.Part;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
+import alien.se.SEUtils;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import lazyj.DBFunctions;
@@ -40,14 +43,32 @@ public class SQLBacked extends HttpServlet {
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLBacked.class.getCanonicalName());
 
-	static {
-		monitor.addMonitoring("stats", new SQLStatsExporter());
-	}
+	private static List<SQLNotifier> notifiers = new ArrayList<>();
 
 	/**
 	 * The base path of the file repository
 	 */
 	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("user.home") + System.getProperty("file.separator") + "QC");
+
+	static {
+		monitor.addMonitoring("stats", new SQLStatsExporter());
+
+		if (Options.getIntOption("gridreplication.enabled", 0) == 1) {
+			try {
+				SEUtils.getSE(0);
+
+				System.err.println("Grid replication enabled, central services connection tested OK");
+
+				notifiers.add(AsyncReplication.getInstance());
+			}
+			catch (@SuppressWarnings("unused") final Throwable t) {
+				System.err.println("Grid replication is enabled but upstream connection to JCentral doesn't work, disabling replication at this point");
+				System.err.println("If this is an expected behavior please set gridreplication.enabled=0");
+			}
+		}
+		else
+			System.err.println("Replication to Grid storage elements is disabled, all data will stay on this machine, under " + basePath);
+	}
 
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
@@ -231,8 +252,6 @@ public class SQLBacked extends HttpServlet {
 				return;
 			}
 
-			AsyncReplication.queueDefaultReplication(newObject);
-
 			setHeaders(newObject, response);
 
 			final String location = newObject.getAddress(Integer.valueOf(0)).iterator().next();
@@ -241,6 +260,9 @@ public class SQLBacked extends HttpServlet {
 			response.setHeader("Content-Location", location);
 
 			response.sendError(HttpServletResponse.SC_CREATED);
+
+			for (final SQLNotifier notifier : notifiers)
+				notifier.newObject(newObject);
 		}
 	}
 
@@ -278,6 +300,9 @@ public class SQLBacked extends HttpServlet {
 				response.sendError(HttpServletResponse.SC_NO_CONTENT);
 			else
 				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
+
+			for (final SQLNotifier notifier : notifiers)
+				notifier.updatedObject(matchingObject);
 		}
 	}
 
@@ -307,7 +332,8 @@ public class SQLBacked extends HttpServlet {
 
 			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 
-			AsyncPhysicalRemovalThread.deleteReplicas(matchingObject);
+			for (final SQLNotifier notifier : notifiers)
+				notifier.deletedObject(matchingObject);
 		}
 	}
 
