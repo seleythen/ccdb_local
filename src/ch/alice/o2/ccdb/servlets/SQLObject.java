@@ -389,12 +389,10 @@ public class SQLObject {
 		pattern = Format.replace(pattern, "HASH", SE.generatePath(id.toString()));
 
 		if (pattern.startsWith("alien://")) {
-			pattern = pattern.substring(8);
-
 			if (!resolveAliEn)
-				return Arrays.asList(pattern);
+				return Arrays.asList(pattern.substring(8));
 
-			final LFN l = LFNUtils.getLFN(pattern);
+			final LFN l = LFNUtils.getLFN(pattern.substring(8));
 
 			if (l != null) {
 				final Set<PFN> pfns = l.whereisReal();
