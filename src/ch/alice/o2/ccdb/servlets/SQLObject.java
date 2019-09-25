@@ -415,11 +415,44 @@ public class SQLObject {
 						else
 							System.err.println("Cannot grant access to " + p.getPFN() + " : " + reason);
 
-						if (envelope != null)
-							ret.add(p.getPFN() + "?authz=" + envelope);
-						else
-							ret.add(p.getPFN());
+						final SE se = p.getSE();
+
+						int httpPort = -1;
+
+						if (se != null)
+							httpPort = se.getHTTPPort();
+
+						String httpUrl = null;
+
+						if (httpPort > 0 && p.getPFN().startsWith("root://")) {
+							final String url = p.getPFN().substring(7);
+
+							final int idxColumn = url.indexOf(':');
+							final int idxSlash = url.indexOf('/');
+
+							if (idxColumn > 0 && idxSlash > idxColumn) {
+								httpUrl = "http://" + url.substring(0, idxColumn + 1) + httpPort + url.substring(idxSlash);
+							}
+							else
+								if (idxSlash > 0)
+									httpUrl = "http://" + url.substring(0, idxSlash) + ":" + httpPort + url.substring(idxSlash);
+						}
+
+						if (httpUrl != null) {
+							if (envelope != null)
+								ret.add(httpUrl + "?authz=" + Format.encode(envelope));
+							else
+								ret.add(httpUrl);
+						}
+						else {
+							if (envelope != null)
+								ret.add(p.getPFN() + "?authz=" + envelope);
+							else
+								ret.add(p.getPFN());
+						}
 					}
+
+					Collections.sort(ret);
 
 					return ret;
 				}
