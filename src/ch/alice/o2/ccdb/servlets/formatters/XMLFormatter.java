@@ -64,9 +64,7 @@ public class XMLFormatter implements SQLFormatter {
 
 		for (final Integer replica : obj.replicas) {
 			for (final String address : obj.getAddress(replica)) {
-				writer.print("  <replica id='");
-				writer.print(replica);
-				writer.print("' addr='");
+				writer.print("  <replica addr='");
 				writer.print(Format.escHtml(address));
 				writer.print("'/>\n");
 			}
