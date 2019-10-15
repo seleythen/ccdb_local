@@ -3,7 +3,7 @@
 cd `dirname $0`
 
 # Tomcat version to embed in this project
-VER="9.0.26"
+VER="9.0.27"
 
 T="apache-tomcat-$VER"
 
