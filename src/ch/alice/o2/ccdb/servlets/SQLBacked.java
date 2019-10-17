@@ -11,6 +11,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -68,6 +69,9 @@ public class SQLBacked extends HttpServlet {
 		}
 		else
 			System.err.println("Replication to Grid storage elements is disabled, all data will stay on this machine, under " + basePath);
+
+		if (notifiers.size() == 0)
+			notifiers.add(SQLLocalRemoval.getInstance());
 	}
 
 	@Override
@@ -75,6 +79,13 @@ public class SQLBacked extends HttpServlet {
 		try (Timing t = new Timing(monitor, "HEAD_ms")) {
 			doGet(request, response, true);
 		}
+	}
+
+	/**
+	 * @return the notifiers to take actions on object events
+	 */
+	static Collection<SQLNotifier> getNotifiers() {
+		return Collections.unmodifiableCollection(notifiers);
 	}
 
 	@Override
