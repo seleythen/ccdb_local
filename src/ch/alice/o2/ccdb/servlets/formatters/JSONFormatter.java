@@ -3,6 +3,7 @@ package ch.alice.o2.ccdb.servlets.formatters;
 import java.io.PrintWriter;
 import java.util.Map;
 
+import ch.alice.o2.ccdb.multicast.Blob;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
@@ -188,5 +189,11 @@ public class JSONFormatter implements SQLFormatter {
 	@Override
 	public void setExtendedReport(final boolean extendedReport) {
 		// Extended reporting not implemented for JSON dump
+	}
+
+	@Override
+	public void format(PrintWriter writer, Blob obj) {
+		// TODO Auto-generated method stub
+		
 	}
 }

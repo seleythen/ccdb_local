@@ -4,6 +4,7 @@ import java.io.PrintWriter;
 import java.util.Date;
 import java.util.Map;
 
+import ch.alice.o2.ccdb.multicast.Blob;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
@@ -271,5 +272,11 @@ public class HTMLFormatter implements SQLFormatter {
 	@Override
 	public void setExtendedReport(final boolean extendedReport) {
 		this.extendedReport = extendedReport;
+	}
+
+	@Override
+	public void format(PrintWriter writer, Blob obj) {
+		// TODO Auto-generated method stub
+		
 	}
 }

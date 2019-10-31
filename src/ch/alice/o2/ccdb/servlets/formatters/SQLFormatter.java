@@ -2,6 +2,7 @@ package ch.alice.o2.ccdb.servlets.formatters;
 
 import java.io.PrintWriter;
 
+import ch.alice.o2.ccdb.multicast.Blob;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 
@@ -24,6 +25,16 @@ public interface SQLFormatter {
 	 *            object to append to
 	 */
 	public void header(PrintWriter writer);
+
+	/**
+	 * Formatting one object at a time
+	 *
+	 * @param writer
+	 *            object to append to
+	 * @param obj
+	 *            current element to serialize
+	 */
+	public void format(PrintWriter writer, Blob obj);
 
 	/**
 	 * Formatting one object at a time

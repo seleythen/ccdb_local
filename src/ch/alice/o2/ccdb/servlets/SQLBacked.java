@@ -72,6 +72,11 @@ public class SQLBacked extends HttpServlet {
 
 		if (notifiers.size() == 0)
 			notifiers.add(SQLLocalRemoval.getInstance());
+
+		final SQLtoUDP udpSender = SQLtoUDP.getInstance();
+
+		if (udpSender != null)
+			notifiers.add(udpSender);
 	}
 
 	@Override
@@ -269,7 +274,6 @@ public class SQLBacked extends HttpServlet {
 
 			response.setHeader("Location", location);
 			response.setHeader("Content-Location", location);
-
 			response.sendError(HttpServletResponse.SC_CREATED);
 
 			for (final SQLNotifier notifier : notifiers)

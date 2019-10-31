@@ -43,6 +43,10 @@ jar -cfe local.jar \
     ch.alice.o2.ccdb.webserver.LocalEmbeddedTomcat ch/alice/o2/ccdb/webserver/LocalEmbeddedTomcat.class \
     ch javax org alien lazyj lia apmon utils
 
+# same as above but with the in-memory container as default entry point
+jar -cfe memory.jar \
+    ch.alice.o2.ccdb.webserver.MemoryEmbeddedTomcat ch/alice/o2/ccdb/webserver/MemoryEmbeddedTomcat.class \
+    ch javax org alien lazyj lia apmon utils
 # Extra packages for the SQL backend
 
 for jar in postgresql.jar mysql-connector-java-5.1.46.jar bcpkix-jdk15on-*.jar bcprov-jdk15on-*.jar; do

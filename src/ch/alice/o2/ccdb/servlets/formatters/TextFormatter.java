@@ -2,6 +2,7 @@ package ch.alice.o2.ccdb.servlets.formatters;
 
 import java.io.PrintWriter;
 
+import ch.alice.o2.ccdb.multicast.Blob;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
@@ -69,5 +70,11 @@ public class TextFormatter implements SQLFormatter {
 	@Override
 	public void setExtendedReport(final boolean extendedReport) {
 		// nothing needed
+	}
+
+	@Override
+	public void format(PrintWriter writer, Blob obj) {
+		// TODO Auto-generated method stub
+		
 	}
 }
