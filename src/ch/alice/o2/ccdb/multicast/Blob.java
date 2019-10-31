@@ -193,6 +193,15 @@ public class Blob implements Comparable<Blob> {
 		cachedMetadataMap.put("Valid-From", String.valueOf(this.startTime));
 		cachedMetadataMap.put("Created", String.valueOf(ref.createTime));
 
+		if (ref.fileName != null)
+			cachedMetadataMap.put("OriginalFileName", ref.fileName);
+
+		if (ref.contentType != null)
+			cachedMetadataMap.put("Content-Type", ref.contentType);
+
+		if (ref.md5 != null)
+			cachedMetadataMap.put("Content-MD5", ref.md5);
+
 		final File localFile = ref.getLocalFile(false);
 
 		if (localFile != null) {
