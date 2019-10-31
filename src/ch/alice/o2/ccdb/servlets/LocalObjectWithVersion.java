@@ -40,7 +40,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	/**
 	 * File on disk with the blob content of this object
 	 */
-	final File referenceFile;
+	public final File referenceFile;
 
 	/**
 	 * Metadata keys and values, stored in an additional <i>{@link #referenceFile}.properties</i> file next to the blob object.
