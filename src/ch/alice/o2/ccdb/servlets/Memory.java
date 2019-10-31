@@ -158,8 +158,7 @@ public class Memory extends HttpServlet {
 			return;
 		}
 
-		if (parser.cachedValue != null
-				&& matchingObject.getUuid().toString().equalsIgnoreCase(parser.cachedValue.toString())) {
+		if (parser.cachedValue != null && matchingObject.getUuid().toString().equalsIgnoreCase(parser.cachedValue.toString())) {
 			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 			return;
 		}
@@ -217,7 +216,7 @@ public class Memory extends HttpServlet {
 		if (range == null || range.trim().isEmpty()) {
 			response.setHeader("Accept-Ranges", "bytes");
 			response.setContentLengthLong(obj.getPayload().length);
-			response.setHeader("Content-Disposition", "inline;filename=\"" + obj.getUuid().toString() + "\"");
+			response.setHeader("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
 			response.setHeader("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
 			setMD5Header(obj, response);
 
