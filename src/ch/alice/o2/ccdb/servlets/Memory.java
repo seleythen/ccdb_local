@@ -188,7 +188,7 @@ public class Memory extends HttpServlet {
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(getURLPrefix(request) + matchingObject.getUuid().toString());
+		response.sendRedirect(getURLPrefix(request) + matchingObject.getStartTime() + "/" + matchingObject.getUuid().toString());
 	}
 
 	private static void setHeaders(final Blob obj, final HttpServletResponse response) {
