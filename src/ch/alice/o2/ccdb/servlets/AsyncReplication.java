@@ -286,4 +286,9 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 	public void updatedObject(final SQLObject object) {
 		// nothing to do on update, the underlying backend doesn't need to know of metadata changes
 	}
+
+	@Override
+	public String toString() {
+		return "AsyncReplication";
+	}
 }
