@@ -72,6 +72,8 @@ public class Blob implements Comparable<Blob> {
 
 	private long lastTouched = System.currentTimeMillis();
 
+	private boolean complete = true;
+
 	/**
 	 * Parameterized constructor - creates a Blob object to be sent that contains a
 	 * payload and a checksum. The checksum is the Utils.CHECKSUM_TYPE of the
@@ -176,6 +178,8 @@ public class Blob implements Comparable<Blob> {
 
 		this.metadataByteRanges.add(new Pair(0, this.metadata.length));
 		this.payloadByteRanges.add(new Pair(0, this.payload.length));
+
+		setComplete(true);
 	}
 
 	/**
@@ -229,6 +233,8 @@ public class Blob implements Comparable<Blob> {
 
 		this.metadataByteRanges.add(new Pair(0, this.metadata.length));
 		this.payloadByteRanges.add(new Pair(0, this.payload.length));
+
+		setComplete(true);
 	}
 
 	/**
@@ -447,31 +453,60 @@ public class Blob implements Comparable<Blob> {
 	}
 
 	/**
+	 * Set the <i>complete</i> flag
+	 *
+	 * @param newCompleteFlag
+	 * @return the old value of the <i>complete</i> flag
+	 */
+	public boolean setComplete(final boolean newCompleteFlag) {
+		final boolean oldComplete = complete;
+
+		complete = newCompleteFlag;
+
+		return oldComplete;
+	}
+
+	private boolean isCompleteRecalculate = true;
+
+	/**
+	 * At next {@link #isComplete()} call, do a full re-assessment of its status, otherwise the cached value could be used
+	 */
+	public void recomputeIsComplete() {
+		isCompleteRecalculate = true;
+	}
+
+	/**
 	 * isComplete method - checks if a Blob is completely received
 	 *
 	 * @return boolean true if the Blob is Complete
-	 *
-	 * @throws NoSuchAlgorithmException
 	 * @throws IOException
+	 * @throws NoSuchAlgorithmException
 	 */
-	public boolean isComplete() throws IOException, NoSuchAlgorithmException {
+	public boolean isComplete() throws NoSuchAlgorithmException, IOException {
+		if (!isCompleteRecalculate)
+			return complete;
+
+		isCompleteRecalculate = false;
+
+		complete = false;
+
 		if (this.metadata == null || this.payload == null) {
-			return false;
+			return complete;
 		}
 
 		// Check byte ranges size:
 		if (this.payloadByteRanges.size() != 1 || this.metadataByteRanges.size() != 1) {
-			return false;
+			return complete;
 		}
 
 		// Check byte ranges metadata:
 		if (this.metadataByteRanges.get(0).first != 0 || this.metadataByteRanges.get(0).second != this.metadata.length) {
-			return false;
+			return complete;
 		}
 
 		// Check byte ranges payload:
 		if (this.payloadByteRanges.get(0).first != 0 || this.payloadByteRanges.get(0).second != this.payload.length) {
-			return false;
+			return complete;
 		}
 
 		// Verify checksums
@@ -483,10 +518,71 @@ public class Blob implements Comparable<Blob> {
 			throw new IOException("Metadata checksum failed");
 		}
 
-		startTime = Long.parseLong(getProperty("Valid-From"));
-		endTime = Long.parseLong(getProperty("Valid-Until"));
+		if (startTime <= 0)
+			startTime = Long.parseLong(getProperty("Valid-From"));
 
-		return true;
+		if (endTime <= 0)
+			endTime = Long.parseLong(getProperty("Valid-Until"));
+
+		complete = true;
+
+		return complete;
+	}
+
+	private static void addPairToList(final ArrayList<Pair> list, final Pair newRange) {
+		synchronized (list) {
+			if (list.size() == 0) {
+				list.add(newRange);
+				return;
+			}
+
+			final int idx = Collections.binarySearch(list, newRange);
+
+			if (idx < 0) {
+				final int pos = -idx - 1;
+
+				if (pos == list.size()) {
+					// can we join with the last entry?
+
+					final Pair existing = list.get(list.size() - 1);
+
+					if (existing.second == newRange.first)
+						existing.second = newRange.second;
+					else
+						list.add(newRange);
+				}
+				else {
+					final Pair existing = list.get(pos);
+
+					if (existing.first == newRange.second) {
+						if (pos > 0 && list.get(pos - 1).second == newRange.first) {
+							list.get(pos - 1).second = existing.second;
+							list.remove(pos);
+						}
+						else
+							existing.first = newRange.first;
+					}
+					else {
+						if (existing.second == newRange.first) {
+							if (pos < list.size() - 1 && list.get(pos + 1).first == newRange.second) {
+								existing.second = list.get(pos + 1).second;
+								list.remove(pos + 1);
+							}
+							else {
+								existing.second = newRange.second;
+							}
+						}
+						else {
+							// can we join with the previous one?
+							if (pos > 0 && list.get(pos - 1).second == newRange.first)
+								list.get(pos - 1).second = newRange.second;
+							else
+								list.add(pos, newRange);
+						}
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -512,48 +608,10 @@ public class Blob implements Comparable<Blob> {
 			if (this.payload.length != fragmentedBlob.getblobDataLength()) { // Another fragment
 				throw new IOException("payload.length should have size = " + fragmentedBlob.getblobDataLength());
 			}
+
 			System.arraycopy(fragmentedPayload, 0, this.payload, fragmentOffset, fragmentedPayload.length);
 
-			int index = -1;
-			for (int i = 0; i < this.payloadByteRanges.size(); i++) {
-				if (this.payloadByteRanges.get(i).second == pair.first) {
-					index = i;
-					this.payloadByteRanges.set(i, new Pair(this.payloadByteRanges.get(i).first, pair.second));
-					break;
-				}
-				else
-					if (this.payloadByteRanges.get(i).first == pair.second) {
-						index = i;
-						this.payloadByteRanges.set(i, new Pair(pair.first, this.payloadByteRanges.get(i).second));
-						break;
-					}
-			}
-
-			if (index == -1) { // a new element at the end
-				this.payloadByteRanges.add(pair);
-			}
-			else {
-				final Pair indexPair = this.payloadByteRanges.get(index);
-				// check if element at index i can be merged with another one
-				for (int i = 0; i < this.payloadByteRanges.size(); i++) {
-					if (i != index) {
-						if (this.payloadByteRanges.get(i).first == indexPair.second) {
-							this.payloadByteRanges.set(i,
-									new Pair(indexPair.first, this.payloadByteRanges.get(i).second));
-							this.payloadByteRanges.remove(index);
-							break;
-						}
-						else
-							if (this.payloadByteRanges.get(i).second == indexPair.first) {
-								this.payloadByteRanges.set(i,
-										new Pair(this.payloadByteRanges.get(i).first, indexPair.second));
-								this.payloadByteRanges.remove(index);
-								break;
-							}
-					}
-				}
-			}
-
+			addPairToList(this.payloadByteRanges, pair);
 		}
 		else
 			if (fragmentedBlob.getPachetType() == METADATA_CODE) {
@@ -564,44 +622,10 @@ public class Blob implements Comparable<Blob> {
 				if (this.metadata.length != fragmentedBlob.getblobDataLength()) { // Another fragment
 					throw new IOException("metadata.length should have size = " + fragmentedBlob.getblobDataLength());
 				}
+
 				System.arraycopy(fragmentedPayload, 0, this.metadata, fragmentOffset, fragmentedPayload.length);
 
-				int index = -1;
-				for (int i = 0; i < this.metadataByteRanges.size(); i++) {
-					if (this.metadataByteRanges.get(i).second == pair.first) {
-						index = i;
-						this.metadataByteRanges.set(i, new Pair(this.metadataByteRanges.get(i).first, pair.second));
-						break;
-					}
-					else
-						if (this.metadataByteRanges.get(i).first == pair.second) {
-							index = i;
-							this.metadataByteRanges.set(i, new Pair(pair.first, this.metadataByteRanges.get(i).second));
-							break;
-						}
-				}
-
-				if (index == -1) { // a new element at the end
-					this.metadataByteRanges.add(pair);
-				}
-				else {
-					// check if element at index i can be merged with another one
-					for (int i = 0; i < this.metadataByteRanges.size() && i != index; i++) {
-						if (this.metadataByteRanges.get(i).first == this.metadataByteRanges.get(index).second) {
-							this.metadataByteRanges.set(i, new Pair(this.metadataByteRanges.get(index).first,
-									this.metadataByteRanges.get(i).second));
-							this.metadataByteRanges.remove(index);
-							break;
-						}
-						else
-							if (this.metadataByteRanges.get(i).second == this.metadataByteRanges.get(index).first) {
-								this.metadataByteRanges.set(i, new Pair(this.metadataByteRanges.get(i).first,
-										this.metadataByteRanges.get(index).second));
-								this.metadataByteRanges.remove(index);
-								break;
-							}
-					}
-				}
+				addPairToList(this.metadataByteRanges, pair);
 			}
 			else
 				if (fragmentedBlob.getPachetType() == SMALL_BLOB_CODE) {
@@ -651,10 +675,11 @@ public class Blob implements Comparable<Blob> {
 	}
 
 	/**
-	 * @return ranges of missinge data blocks
+	 * @return ranges of missing data blocks
 	 */
 	public ArrayList<Pair> getMissingPayloadBlocks() {
 		if (this.payload == null) {
+			System.err.println("No payload so far, have to ask for the entire content");
 			return null;
 		}
 
@@ -662,12 +687,21 @@ public class Blob implements Comparable<Blob> {
 
 		final ArrayList<Pair> missingBlocks = new ArrayList<>();
 
+		final Pair first = payloadByteRanges.get(0);
+
+		if (first.first > 0)
+			missingBlocks.add(new Pair(0, first.first - 1));
+
 		for (int i = 0; i < this.payloadByteRanges.size() - 1; i++) {
 			if (this.payloadByteRanges.get(i).second != this.payloadByteRanges.get(i + 1).first) {
-				missingBlocks
-						.add(new Pair(this.payloadByteRanges.get(i).second, this.payloadByteRanges.get(i + 1).first));
+				missingBlocks.add(new Pair(this.payloadByteRanges.get(i).second, this.payloadByteRanges.get(i + 1).first - 1));
 			}
 		}
+
+		final Pair last = payloadByteRanges.get(payloadByteRanges.size() - 1);
+
+		if (last.second < payload.length)
+			missingBlocks.add(new Pair(last.second, payload.length - 1));
 
 		return missingBlocks;
 	}
@@ -681,7 +715,10 @@ public class Blob implements Comparable<Blob> {
 			// getting the entire payload blob
 			this.payload = new byte[data.length];
 		}
+
 		System.arraycopy(data, 0, this.payload, missingBlock.first, data.length);
+
+		addPairToList(this.payloadByteRanges, missingBlock);
 	}
 
 	/**
@@ -729,7 +766,7 @@ public class Blob implements Comparable<Blob> {
 
 	/**
 	 * Set a metadata key to a new value, serializing again the metadata blob
-	 * 
+	 *
 	 * @param metadataKey
 	 * @param value
 	 */
@@ -739,7 +776,7 @@ public class Blob implements Comparable<Blob> {
 		try {
 			metadata = Utils.serializeMetadata(cachedMetadataMap);
 		}
-		catch (@SuppressWarnings("unused") IOException e) {
+		catch (@SuppressWarnings("unused") final IOException e) {
 			// ignore
 		}
 	}
@@ -875,7 +912,7 @@ public class Blob implements Comparable<Blob> {
 			return createTime;
 
 		try {
-			createTime = Long.parseLong(getProperty("CreateTime"));
+			createTime = Long.parseLong(getProperty("Created"));
 		}
 		catch (@SuppressWarnings("unused") NumberFormatException | NullPointerException ignore) {
 			createTime = GUIDUtils.epochTime(uuid);
@@ -947,4 +984,26 @@ public class Blob implements Comparable<Blob> {
 		// all required keys matched
 		return true;
 	}
+
+	/*
+	 * private static void addPair(ArrayList<Pair> list, int start, int end) {
+	 * addPairToList(list, new Pair(start, end));
+	 *
+	 * System.err.println(list);
+	 * }
+	 *
+	 * public static void main(String[] args) {
+	 * ArrayList<Pair> list = new ArrayList<>();
+	 *
+	 * addPair(list, 40, 50);
+	 * addPair(list, 50, 60);
+	 * addPair(list, 30, 40);
+	 * addPair(list, 60, 70);
+	 * addPair(list, 20, 30);
+	 * addPair(list, 70, 80);
+	 * addPair(list, 10, 20);
+	 * addPair(list, 80, 90);
+	 * addPair(list, 0, 10);
+	 * }
+	 */
 }
