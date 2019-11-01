@@ -2,6 +2,8 @@ package ch.alice.o2.ccdb.multicast;
 
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
+import java.util.logging.Handler;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
@@ -31,7 +33,13 @@ public class SingletonLogger {
 			sf = new SimpleFormatter();
 			fh.setFormatter(sf);
 
+			for (Handler h: logger.getHandlers())
+				logger.removeHandler(h);
+			
 			logger.addHandler(fh);
+		}
+		else {
+			logger.setLevel(Level.OFF);
 		}
 	}
 
