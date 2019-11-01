@@ -15,14 +15,20 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.DelayQueue;
+import java.util.concurrent.Delayed;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.mail.BodyPart;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 import javax.servlet.http.HttpServletResponse;
 
 import alien.test.cassandra.tomcat.Options;
@@ -38,7 +44,7 @@ public class UDPReceiver extends Thread {
 	/**
 	 * How soon to start the recovery of incomplete objects after the last received fragment
 	 */
-	private static final long DELTA_T = 500;
+	private static final long DELTA_T = 5000;
 
 	/**
 	 * For how long superseded objects should be kept around, in case delayed processing needs them
@@ -50,14 +56,9 @@ public class UDPReceiver extends Thread {
 
 	private int unicastPortNumber = 0;
 
-	private String recoveryBaseURL = null;
+	private static String recoveryBaseURL = Options.getOption("udp_receiver.recovery_url", "http://alice-ccdb.cern.ch:8080/");
 
 	static int nrPacketsReceived = 0;
-
-	/**
-	 * uuid <-> Blob fragmentat, zona de tranzitie pana la primirea completa a tuturor fragmentelor
-	 */
-	private final Map<UUID, Blob> inFlight = new ConcurrentHashMap<>();
 
 	/**
 	 * Blob-uri complete
@@ -72,8 +73,6 @@ public class UDPReceiver extends Thread {
 		multicastPortNumber = Options.getIntOption("udp_receiver.multicast_port", 3342);
 
 		unicastPortNumber = Options.getIntOption("udp_receiver.unicast_port", 0);
-
-		recoveryBaseURL = Options.getOption("udp_receiver.recovery_url", "http://alice-ccdb.cern.ch:8080/");
 	}
 
 	private final Thread counterThread = new Thread(new Runnable() {
@@ -89,14 +88,168 @@ public class UDPReceiver extends Thread {
 				}
 
 				if (UDPReceiver.nrPacketsReceived - oldNrPacketsReceived > 0) {
-					logger.log(Level.INFO,
-							"Received " + (UDPReceiver.nrPacketsReceived - oldNrPacketsReceived)
-									+ " packets per second. \n" + "Total " + UDPReceiver.nrPacketsReceived);
+					logger.log(Level.INFO, "Received " + (UDPReceiver.nrPacketsReceived - oldNrPacketsReceived) + " packets per second. \n" + "Total " + UDPReceiver.nrPacketsReceived);
 					oldNrPacketsReceived = UDPReceiver.nrPacketsReceived;
 				}
+
+				// logger.log(Level.INFO, "Recovery queue length: " + recoveryQueue.size());
 			}
 		}
 	});
+
+	/**
+	 * @author costing
+	 * @since 2019-11-01
+	 */
+	private static class DelayedBlob implements Delayed {
+		public Blob blob;
+
+		public DelayedBlob(final Blob blob) {
+			this.blob = blob;
+		}
+
+		@Override
+		public boolean equals(final Object obj) {
+			if (!(obj instanceof DelayedBlob))
+				return false;
+
+			final DelayedBlob oth = (DelayedBlob) obj;
+
+			return this.blob.getUuid().equals(oth.blob.getUuid());
+		}
+
+		@Override
+		public int compareTo(final Delayed o) {
+			final long diff = this.blob.getLastTouched() - ((DelayedBlob) o).blob.getLastTouched();
+
+			if (diff < 0)
+				return -1;
+
+			if (diff > 0)
+				return 1;
+
+			return 0;
+		}
+
+		@Override
+		public long getDelay(final TimeUnit unit) {
+			final long msToRecovery = blob.getLastTouched() + DELTA_T - System.currentTimeMillis();
+
+			return unit.convert(msToRecovery, TimeUnit.MILLISECONDS);
+		}
+
+		@Override
+		public int hashCode() {
+			return blob.hashCode();
+		}
+	}
+
+	private static DelayQueue<DelayedBlob> recoveryQueue = new DelayQueue<>();
+
+	private static void recoverBlob(final Blob blob) {
+		System.err.println("Started recovery of " + blob.getKey() + " / " + blob.getUuid());
+
+		// ArrayList<Pair> metadataMissingBlocks = blob.getMissingMetadataBlocks();
+		// TODO: Metadata recovery
+
+		final ArrayList<Pair> payloadMissingBlocks = blob.getMissingPayloadBlocks();
+
+		System.err.println("Have to ask for : " + payloadMissingBlocks);
+
+		if (payloadMissingBlocks == null || payloadMissingBlocks.size() == 0) {
+			// Recover the entire Blob
+			try {
+				final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
+				final HttpURLConnection con = (HttpURLConnection) url.openConnection();
+				con.setRequestMethod("GET");
+
+				con.setConnectTimeout(5000); // server should be fast (< 5 sec)
+				con.setReadTimeout(5000);
+
+				final int status = con.getResponseCode();
+				if (status == HttpServletResponse.SC_OK) {
+					try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
+						String inputLine;
+						final StringBuffer content = new StringBuffer();
+						while ((inputLine = in.readLine()) != null) {
+							content.append(inputLine);
+						}
+
+						blob.addByteRange(content.toString().getBytes(), new Pair(0, content.toString().getBytes().length));
+					}
+				}
+				else {
+					// TODO retry?
+				}
+			}
+			catch (final Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		else {
+			String ranges = "";
+			int i = 0;
+			for (i = 0; i < payloadMissingBlocks.size() - 1; i++) {
+				ranges += payloadMissingBlocks.get(i).first;
+				ranges += "-";
+				ranges += payloadMissingBlocks.get(i).second;
+				ranges += ",";
+			}
+			ranges += payloadMissingBlocks.get(i).first;
+			ranges += "-";
+			ranges += payloadMissingBlocks.get(i).second;
+
+			System.err.println("Asking URL\n" + recoveryBaseURL + "download/" + blob.getUuid().toString() + "\nfor \nRange: bytes=" + ranges);
+
+			try {
+				final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
+				final HttpURLConnection con = (HttpURLConnection) url.openConnection();
+				con.setRequestProperty("Range", "bytes=" + ranges);
+				con.setRequestMethod("GET");
+
+				con.setConnectTimeout(5000); // server should be fast (< 5 sec)
+				con.setReadTimeout(5000);
+
+				final int status = con.getResponseCode();
+
+				System.err.println("Server response code: " + status);
+
+				if (status == HttpServletResponse.SC_PARTIAL_CONTENT) {
+					final ByteArrayDataSource dataSource = new ByteArrayDataSource(con.getInputStream(), con.getHeaderField("Content-Type"));
+					final MimeMultipart mm = new MimeMultipart(dataSource);
+
+					for (int part = 0; part < mm.getCount(); part++) {
+						final BodyPart bp = mm.getBodyPart(part);
+
+						final byte[] content = new byte[bp.getSize()];
+
+						bp.getInputStream().read(content);
+
+						final String contentRange = bp.getHeader("Content-Range")[0];
+
+						final StringTokenizer st = new StringTokenizer(contentRange, " -/");
+
+						st.nextToken();
+
+						final int startOffset = Integer.parseInt(st.nextToken());
+
+						System.err.println("Add range " + startOffset + " .. " + (startOffset + content.length));
+
+						blob.addByteRange(content, new Pair(startOffset, startOffset + content.length));
+					}
+				}
+
+				blob.recomputeIsComplete();
+				
+				System.err.println("After this blob is complete: " + blob.isComplete());
+				System.err.println("Missing blocks: " + blob.getMissingPayloadBlocks());
+			}
+			catch (final Exception e) {
+				logger.log(Level.WARNING, "Exception recovering " + blob.getUuid(), e);
+			}
+		}
+	}
 
 	private final Thread incompleteBlobRecovery = new Thread(new Runnable() {
 		@Override
@@ -104,112 +257,39 @@ public class UDPReceiver extends Thread {
 			setName("IncompleteBlobRecovery");
 
 			while (true) {
-				for (final Map.Entry<UUID, Blob> entry : inFlight.entrySet()) {
-					entry.getKey();
-					final Blob blob = entry.getValue();
-
-					if (System.currentTimeMillis() > blob.getLastTouched() + DELTA_T) {
-						// ArrayList<Pair> metadataMissingBlocks = blob.getMissingMetadataBlocks();
-						// TODO: Metadata recovery
-
-						final ArrayList<Pair> payloadMissingBlocks = blob.getMissingPayloadBlocks();
-						if (payloadMissingBlocks == null) {
-							// Recover the entire Blob
-							try {
-								final URL url = new URL(recoveryBaseURL + blob.getUuid().toString());
-								final HttpURLConnection con = (HttpURLConnection) url.openConnection();
-								con.setRequestMethod("GET");
-
-								con.setConnectTimeout(5000); // server should be fast (< 5 sec)
-								con.setReadTimeout(5000);
-
-								final int status = con.getResponseCode();
-								if (status == HttpServletResponse.SC_OK) {
-									try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
-										String inputLine;
-										final StringBuffer content = new StringBuffer();
-										while ((inputLine = in.readLine()) != null) {
-											content.append(inputLine);
-										}
-										blob.addByteRange(content.toString().getBytes(), new Pair(0, content.toString().getBytes().length));
-									}
-								}
-								else {
-									// TODO retry?
-								}
-							}
-							catch (final Exception e) {
-								e.printStackTrace();
-							}
-
-						}
-						else {
-							String ranges = "";
-							int i = 0;
-							for (i = 0; i < payloadMissingBlocks.size() - 1; i++) {
-								ranges += payloadMissingBlocks.get(i).first;
-								ranges += "-";
-								ranges += payloadMissingBlocks.get(i).second;
-								ranges += ",";
-							}
-							ranges += payloadMissingBlocks.get(i).first;
-							ranges += "-";
-							ranges += payloadMissingBlocks.get(i).second;
-
-							try {
-								final URL url = new URL(recoveryBaseURL + blob.getUuid().toString());
-								final HttpURLConnection con = (HttpURLConnection) url.openConnection();
-								con.setRequestProperty("Range", "bytes=" + ranges);
-								con.setRequestMethod("GET");
-
-								con.setConnectTimeout(5000); // server should be fast (< 5 sec)
-								con.setReadTimeout(5000);
-
-								final int status = con.getResponseCode();
-								if (status == HttpServletResponse.SC_PARTIAL_CONTENT) {
-									try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
-										String inputLine;
-										final StringBuffer content = new StringBuffer();
-										while ((inputLine = in.readLine()) != null) {
-											content.append(inputLine);
-										}
-
-										// blob.setPayload(System.arraycopy(blob.getPayload(), ));
-										// Parse de response and get only the byte ranges without
-										// "--THIS_STRING_SEPARATES_5f8a3c40-8e7a-11e9-8e66-112233445566"
-
-										// blob.addByteRange(content.toString().getBytes(), new Pair(0,
-										// content.toString().getBytes().length));
-										// System.out.println(content.toString());
-									}
-								}
-								else {
-									// TODO: retry?
-								}
-
-							}
-							catch (final Exception e) {
-								e.printStackTrace();
-							}
-						}
-					}
-				}
-
+				DelayedBlob toRecover;
 				try {
-					// Frequent checks
-					sleep(100);
+					toRecover = recoveryQueue.take();
 				}
-				catch (@SuppressWarnings("unused") final InterruptedException e) {
+				catch (@SuppressWarnings("unused") final InterruptedException e1) {
 					return;
 				}
+
+				if (toRecover == null)
+					continue;
+
+				final Blob blob = toRecover.blob;
+
+				try {
+					if (blob.isComplete()) {
+						// nothing to do anymore
+						continue;
+					}
+				}
+				catch (@SuppressWarnings("unused") NoSuchAlgorithmException | IOException e1) {
+					// nothing
+				}
+
+				recoverBlob(blob);
 			}
+
 		}
 	});
 
 	private static Comparator<Blob> startTimeComparator = new Comparator<>() {
 		@Override
-		public int compare(Blob o1, Blob o2) {
-			long diff = o1.startTime - o2.startTime;
+		public int compare(final Blob o1, final Blob o2) {
+			final long diff = o1.startTime - o2.startTime;
 
 			if (diff > 0)
 				return 1;
@@ -230,48 +310,65 @@ public class UDPReceiver extends Thread {
 		final List<Blob> currentBlobsForKey = currentCacheContent.computeIfAbsent(blob.getKey(), k -> new Vector<>());
 
 		synchronized (currentBlobsForKey) {
-			currentBlobsForKey.add(blob);
+			if (!currentBlobsForKey.contains(blob))
+				currentBlobsForKey.add(blob);
 
 			currentBlobsForKey.sort(startTimeComparator);
 		}
-
-		logger.log(Level.INFO, "Complete blob with key " + blob.getKey() + " was added to the cache.");
 	}
 
-	void processPacket(final FragmentedBlob fragmentedBlob) throws NoSuchAlgorithmException, IOException {
-		System.out.println("Fragment payload offset " + fragmentedBlob.getFragmentOffset() + " size " + fragmentedBlob.getblobDataLength());
+	private static void processPacket(final FragmentedBlob fragmentedBlob) throws NoSuchAlgorithmException, IOException {
+		// System.out.println("Fragment payload offset " + fragmentedBlob.getFragmentOffset() + " size " + fragmentedBlob.getblobDataLength());
 
 		final List<Blob> candidates = currentCacheContent.get(fragmentedBlob.getKey());
+
+		Blob blob = null;
 
 		if (candidates != null)
 			for (final Blob b : candidates)
 				if (b.getUuid().equals(fragmentedBlob.getUuid())) {
-					// the complete object was already in memory, keep it and ignore retransmissions of other fragments of the same
-					return;
+					blob = b;
+					break;
 				}
 
-		final Blob blob = this.inFlight.computeIfAbsent(fragmentedBlob.getUuid(), k -> new Blob(fragmentedBlob.getKey(), fragmentedBlob.getUuid()));
+		if (blob != null && blob.isComplete()) {
+			// the complete object was already in memory, keep it and ignore retransmissions of other fragments of the same
+			return;
+		}
 
-		blob.addFragmentedBlob(fragmentedBlob);
-
-		if (blob.isComplete()) {
-			synchronized (this) {
-				nrPacketsReceived++;
-			}
-
-			// Remove the blob from inFlight
-			if (this.inFlight.remove(blob.getUuid()) == null) {
-				// If you get a SMALL_BLOB this statement will be logged
-				logger.log(Level.WARNING, "Complete blob " + blob.getUuid() + " was not present in inFlight");
-			}
+		if (blob == null) {
+			// no in flight object yet
+			blob = new Blob(fragmentedBlob.getKey(), fragmentedBlob.getUuid());
 
 			addToCacheContent(blob);
+		}
+
+		blob.addFragmentedBlob(fragmentedBlob);
+		blob.recomputeIsComplete();
+
+		final DelayedBlob delayedBlob = new DelayedBlob(blob);
+
+		if (blob.isComplete()) {
+			System.err.println("Object is now complete, removing from notification queue");
+
+			recoveryQueue.remove(delayedBlob);
+
+			// just to correctly sort by start time once it is computed by Blob.isComplete()
+			addToCacheContent(blob);
+
+			nrPacketsReceived++;
+		}
+		else {
+			synchronized (recoveryQueue) {
+				if (!recoveryQueue.contains(delayedBlob))
+					recoveryQueue.offer(delayedBlob);
+			}
 		}
 	}
 
 	private static ExecutorService executorService = null;
 
-	private void queueProcessing(final FragmentedBlob fragmentedBlob) {
+	private static void queueProcessing(final FragmentedBlob fragmentedBlob) {
 		executorService.submit(() -> {
 			try {
 				processPacket(fragmentedBlob);
@@ -295,12 +392,11 @@ public class UDPReceiver extends Thread {
 					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
 					socket.receive(packet);
 
-					System.out.println("Received one fragment on multicast");
+					// System.out.println("Received one fragment on multicast");
 
 					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 
-					System.out.println("cacheContent: " + currentCacheContent.size());
-					System.out.println("inFlight: " + inFlight.size());
+					// System.out.println("cacheContent: " + currentCacheContent.size());
 				}
 				catch (final Exception e) {
 					// logger.log(Level.WARNING, "Exception thrown");
@@ -325,12 +421,11 @@ public class UDPReceiver extends Thread {
 					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
 					serverSocket.receive(packet);
 
-					System.out.println("Received one fragment on unicast");
+					// System.out.println("Received one fragment on unicast");
 
 					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 
-					System.out.println("cacheContent: " + currentCacheContent.size());
-					System.out.println("inFlight: " + inFlight.size());
+					// System.out.println("cacheContent: " + currentCacheContent.size());
 				}
 				catch (final Exception e) {
 					// logger.log(Level.WARNING, "Exception thrown");
@@ -371,10 +466,24 @@ public class UDPReceiver extends Thread {
 						while (objectIterator.hasNext()) {
 							final Blob b = objectIterator.next();
 
-							if (b.getEndTime() < currentTime) {
-								if (logger.isLoggable(Level.INFO))
-									logger.log(Level.INFO, "Removing expired object for " + b.getKey() + ": " + b.getUuid() + " (expired " + b.getEndTime() + ")");
+							try {
+								if (b.isComplete()) {
+									if (b.getEndTime() < currentTime) {
+										if (logger.isLoggable(Level.INFO))
+											logger.log(Level.INFO, "Removing expired object for " + b.getKey() + ": " + b.getUuid() + " (expired " + b.getEndTime() + ")");
 
+										objectIterator.remove();
+									}
+								}
+								else
+									if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 60)
+										objectIterator.remove();
+							}
+							catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
+								// ignore
+							}
+							catch (@SuppressWarnings("unused") final IOException e) {
+								// checksum is wrong, drop the hot potato
 								objectIterator.remove();
 							}
 						}
@@ -384,18 +493,23 @@ public class UDPReceiver extends Thread {
 							continue;
 						}
 
-						// oldest objects first, should have been the case already but sort nonetheless
-						// Collections.sort(objects);
+						for (int i = 0; i < objects.size() - 1; i++) {
+							final Blob b = objects.get(i);
 
-						while (objects.size() > 1) {
-							final Blob b = objects.get(0);
+							try {
+								if (!b.isComplete())
+									continue;
+							}
+							catch (@SuppressWarnings("unused") NoSuchAlgorithmException | IOException e) {
+								// ignore
+							}
 
 							if (currentTime - b.getStartTime() > TTL_FOR_SUPERSEDED_OBJECTS) {
 								// more than 5 minutes old and superseded by a newer one, can be removed
 								if (logger.isLoggable(Level.INFO))
 									logger.log(Level.INFO, "Removing superseded object for " + b.getKey() + ": " + b.getUuid() + " (valid since " + b.getStartTime() + "):\n" + b);
 
-								objects.remove(0);
+								objects.remove(i);
 							}
 							else
 								break;
