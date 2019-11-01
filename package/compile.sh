@@ -13,11 +13,11 @@ T=apache-tomcat
 
 CLASSPATH=
 
-for jar in $T/bin/*.jar $T/lib/*.jar ../lib/lazyj.jar ../lib/alien.jar; do
+for jar in $T/bin/*.jar $T/lib/*.jar ../lib/lazyj.jar ../lib/alien.jar ../lib/javax.mail.jar ../lib/javax.activation-1.2.0.jar; do
     CLASSPATH="$CLASSPATH:$jar"
 done
 
 export CLASSPATH
 
 # and compile the project
-find ../src -name \*.java | xargs javac -source 11 -target 11 -d ../build/classes
+find ../src -name \*.java | xargs javac -source 11 -target 11 --add-exports jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED -d ../build/classes
