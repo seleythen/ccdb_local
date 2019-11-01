@@ -79,12 +79,12 @@ public class Utils {
 		/**
 		 * Beginning of the interval, inclusive
 		 */
-		public final int first;
+		public int first;
 
 		/**
 		 * Interval end, exclusive
 		 */
-		public final int second;
+		public int second;
 
 		/**
 		 * @param first
