@@ -1,6 +1,5 @@
 package ch.alice.o2.ccdb.servlets;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
@@ -103,8 +102,6 @@ public class MemoryBrowse extends HttpServlet {
 				// this section.
 				formatter.subfoldersListingHeader(pw);
 
-				final String prefix = Memory.basePath + "/" + parser.path;
-
 				String suffix = "";
 
 				if (parser.startTimeSet)
@@ -116,29 +113,7 @@ public class MemoryBrowse extends HttpServlet {
 				for (final Map.Entry<String, String> entry : parser.flagConstraints.entrySet())
 					suffix += "/" + entry.getKey() + "=" + entry.getValue();
 
-				final File fBaseDir = new File(prefix);
-
-				final File[] baseDirListing = fBaseDir.listFiles((f) -> f.isDirectory());
-
-				first = true;
-
-				if (baseDirListing != null)
-					for (final File fSubdir : baseDirListing) {
-						try {
-							Long.parseLong(fSubdir.getName());
-						}
-						catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
-							if (first)
-								first = false;
-							else
-								formatter.middle(pw);
-
-							final String pathPrefix = parser.path.length() > 0 ? parser.path + "/" : "";
-
-							formatter.subfoldersListing(pw, "/" + pathPrefix + fSubdir.getName(),
-									pathPrefix + fSubdir.getName() + suffix);
-						}
-					}
+				// TODO: search for all keys that have as prefix the current parser.path
 
 				formatter.subfoldersListingFooter(pw, 0, 0);
 			}
