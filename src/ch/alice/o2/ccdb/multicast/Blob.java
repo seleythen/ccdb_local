@@ -60,8 +60,15 @@ public class Blob implements Comparable<Blob> {
 	private final ArrayList<Pair> metadataByteRanges = new ArrayList<>();
 	private final ArrayList<Pair> payloadByteRanges = new ArrayList<>();
 
-	private long startTime = 0;
-	private long endTime = 0;
+	/**
+	 * Start of the validity interval
+	 */
+	public long startTime = 0;
+
+	/**
+	 * End of the validity interval
+	 */
+	public long endTime = 0;
 
 	private long lastTouched = System.currentTimeMillis();
 
@@ -79,14 +86,16 @@ public class Blob implements Comparable<Blob> {
 	 * @throws IOException
 	 * @throws SecurityException
 	 */
-	public Blob(final byte[] metadata, final byte[] payload, final String key, final UUID uuid)
-			throws NoSuchAlgorithmException, SecurityException, IOException {
+	public Blob(final byte[] metadata, final byte[] payload, final String key, final UUID uuid) throws NoSuchAlgorithmException, SecurityException, IOException {
 		this.metadata = metadata;
 		this.metadataChecksum = Utils.calculateChecksum(this.metadata);
+
 		this.payload = payload;
 		this.payloadChecksum = Utils.calculateChecksum(this.payload);
+
 		this.key = key;
 		this.uuid = uuid;
+
 		this.metadataByteRanges.add(new Pair(0, this.metadata.length));
 		this.payloadByteRanges.add(new Pair(0, this.payload.length));
 	}
@@ -105,8 +114,7 @@ public class Blob implements Comparable<Blob> {
 	 * @throws IOException
 	 * @throws SecurityException
 	 */
-	public Blob(final Map<String, String> metadataMap, final byte[] payload, final String key, final UUID uuid)
-			throws NoSuchAlgorithmException, SecurityException, IOException {
+	public Blob(final Map<String, String> metadataMap, final byte[] payload, final String key, final UUID uuid) throws NoSuchAlgorithmException, SecurityException, IOException {
 		this.metadata = Utils.serializeMetadata(metadataMap);
 		this.metadataChecksum = Utils.calculateChecksum(this.metadata);
 		this.payload = payload;
@@ -489,8 +497,9 @@ public class Blob implements Comparable<Blob> {
 	 * @throws UnsupportedEncodingException
 	 * @throws IOException
 	 */
-	public synchronized void addFragmentedBlob(final FragmentedBlob fragmentedBlob)
-			throws NoSuchAlgorithmException, UnsupportedEncodingException, IOException {
+	public synchronized void addFragmentedBlob(final FragmentedBlob fragmentedBlob) throws NoSuchAlgorithmException, UnsupportedEncodingException, IOException {
+		touch();
+
 		final byte[] fragmentedPayload = fragmentedBlob.getPayload();
 		final int fragmentOffset = fragmentedBlob.getFragmentOffset();
 		final Pair pair = new Pair(fragmentOffset, fragmentOffset + fragmentedPayload.length);
@@ -719,6 +728,23 @@ public class Blob implements Comparable<Blob> {
 	}
 
 	/**
+	 * Set a metadata key to a new value, serializing again the metadata blob
+	 * 
+	 * @param metadataKey
+	 * @param value
+	 */
+	public void setProperty(final String metadataKey, final String value) {
+		getMetadataMap().put(metadataKey, value);
+
+		try {
+			metadata = Utils.serializeMetadata(cachedMetadataMap);
+		}
+		catch (@SuppressWarnings("unused") IOException e) {
+			// ignore
+		}
+	}
+
+	/**
 	 * @return the file name as it was originally uploaded
 	 */
 	public String getOriginalName() {
@@ -757,8 +783,8 @@ public class Blob implements Comparable<Blob> {
 	public String toString() {
 		String output = "";
 		output += "Blob with \n";
-		output += "\t key = " + this.key + "\n";
-		output += "\t uuid = " + this.uuid.toString() + "\n";
+		output += "\t key = " + this.key + ", uuid = " + this.uuid.toString() + "\n";
+		output += "\t validity between " + this.startTime + " and " + this.endTime + "\n";
 		output += "\t metadata = " + getMetadataMap() + "\n";
 		output += "\t payload = " + payload.length + " bytes\n";
 
