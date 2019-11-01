@@ -2,9 +2,9 @@ package ch.alice.o2.ccdb.servlets;
 
 import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.security.NoSuchAlgorithmException;
 import java.util.AbstractMap;
@@ -15,8 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.UUID;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -26,16 +24,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 
-import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
 import ch.alice.o2.ccdb.multicast.Blob;
 import ch.alice.o2.ccdb.multicast.UDPReceiver;
+import ch.alice.o2.ccdb.multicast.Utils;
 
 /**
- * Prototype implementation of QC repository. This simple implementation is
- * filesystem-based and targeted to local development and testing of the QC
- * framework
+ * Prototype implementation of QC repository in memory. Target is the EPN & FLP farm
+ * where calibration data should only stay in memory
  *
  * @author costing
  * @since 2017-09-20
@@ -45,79 +42,8 @@ import ch.alice.o2.ccdb.multicast.UDPReceiver;
 public class Memory extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	private static Logger logger = Logger.getLogger(Memory.class.getCanonicalName());
-
-	/**
-	 * The base path of the file repository
-	 */
-	public static final String basePath;
-
-	static {
-		String location = Options.getOption("file.repository.location",
-				System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + "QC");
-
-		while (location.endsWith("/"))
-			location = location.substring(0, location.length() - 1);
-
-		basePath = location;
-	}
-
 	private static String getURLPrefix(final HttpServletRequest request) {
 		return request.getContextPath() + request.getServletPath();
-	}
-
-	private static boolean basePathSupportsMSTimestamps = false;
-
-	static {
-		try {
-			final File testBasePath = new File(basePath);
-
-			if (!testBasePath.exists()) {
-				if (!testBasePath.mkdirs()) {
-					logger.log(Level.SEVERE, "Base directory cannot be created: " + basePath);
-					System.exit(1);
-				}
-				else
-					logger.log(Level.INFO, "Base directory created: " + basePath);
-			}
-
-			if (!testBasePath.isDirectory() || !testBasePath.canWrite()) {
-				logger.log(Level.WARNING, "Base directory is not writable: " + basePath
-						+ " . Existing content will be returned but you won't be able to upload new objects.");
-			}
-
-			final File f1 = File.createTempFile("timestampCheck", "tmp", new File(basePath));
-
-			basePathSupportsMSTimestamps = true;
-
-			for (long lTest = 1000001; lTest <= 1000003; lTest++) {
-				f1.setLastModified(lTest);
-
-				if (f1.lastModified() != lTest)
-					basePathSupportsMSTimestamps = false;
-			}
-
-			f1.delete();
-
-			if (basePathSupportsMSTimestamps)
-				logger.log(Level.INFO, "Underlying filesystem of " + basePath
-						+ " supports millisecond-level resolution, trusting the last modification time of the blob files");
-			else
-				logger.log(Level.WARNING, "Underlying filesystem of " + basePath
-						+ " doesn't support millisecond-level resolution, falling back to reading the end of validity interval from the *.properties files");
-		}
-		catch (final IOException e) {
-			logger.log(Level.SEVERE, "Cannot test the underlying filesystem of " + basePath
-					+ " for time resolution, assuming it doesn't support millisecond-level modify times", e);
-		}
-	}
-
-	/**
-	 * @return <code>true</code> if the filesystem where the repository is located
-	 *         has millisecond support for the last modified field
-	 */
-	public static boolean hasMillisecondSupport() {
-		return basePathSupportsMSTimestamps;
 	}
 
 	@Override
@@ -404,8 +330,7 @@ public class Memory extends HttpServlet {
 	}
 
 	@Override
-	protected void doPost(final HttpServletRequest request, final HttpServletResponse response)
-			throws ServletException, IOException {
+	protected void doPost(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		// create the given object and return the unique identifier to it
 		// URL parameters are:
 		// task name / detector name / start time [/ end time] [ / flag ]*
@@ -440,28 +365,42 @@ public class Memory extends HttpServlet {
 			// ignore
 		}
 
-		final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
+		final UUID targetUUID = parser.uuidConstraint != null ? parser.uuidConstraint : UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
 
 		final Part part = parts.iterator().next();
 
-		byte[] metadata = new byte[10];
+		final byte[] metadata = new byte[0];
 
-		byte[] payload = new byte[part.getInputStream().available()];
+		final byte[] payload = new byte[part.getInputStream().available()];
 		part.getInputStream().read(payload);
 
-		String blobKey = "123";
+		final String blobKey = parser.path;
 		Blob newBlob = null;
 		try {
 			newBlob = new Blob(metadata, payload, blobKey, targetUUID);
+
+			newBlob.startTime = parser.startTime;
+			newBlob.endTime = parser.endTime;
+
+			if (parser.flagConstraints != null)
+				newBlob.setMetadata(Utils.serializeMetadata(parser.flagConstraints));
+
+			newBlob.setProperty("InitialValidityLimit", String.valueOf(parser.endTime));
+			newBlob.setProperty("OriginalFileName", part.getSubmittedFileName());
+			newBlob.setProperty("Content-Type", part.getContentType());
+			newBlob.setProperty("UploadedFrom", request.getRemoteHost());
+			newBlob.setProperty("File-Size", String.valueOf(payload.length));
+			newBlob.setProperty("Content-MD5", String.format("%032x", new BigInteger(1, Utils.calculateChecksum(payload))));
+
+			if (newBlob.getProperty("CreateTime") == null)
+				newBlob.setProperty("CreateTime", String.valueOf(newObjectTime));
 		}
 		catch (NoSuchAlgorithmException | SecurityException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+			return;
 		}
 
-		if (newBlob != null) {
-			UDPReceiver.currentCacheContent.put(blobKey, newBlob);
-		}
+		UDPReceiver.addToCacheContent(newBlob);
 
 		setHeaders(newBlob, response);
 
@@ -471,15 +410,12 @@ public class Memory extends HttpServlet {
 	}
 
 	@Override
-	protected void doPut(final HttpServletRequest request, final HttpServletResponse response)
-			throws ServletException, IOException {
-
+	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "You cannot modify objects in the cache");
 	}
 
 	@Override
-	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response)
-			throws ServletException, IOException {
+	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		final RequestParser parser = new RequestParser(request);
 
 		if (!parser.ok) {
@@ -500,29 +436,40 @@ public class Memory extends HttpServlet {
 	}
 
 	private static Blob getMatchingObject(final RequestParser parser) {
-		final Blob blob = UDPReceiver.currentCacheContent.get(parser.path); // TODO - check if parser.path is the key
+		final List<Blob> candidates = UDPReceiver.currentCacheContent.get(parser.path);
 
-		if (blob == null) {
-			System.out.println("blob == null");
+		if (candidates == null || candidates.size() == 0)
 			return null;
+
+		Blob bestMatch = null;
+
+		for (final Blob blob : candidates) {
+			if (parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint)) {
+				System.out.println("parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint)");
+				continue;
+			}
+
+			if (parser.startTimeSet && !blob.covers(parser.startTime)) {
+				System.out.println("Time constraints don't match");
+				continue;
+			}
+
+			if (parser.notAfter > 0 && blob.getCreateTime() > parser.notAfter) {
+				System.err.println("Snapshot time contraints don't match");
+				continue;
+			}
+
+			if (!blob.matches(parser.flagConstraints)) {
+				System.err.println("Metadata constraints don't match");
+				continue;
+			}
+
+			// most recently created object wins
+			if (bestMatch == null || blob.compareTo(bestMatch) > 0)
+				bestMatch = blob;
 		}
 
-		if (parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint)) {
-			System.out.println("parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint)");
-			return null;
-		}
-
-		if (parser.startTimeSet && !blob.covers(parser.startTime)) {
-			System.out.println("Time constraints don't match");
-			return null;
-		}
-
-		if (!blob.matches(parser.flagConstraints)) {
-			System.err.println("Metadata constraints don't match");
-			return null;
-		}
-
-		return blob;
+		return bestMatch;
 	}
 
 	@Override
