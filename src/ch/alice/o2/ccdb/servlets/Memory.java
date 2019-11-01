@@ -24,6 +24,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 
+import alien.catalogue.GUIDUtils;
+import alien.test.cassandra.tomcat.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
 import ch.alice.o2.ccdb.multicast.Blob;
@@ -42,24 +44,45 @@ import ch.alice.o2.ccdb.multicast.Utils;
 public class Memory extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	private static final boolean REDIRECT_TO_UPSTREAM;
+	private static final String UPSTREAM_URL;
+
+	static {
+		String recoveryURL = Options.getOption("udp_receiver.recovery_url", "http://alice-ccdb.cern.ch:8080/");
+
+		UPSTREAM_URL = Options.getOption("memory.redirect_changes_url", recoveryURL);
+
+		if (Options.getIntOption("memory.redirect_changes", 0) > 0) {
+			if (UPSTREAM_URL != null && UPSTREAM_URL.length() > 0) {
+				System.err.println("Memory: redirecting all changes to " + UPSTREAM_URL);
+				REDIRECT_TO_UPSTREAM = true;
+			}
+			else {
+				System.err.println("Memory: can't redirect changes anywhere, memory.redirect_changes_url is not set");
+				REDIRECT_TO_UPSTREAM = false;
+			}
+		}
+		else {
+			System.err.println("Memory: direct uploads are accepted, clients will not be redirected upstream");
+			REDIRECT_TO_UPSTREAM = false;
+		}
+	}
+
 	private static String getURLPrefix(final HttpServletRequest request) {
 		return request.getContextPath() + request.getServletPath();
 	}
 
 	@Override
-	protected void doHead(final HttpServletRequest request, final HttpServletResponse response)
-			throws ServletException, IOException {
+	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		doGet(request, response, true);
 	}
 
 	@Override
-	protected void doGet(final HttpServletRequest request, final HttpServletResponse response)
-			throws ServletException, IOException {
+	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		doGet(request, response, false);
 	}
 
-	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head)
-			throws IOException {
+	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head) throws IOException {
 		// list of objects matching the request
 		// URL parameters are:
 		// task name / detector name [ / time [ / UUID ] | [ / query string]* ]
@@ -73,14 +96,16 @@ public class Memory extends HttpServlet {
 			return;
 		}
 
-		// aici trebuie modificat
-		System.out.println("doGet:: parser.uuidConstraint = " + parser.uuidConstraint); // parser.uuidConstraint
-
 		final Blob matchingObject = getMatchingObject(parser);
-		System.out.println("doGet:: matchingObject = " + matchingObject);
 
 		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+			if (REDIRECT_TO_UPSTREAM) {
+				response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+				response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+			}
+			else
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+
 			return;
 		}
 
@@ -331,6 +356,13 @@ public class Memory extends HttpServlet {
 
 	@Override
 	protected void doPost(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+		if (REDIRECT_TO_UPSTREAM) {
+			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+
+			return;
+		}
+
 		// create the given object and return the unique identifier to it
 		// URL parameters are:
 		// task name / detector name / start time [/ end time] [ / flag ]*
@@ -392,8 +424,8 @@ public class Memory extends HttpServlet {
 			newBlob.setProperty("File-Size", String.valueOf(payload.length));
 			newBlob.setProperty("Content-MD5", String.format("%032x", new BigInteger(1, Utils.calculateChecksum(payload))));
 
-			if (newBlob.getProperty("CreateTime") == null)
-				newBlob.setProperty("CreateTime", String.valueOf(newObjectTime));
+			if (newBlob.getProperty("Created") == null)
+				newBlob.setProperty("Created", String.valueOf(GUIDUtils.epochTime(targetUUID)));
 		}
 		catch (NoSuchAlgorithmException | SecurityException e) {
 			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
@@ -411,11 +443,25 @@ public class Memory extends HttpServlet {
 
 	@Override
 	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+		if (REDIRECT_TO_UPSTREAM) {
+			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+
+			return;
+		}
+
 		response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "You cannot modify objects in the cache");
 	}
 
 	@Override
 	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+		if (REDIRECT_TO_UPSTREAM) {
+			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+
+			return;
+		}
+
 		final RequestParser parser = new RequestParser(request);
 
 		if (!parser.ok) {
@@ -467,6 +513,14 @@ public class Memory extends HttpServlet {
 			// most recently created object wins
 			if (bestMatch == null || blob.compareTo(bestMatch) > 0)
 				bestMatch = blob;
+		}
+
+		try {
+			if (bestMatch == null || !bestMatch.isComplete())
+				return null;
+		}
+		catch (@SuppressWarnings("unused") NoSuchAlgorithmException | IOException e) {
+			return null;
 		}
 
 		return bestMatch;
