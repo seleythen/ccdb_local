@@ -775,6 +775,9 @@ public class Blob implements Comparable<Blob> {
 
 		try {
 			metadata = Utils.serializeMetadata(cachedMetadataMap);
+
+			this.metadataByteRanges.clear();
+			this.metadataByteRanges.add(new Pair(0, metadata.length));
 		}
 		catch (@SuppressWarnings("unused") final IOException e) {
 			// ignore
