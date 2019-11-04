@@ -13,8 +13,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -57,8 +59,8 @@ public class Blob implements Comparable<Blob> {
 	private byte[] metadata = null;
 	private byte[] payload = null;
 
-	private final ArrayList<Pair> metadataByteRanges = new ArrayList<>();
-	private final ArrayList<Pair> payloadByteRanges = new ArrayList<>();
+	private final List<Pair> metadataByteRanges = new Vector<>();
+	private final List<Pair> payloadByteRanges = new Vector<>();
 
 	/**
 	 * Start of the validity interval
@@ -529,7 +531,7 @@ public class Blob implements Comparable<Blob> {
 		return complete;
 	}
 
-	private static void addPairToList(final ArrayList<Pair> list, final Pair newRange) {
+	private static void addPairToList(final List<Pair> list, final Pair newRange) {
 		synchronized (list) {
 			if (list.size() == 0) {
 				list.add(newRange);
@@ -652,29 +654,6 @@ public class Blob implements Comparable<Blob> {
 	}
 
 	/**
-	 * @return ranges of missing metadata blocks
-	 */
-	public ArrayList<Pair> getMissingMetadataBlocks() {
-		if (this.metadata == null) {
-			return null;
-		}
-
-		Collections.sort(this.metadataByteRanges);
-
-		final ArrayList<Pair> missingBlocks = new ArrayList<>();
-
-		for (int i = 0; i < this.metadataByteRanges.size() - 1; i++) {
-			if (this.metadataByteRanges.get(i).second != this.metadataByteRanges.get(i + 1).first) {
-				missingBlocks
-						.add(new Pair(this.metadataByteRanges.get(i).second, this.metadataByteRanges.get(i + 1).first));
-			}
-		}
-
-		return missingBlocks;
-
-	}
-
-	/**
 	 * @return ranges of missing data blocks
 	 */
 	public ArrayList<Pair> getMissingPayloadBlocks() {
@@ -683,25 +662,25 @@ public class Blob implements Comparable<Blob> {
 			return null;
 		}
 
-		Collections.sort(this.payloadByteRanges);
-
 		final ArrayList<Pair> missingBlocks = new ArrayList<>();
 
-		final Pair first = payloadByteRanges.get(0);
+		synchronized (payloadByteRanges) {
+			final Pair first = payloadByteRanges.get(0);
 
-		if (first.first > 0)
-			missingBlocks.add(new Pair(0, first.first - 1));
+			if (first.first > 0)
+				missingBlocks.add(new Pair(0, first.first - 1));
 
-		for (int i = 0; i < this.payloadByteRanges.size() - 1; i++) {
-			if (this.payloadByteRanges.get(i).second != this.payloadByteRanges.get(i + 1).first) {
-				missingBlocks.add(new Pair(this.payloadByteRanges.get(i).second, this.payloadByteRanges.get(i + 1).first - 1));
+			for (int i = 0; i < this.payloadByteRanges.size() - 1; i++) {
+				if (this.payloadByteRanges.get(i).second != this.payloadByteRanges.get(i + 1).first) {
+					missingBlocks.add(new Pair(this.payloadByteRanges.get(i).second, this.payloadByteRanges.get(i + 1).first - 1));
+				}
 			}
+
+			final Pair last = payloadByteRanges.get(payloadByteRanges.size() - 1);
+
+			if (last.second < payload.length)
+				missingBlocks.add(new Pair(last.second, payload.length - 1));
 		}
-
-		final Pair last = payloadByteRanges.get(payloadByteRanges.size() - 1);
-
-		if (last.second < payload.length)
-			missingBlocks.add(new Pair(last.second, payload.length - 1));
 
 		return missingBlocks;
 	}
@@ -774,12 +753,13 @@ public class Blob implements Comparable<Blob> {
 		getMetadataMap().put(metadataKey, value);
 
 		try {
-			metadata = Utils.serializeMetadata(cachedMetadataMap);
+			this.metadata = Utils.serializeMetadata(cachedMetadataMap);
+			this.metadataChecksum = Utils.calculateChecksum(this.metadata);
 
 			this.metadataByteRanges.clear();
 			this.metadataByteRanges.add(new Pair(0, metadata.length));
 		}
-		catch (@SuppressWarnings("unused") final IOException e) {
+		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {
 			// ignore
 		}
 	}
@@ -817,6 +797,17 @@ public class Blob implements Comparable<Blob> {
 	 */
 	public void setPayload(final byte[] payload) {
 		this.payload = payload;
+
+		try {
+			this.payloadChecksum = Utils.calculateChecksum(payload);
+		}
+		catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		this.payloadByteRanges.clear();
+		this.payloadByteRanges.add(new Pair(0, payload.length));
 	}
 
 	@Override
@@ -987,26 +978,4 @@ public class Blob implements Comparable<Blob> {
 		// all required keys matched
 		return true;
 	}
-
-	/*
-	 * private static void addPair(ArrayList<Pair> list, int start, int end) {
-	 * addPairToList(list, new Pair(start, end));
-	 *
-	 * System.err.println(list);
-	 * }
-	 *
-	 * public static void main(String[] args) {
-	 * ArrayList<Pair> list = new ArrayList<>();
-	 *
-	 * addPair(list, 40, 50);
-	 * addPair(list, 50, 60);
-	 * addPair(list, 30, 40);
-	 * addPair(list, 60, 70);
-	 * addPair(list, 20, 30);
-	 * addPair(list, 70, 80);
-	 * addPair(list, 10, 20);
-	 * addPair(list, 80, 90);
-	 * addPair(list, 0, 10);
-	 * }
-	 */
 }
