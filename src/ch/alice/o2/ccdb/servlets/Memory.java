@@ -125,10 +125,8 @@ public class Memory extends HttpServlet {
 			}
 			else {
 				response.setContentLengthLong(matchingObject.getPayload().length);
-				response.setHeader("Content-Disposition",
-						"inline;filename=\"" + matchingObject.getOriginalName() + "\"");
-				response.setHeader("Content-Type",
-						matchingObject.getMetadataMap().getOrDefault("Content-Type", "application/octet-stream"));
+				response.setHeader("Content-Disposition", "inline;filename=\"" + matchingObject.getOriginalName() + "\"");
+				response.setHeader("Content-Type", matchingObject.getMetadataMap().getOrDefault("Content-Type", "application/octet-stream"));
 				response.setHeader("Accept-Ranges", "bytes");
 				setMD5Header(matchingObject, response);
 			}
@@ -155,7 +153,7 @@ public class Memory extends HttpServlet {
 	}
 
 	private static void setMD5Header(final Blob obj, final HttpServletResponse response) {
-		final String md5 = obj.getMetadataMap().get("Content-MD5");
+		final String md5 = obj.getMD5();
 
 		if (md5 != null && !md5.isEmpty())
 			response.setHeader("Content-MD5", md5);
@@ -180,7 +178,7 @@ public class Memory extends HttpServlet {
 
 		// a Range request was made, serve only the requested bytes
 
-		final long payloadSize = obj.getPayload().length;
+		final long payloadSize = obj.getSize();
 
 		if (!range.startsWith("bytes=")) {
 			response.setHeader("Content-Range", "bytes */" + payloadSize);
@@ -490,25 +488,8 @@ public class Memory extends HttpServlet {
 		Blob bestMatch = null;
 
 		for (final Blob blob : candidates) {
-			if (parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint)) {
-				System.out.println("parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint)");
+			if (!blobMatchesParser(blob, parser))
 				continue;
-			}
-
-			if (parser.startTimeSet && !blob.covers(parser.startTime)) {
-				System.out.println("Time constraints don't match");
-				continue;
-			}
-
-			if (parser.notAfter > 0 && blob.getCreateTime() > parser.notAfter) {
-				System.err.println("Snapshot time contraints don't match");
-				continue;
-			}
-
-			if (!blob.matches(parser.flagConstraints)) {
-				System.err.println("Metadata constraints don't match");
-				continue;
-			}
 
 			// most recently created object wins
 			if (bestMatch == null || blob.compareTo(bestMatch) > 0)
@@ -524,6 +505,22 @@ public class Memory extends HttpServlet {
 		}
 
 		return bestMatch;
+	}
+
+	static boolean blobMatchesParser(final Blob blob, final RequestParser parser) {
+		if (parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint))
+			return false;
+
+		if (parser.startTimeSet && !blob.covers(parser.startTime))
+			return false;
+
+		if (parser.notAfter > 0 && blob.getCreateTime() > parser.notAfter)
+			return false;
+
+		if (!blob.matches(parser.flagConstraints))
+			return false;
+
+		return true;
 	}
 
 	@Override
