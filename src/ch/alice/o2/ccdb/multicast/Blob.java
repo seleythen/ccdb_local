@@ -9,10 +9,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,6 +28,7 @@ import alien.test.cassandra.tomcat.Options;
 import ch.alice.o2.ccdb.multicast.Utils.Pair;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
+import lazyj.Format;
 
 /**
  * Blob class - the structure of the object sent via multicast messages
@@ -72,9 +75,9 @@ public class Blob implements Comparable<Blob> {
 	 */
 	public long endTime = 0;
 
-	private long lastTouched = System.currentTimeMillis();
+	private volatile long lastTouched = System.currentTimeMillis();
 
-	private boolean complete = true;
+	private volatile boolean complete = true;
 
 	/**
 	 * Parameterized constructor - creates a Blob object to be sent that contains a
@@ -468,7 +471,7 @@ public class Blob implements Comparable<Blob> {
 		return oldComplete;
 	}
 
-	private boolean isCompleteRecalculate = true;
+	private volatile boolean isCompleteRecalculate = true;
 
 	/**
 	 * At next {@link #isComplete()} call, do a full re-assessment of its status, otherwise the cached value could be used
@@ -493,30 +496,36 @@ public class Blob implements Comparable<Blob> {
 		complete = false;
 
 		if (this.metadata == null || this.payload == null) {
+			// System.err.println("MD is null: " + (this.metadata == null) + ", payload is null: " + (this.payload == null));
 			return complete;
 		}
 
 		// Check byte ranges size:
 		if (this.payloadByteRanges.size() != 1 || this.metadataByteRanges.size() != 1) {
+			// System.err.println("payload byte ranges: " + payloadByteRanges + ", metadata byte ranges: " + metadataByteRanges);
 			return complete;
 		}
 
 		// Check byte ranges metadata:
 		if (this.metadataByteRanges.get(0).first != 0 || this.metadataByteRanges.get(0).second != this.metadata.length) {
+			// System.err.println("Metadata range inconsistent with its content");
 			return complete;
 		}
 
 		// Check byte ranges payload:
 		if (this.payloadByteRanges.get(0).first != 0 || this.payloadByteRanges.get(0).second != this.payload.length) {
+			// System.err.println("Payload inconsistent with its content");
 			return complete;
 		}
 
 		// Verify checksums
 		if (!Arrays.equals(this.payloadChecksum, Utils.calculateChecksum(this.payload))) {
+			// System.err.println("Payload checksum inconsistent");
 			throw new IOException("Payload checksum failed");
 		}
 
 		if (!Arrays.equals(this.metadataChecksum, Utils.calculateChecksum(this.metadata))) {
+			// System.err.println("Metadata checksum inconsistent");
 			throw new IOException("Metadata checksum failed");
 		}
 
@@ -869,17 +878,17 @@ public class Blob implements Comparable<Blob> {
 	}
 
 	/**
-	 * @return the absolute timestamp from which this object applies
+	 * @return the absolute timestamp from which this object applies (inclusive)
 	 */
 	public long getStartTime() {
 		return startTime;
 	}
 
 	/**
-	 * @return the absolute timestamp from which this object applies
+	 * @return the absolute timestamp up to which this object is valid (exclusive)
 	 */
 	public long getEndTime() {
-		return endTime;
+		return endTime > startTime ? endTime : startTime + 1;
 	}
 
 	/**
@@ -917,6 +926,9 @@ public class Blob implements Comparable<Blob> {
 
 	@Override
 	public int compareTo(final Blob o) {
+		if (o == null)
+			return 1;
+
 		final long diff = o.getCreateTime() - this.getCreateTime();
 
 		if (diff < 0)
@@ -977,5 +989,81 @@ public class Blob implements Comparable<Blob> {
 
 		// all required keys matched
 		return true;
+	}
+
+	/**
+	 * @return the originally set validity interval end
+	 */
+	public long getInitialValidity() {
+		final String value = getProperty("InitialValidityLimit");
+
+		if (value != null)
+			try {
+				return Long.parseLong(value);
+			}
+			catch (@SuppressWarnings("unused") final Throwable t) {
+				// ignore
+			}
+
+		final long endTimeValue = getEndTime();
+
+		if (complete)
+			setProperty("InitialValidityLimit", String.valueOf(endTimeValue));
+
+		return endTimeValue;
+	}
+
+	/**
+	 * @return the last modified timestamp (best effort to get it from metadata, creation time, UUID ...)
+	 */
+	public long getLastModified() {
+		String value = getProperty("Last-Modified");
+
+		try {
+			return Long.parseLong(value);
+		}
+		catch (@SuppressWarnings("unused") final Throwable t) {
+			// ignore
+		}
+
+		Date d = Format.parseDate(value);
+
+		if (d != null)
+			return d.getTime();
+
+		final long createTimeValue = getCreateTime();
+
+		if (complete)
+			setProperty("Last-Modified", String.valueOf(createTimeValue));
+
+		return createTimeValue;
+	}
+
+	/**
+	 * @return size of the content, if known at this point
+	 */
+	public long getSize() {
+		return payload != null ? payload.length : -1;
+	}
+
+	/**
+	 * @return content MD5 checksum, if known, otherwise <code>null</code>
+	 */
+	public String getMD5() {
+		String value = getProperty("Content-MD5");
+
+		if (value != null && value.length() > 0)
+			return value;
+
+		if (payloadChecksum != null) {
+			String inMemMD5 = String.format("%032x", new BigInteger(1, payloadChecksum));
+
+			if (complete)
+				setProperty("Content-MD5", inMemMD5);
+
+			return inMemMD5;
+		}
+
+		return null;
 	}
 }
