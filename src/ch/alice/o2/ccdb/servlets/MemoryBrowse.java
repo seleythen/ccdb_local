@@ -2,8 +2,11 @@ package ch.alice.o2.ccdb.servlets;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -13,11 +16,13 @@ import javax.servlet.http.HttpServletResponse;
 
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.multicast.Blob;
+import ch.alice.o2.ccdb.multicast.UDPReceiver;
 import ch.alice.o2.ccdb.servlets.formatters.HTMLFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.JSONFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.SQLFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.TextFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.XMLFormatter;
+import lazyj.Format;
 
 /**
  * SQL-backed implementation of CCDB. This servlet implements browsing of
@@ -127,7 +132,48 @@ public class MemoryBrowse extends HttpServlet {
 	 * @return all matching objects given the parser constraints
 	 */
 	public static final Collection<Blob> getAllMatchingObjects(final RequestParser parser) {
-		// TODO
-		return null;
+		final List<Blob> matchingObjects = new ArrayList<>();
+
+		String pathFilter = parser.path != null ? parser.path : "";
+
+		Pattern pFilter = null;
+
+		if (pathFilter.indexOf('*') >= 0 || pathFilter.indexOf('%') >= 0) {
+			parser.wildcardMatching = true;
+
+			pathFilter = Format.replace(pathFilter, "%", ".*");
+
+			pFilter = Pattern.compile("^" + pathFilter + ".*$");
+		}
+		else {
+			if (pathFilter.endsWith("/"))
+				pathFilter = pathFilter.substring(0, pathFilter.length() - 1);
+		}
+
+		for (Map.Entry<String, List<Blob>> entry : UDPReceiver.currentCacheContent.entrySet()) {
+			String path = entry.getKey();
+
+			if ((pFilter == null && path.equals(pathFilter)) || (pFilter != null && pFilter.matcher(path).matches())) {
+				Blob bBest = null;
+
+				for (Blob b : entry.getValue()) {
+					if (Memory.blobMatchesParser(b, parser)) {
+						if (parser.latestFlag) {
+							if (b.compareTo(bBest) > 0)
+								bBest = b;
+						}
+						else
+							matchingObjects.add(b);
+					}
+					else
+						System.err.println("Ignoring: " + b);
+				}
+
+				if (bBest != null)
+					matchingObjects.add(bBest);
+			}
+		}
+
+		return matchingObjects;
 	}
 }
