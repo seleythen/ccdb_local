@@ -1,8 +1,8 @@
 package ch.alice.o2.ccdb.multicast;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
@@ -146,7 +147,7 @@ public class UDPReceiver extends Thread {
 
 	private static DelayQueue<DelayedBlob> recoveryQueue = new DelayQueue<>();
 
-	private static void recoverBlob(final Blob blob) {
+	private static boolean recoverBlob(final Blob blob) {
 		System.err.println("Started recovery of " + blob.getKey() + " / " + blob.getUuid());
 
 		// ArrayList<Pair> metadataMissingBlocks = blob.getMissingMetadataBlocks();
@@ -156,7 +157,7 @@ public class UDPReceiver extends Thread {
 
 		System.err.println("Have to ask for : " + payloadMissingBlocks);
 
-		if (payloadMissingBlocks == null || payloadMissingBlocks.size() == 0) {
+		if (payloadMissingBlocks == null) {
 			// Recover the entire Blob
 			try {
 				final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
@@ -168,54 +169,97 @@ public class UDPReceiver extends Thread {
 
 				final int status = con.getResponseCode();
 				if (status == HttpServletResponse.SC_OK) {
-					try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
-						String inputLine;
-						final StringBuffer content = new StringBuffer();
-						while ((inputLine = in.readLine()) != null) {
-							content.append(inputLine);
+					copyHeaders(con, blob);
+
+					final byte[] payload = new byte[con.getContentLength()];
+					int offset = 0;
+
+					try (InputStream input = con.getInputStream(); ByteArrayOutputStream baos = new ByteArrayOutputStream(con.getContentLength())) {
+						int leftToRead;
+
+						while ((leftToRead = payload.length - offset) > 0) {
+							final int read = input.read(payload, offset, leftToRead);
+
+							if (read <= 0) {
+								break;
+							}
+
+							offset += read;
 						}
 
-						blob.addByteRange(content.toString().getBytes(), new Pair(0, content.toString().getBytes().length));
+						blob.setPayload(payload);
 					}
 				}
-				else {
-					// TODO retry?
-				}
+
+				blob.recomputeIsComplete();
+
+				return blob.isComplete();
 			}
 			catch (final Exception e) {
-				e.printStackTrace();
+				logger.log(Level.WARNING, "Exception recovering full content of " + blob.getKey() + " / " + blob.getUuid(), e);
+				return false;
 			}
-
 		}
-		else {
-			String ranges = "";
-			int i = 0;
-			for (i = 0; i < payloadMissingBlocks.size() - 1; i++) {
-				ranges += payloadMissingBlocks.get(i).first;
-				ranges += "-";
-				ranges += payloadMissingBlocks.get(i).second;
-				ranges += ",";
-			}
-			ranges += payloadMissingBlocks.get(i).first;
-			ranges += "-";
-			ranges += payloadMissingBlocks.get(i).second;
 
-			System.err.println("Asking URL\n" + recoveryBaseURL + "download/" + blob.getUuid().toString() + "\nfor \nRange: bytes=" + ranges);
-
+		if (payloadMissingBlocks.size() == 0) {
+			// Just the metadata is incomplete, ask for the header
 			try {
 				final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
 				final HttpURLConnection con = (HttpURLConnection) url.openConnection();
-				con.setRequestProperty("Range", "bytes=" + ranges);
-				con.setRequestMethod("GET");
+				con.setRequestMethod("HEAD");
 
 				con.setConnectTimeout(5000); // server should be fast (< 5 sec)
 				con.setReadTimeout(5000);
 
 				final int status = con.getResponseCode();
 
-				System.err.println("Server response code: " + status);
+				System.err.println("Status code : " + status);
 
-				if (status == HttpServletResponse.SC_PARTIAL_CONTENT) {
+				if (status == HttpServletResponse.SC_OK) {
+					copyHeaders(con, blob);
+				}
+
+				blob.recomputeIsComplete();
+
+				return blob.isComplete();
+			}
+			catch (final Exception e) {
+				logger.log(Level.WARNING, "Exception recovering headers of " + blob.getKey() + " / " + blob.getUuid(), e);
+				return false;
+			}
+		}
+
+		String ranges = "";
+		int i = 0;
+		for (i = 0; i < payloadMissingBlocks.size() - 1; i++) {
+			ranges += payloadMissingBlocks.get(i).first;
+			ranges += "-";
+			ranges += payloadMissingBlocks.get(i).second;
+			ranges += ",";
+		}
+		ranges += payloadMissingBlocks.get(i).first;
+		ranges += "-";
+		ranges += payloadMissingBlocks.get(i).second;
+
+		System.err.println("Asking URL\n" + recoveryBaseURL + "download/" + blob.getUuid().toString() + "\nfor \nRange: bytes=" + ranges);
+
+		try {
+			final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
+			final HttpURLConnection con = (HttpURLConnection) url.openConnection();
+			con.setRequestProperty("Range", "bytes=" + ranges);
+			con.setRequestMethod("GET");
+
+			con.setConnectTimeout(5000); // server should be fast (< 5 sec)
+			con.setReadTimeout(5000);
+
+			final int status = con.getResponseCode();
+
+			if (status == HttpServletResponse.SC_PARTIAL_CONTENT) {
+				copyHeaders(con, blob);
+
+				if (payloadMissingBlocks.size() > 1) {
+					// more than one Range will come as multipart responses
+					
 					final ByteArrayDataSource dataSource = new ByteArrayDataSource(con.getInputStream(), con.getHeaderField("Content-Type"));
 					final MimeMultipart mm = new MimeMultipart(dataSource);
 
@@ -234,19 +278,78 @@ public class UDPReceiver extends Thread {
 
 						final int startOffset = Integer.parseInt(st.nextToken());
 
-						System.err.println("Add range " + startOffset + " .. " + (startOffset + content.length));
-
 						blob.addByteRange(content, new Pair(startOffset, startOffset + content.length));
 					}
 				}
+				else {
+					// a single Range comes inline as the body of the response
+					
+					final byte[] payloadFragment = new byte[con.getContentLength()];
+					int offset = 0;
 
-				blob.recomputeIsComplete();
-				
-				System.err.println("After this blob is complete: " + blob.isComplete());
-				System.err.println("Missing blocks: " + blob.getMissingPayloadBlocks());
+					try (InputStream input = con.getInputStream(); ByteArrayOutputStream baos = new ByteArrayOutputStream(con.getContentLength())) {
+						int leftToRead;
+
+						while ((leftToRead = payloadFragment.length - offset) > 0) {
+							final int read = input.read(payloadFragment, offset, leftToRead);
+
+							if (read <= 0) {
+								break;
+							}
+
+							offset += read;
+						}
+
+						blob.addByteRange(payloadFragment, new Pair(payloadMissingBlocks.get(0).first, payloadMissingBlocks.get(0).first + payloadFragment.length));
+					}
+				}
 			}
-			catch (final Exception e) {
-				logger.log(Level.WARNING, "Exception recovering " + blob.getUuid(), e);
+
+			blob.recomputeIsComplete();
+
+			return blob.isComplete();
+		}
+		catch (final Exception e) {
+			logger.log(Level.WARNING, "Exception recovering ranges from " + blob.getKey() + " / " + blob.getUuid(), e);
+			return false;
+		}
+	}
+
+	private static final Set<String> IGNORED_HEADERS = Set.of("Accept-Ranges", "Date", "ETag", "Content-Length", "Content-Type", "Content-Range");
+
+	private static void copyHeaders(HttpURLConnection con, Blob blob) {
+		final Map<String, List<String>> headers = con.getHeaderFields();
+
+		if (headers == null || headers.size() == 0)
+			return;
+
+		for (final Map.Entry<String, List<String>> entry : headers.entrySet()) {
+			String key = entry.getKey();
+
+			if (key == null || IGNORED_HEADERS.contains(key) || key.equals("Content-Type") || entry.getValue() == null || entry.getValue().size() == 0)
+				continue;
+
+			String value = entry.getValue().get(entry.getValue().size() - 1); // last value overrides any previous ones
+
+			if (key.equals("Content-Disposition")) {
+				int idx = value.indexOf("filename=\"");
+
+				if (idx >= 0) {
+					value = value.substring(idx + 10, value.indexOf('"', idx + 10));
+					key = "OriginalFileName";
+				}
+				else
+					break;
+			}
+
+			final String oldValue = blob.getProperty(key);
+
+			if (oldValue == null || !oldValue.equals(value)) {
+				System.err.println("Copying header: " + key + " = " + value + " (old = " + oldValue + ")");
+				blob.setProperty(key, value);
+			}
+			else {
+				System.err.println("Keeping the old value " + key + " = " + oldValue);
 			}
 		}
 	}
@@ -275,14 +378,13 @@ public class UDPReceiver extends Thread {
 						// nothing to do anymore
 						continue;
 					}
-				}
-				catch (@SuppressWarnings("unused") NoSuchAlgorithmException | IOException e1) {
-					// nothing
-				}
 
-				recoverBlob(blob);
+					recoverBlob(blob);
+				}
+				catch (final Exception e) {
+					logger.log(Level.WARNING, "Exception running the recovery for " + blob.getKey() + " / " + blob.getUuid(), e);
+				}
 			}
-
 		}
 	});
 
@@ -476,8 +578,12 @@ public class UDPReceiver extends Thread {
 									}
 								}
 								else
-									if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 60)
+									if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 60) {
+										if (logger.isLoggable(Level.INFO))
+											logger.log(Level.INFO, "Removing incomplete and not yet recovered object " + b.getKey() + ": " + b.getUuid());
+
 										objectIterator.remove();
+									}
 							}
 							catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
 								// ignore
