@@ -1,6 +1,8 @@
 package ch.alice.o2.ccdb.servlets.formatters;
 
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.Map;
 
@@ -276,7 +278,84 @@ public class HTMLFormatter implements SQLFormatter {
 
 	@Override
 	public void format(PrintWriter writer, Blob obj) {
-		// TODO Auto-generated method stub
-		
+		writer.print("<tr><td nowrap align=left>");
+		writer.print(obj.getUuid());
+
+		writer.print("</td><td nowrap align=right>");
+		writer.print(obj.getStartTime());
+		writer.println("<br>");
+		final Date dFrom = new Date(obj.getStartTime());
+		writer.print(Format.showDate(dFrom));
+
+		writer.print("</td><td nowrap align=right>");
+		writer.print(obj.getEndTime());
+		writer.println("<br>");
+		final Date dUntil = new Date(obj.getEndTime());
+		writer.print(Format.showDate(dUntil));
+
+		writer.print("</td><td align=right>");
+		writer.print(obj.getInitialValidity());
+		writer.println("<br>");
+		final Date dInitial = new Date(obj.getInitialValidity());
+		writer.print(Format.showDate(dInitial));
+
+		writer.print("</td><td align=right>");
+		writer.print(obj.getCreateTime());
+		writer.println("<br>");
+		final Date dCreated = new Date(obj.getCreateTime());
+		writer.print(Format.showDate(dCreated));
+
+		writer.print("</td><td align=right>");
+		writer.print(obj.getLastModified());
+		writer.println("<br>");
+		final Date dLastModified = new Date(obj.getLastModified());
+		writer.print(Format.showDate(dLastModified));
+
+		writer.print("</td><td align=center nowrap>");
+		writer.print(Format.escHtml(obj.getMD5()));
+
+		writer.print("</td><td align=right nowrap>");
+		writer.print(Format.escHtml(obj.getOriginalName()));
+
+		writer.print("</td><td align=right nowrap>");
+		writer.print(Format.escHtml(obj.getProperty("Content-Type", "application/octet-stream")));
+
+		writer.print("</td><td align=right nowrap>");
+		writer.print(obj.getSize());
+
+		writer.print("</td><td align=left nowrap>");
+		writer.print(Format.escHtml(obj.getKey()));
+
+		writer.print("</td><td align=left><dl>");
+		for (final Object key : obj.getMetadataMap().keySet()) {
+			writer.print("<dt>");
+			writer.print(Format.escHtml(key.toString()));
+			writer.print("</dt><dd>");
+			writer.print(Format.escHtml(obj.getProperty(key.toString())));
+			writer.print("</dd>\n");
+		}
+
+		writer.print("</dl></td><td align=left><ul>");
+
+		boolean isComplete = false;
+
+		try {
+			if (obj.isComplete()) {
+				isComplete = true;
+
+				writer.print("<li><a href='");
+				writer.print(obj.getStartTime() + "/" + obj.getUuid() + "'>0");
+				writer.print("</a></li>\n");
+			}
+		}
+		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {
+			// ignore
+		}
+
+		if (!isComplete) {
+			writer.print("<li>INCOMPLETE!</li>\n");
+		}
+
+		writer.print("</ul></td></tr>\n");
 	}
 }
