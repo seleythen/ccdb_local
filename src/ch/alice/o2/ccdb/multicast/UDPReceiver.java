@@ -62,6 +62,7 @@ public class UDPReceiver extends Thread {
 	private static final long TTL_FOR_SUPERSEDED_OBJECTS = 1000 * 60 * 1;
 
 	private String multicastIPaddress = null;
+
 	private int multicastPortNumber = 0;
 
 	private int unicastPortNumber = 0;
@@ -82,7 +83,9 @@ public class UDPReceiver extends Thread {
 	 * Initialize the configuration
 	 */
 	public UDPReceiver() {
-		multicastIPaddress = Options.getOption("udp_receiver.multicast_address", null);
+		// listen by default on multicast 224.0.204.219:3342, but not on UDP unicast
+
+		multicastIPaddress = Options.getOption("udp_receiver.multicast_address", "224.0.204.219"); // 224.0.0xCC.0xDB
 		multicastPortNumber = Options.getIntOption("udp_receiver.multicast_port", 3342);
 
 		unicastPortNumber = Options.getIntOption("udp_receiver.unicast_port", 0);
