@@ -31,10 +31,10 @@ public class SQLtoUDP implements SQLNotifier {
 		}
 	}
 
-	private List<HostAndPort> destinations = new LinkedList<>();
+	private final List<HostAndPort> destinations = new LinkedList<>();
 
 	private SQLtoUDP() {
-		String udpNotifications = Options.getOption("udp.targets", null);
+		final String udpNotifications = Options.getOption("udp.targets", "224.0.204.219");
 
 		if (udpNotifications != null) {
 			final StringTokenizer st = new StringTokenizer(udpNotifications, " \r\t\n\f,;");
@@ -89,12 +89,24 @@ public class SQLtoUDP implements SQLNotifier {
 		try {
 			final Blob b = new Blob(object);
 
-			for (HostAndPort destination : destinations)
-				b.send(destination.host, destination.port);
+			newObject(b);
 		}
 		catch (NoSuchAlgorithmException | IOException e) {
 			System.err.println("Exception sending Blob on UDP: " + e.getMessage());
 		}
+	}
+
+	/**
+	 * @param b object to send to all configured destinations
+	 */
+	public void newObject(final Blob b) {
+		for (final HostAndPort destination : destinations)
+			try {
+				b.send(destination.host, destination.port);
+			}
+			catch (NoSuchAlgorithmException | IOException e) {
+				System.err.println("Exception sending Blob on UDP: " + e.getMessage());
+			}
 	}
 
 	@Override
