@@ -227,7 +227,11 @@ public class HTMLFormatter implements SQLFormatter {
 	public void subfoldersListing(final PrintWriter writer, final String path, final String url, final long ownCount, final long ownSize, final long subfolderCount, final long subfolderSize) {
 		writer.write("<tr><td><a href='/browse/");
 		writer.write(Format.escHtml(url));
-		writer.write("?report=true'>");
+
+		if (extendedReport)
+			writer.write("?report=true");
+
+		writer.write("'>");
 		writer.write(Format.escHtml(path));
 		writer.write("</a></td>");
 
