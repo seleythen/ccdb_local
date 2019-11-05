@@ -48,7 +48,7 @@ public class Memory extends HttpServlet {
 	private static final String UPSTREAM_URL;
 
 	static {
-		String recoveryURL = Options.getOption("udp_receiver.recovery_url", "http://alice-ccdb.cern.ch:8080/");
+		final String recoveryURL = Options.getOption("udp_receiver.recovery_url", "http://alice-ccdb.cern.ch:8080/");
 
 		UPSTREAM_URL = Options.getOption("memory.redirect_changes_url", recoveryURL);
 
