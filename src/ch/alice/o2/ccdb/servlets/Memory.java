@@ -45,6 +45,7 @@ public class Memory extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
 	private static final boolean REDIRECT_TO_UPSTREAM;
+
 	private static final String UPSTREAM_URL;
 
 	static {
@@ -52,7 +53,7 @@ public class Memory extends HttpServlet {
 
 		UPSTREAM_URL = Options.getOption("memory.redirect_changes_url", recoveryURL);
 
-		if (Options.getIntOption("memory.redirect_changes", 0) > 0) {
+		if (Options.getIntOption("memory.redirect_changes", 1) > 0) {
 			if (UPSTREAM_URL != null && UPSTREAM_URL.length() > 0) {
 				System.err.println("Memory: redirecting all changes to " + UPSTREAM_URL);
 				REDIRECT_TO_UPSTREAM = true;
@@ -99,6 +100,8 @@ public class Memory extends HttpServlet {
 		final Blob matchingObject = getMatchingObject(parser);
 
 		if (matchingObject == null) {
+			// nothing matches, or the best matching object is incomplete
+
 			if (REDIRECT_TO_UPSTREAM) {
 				response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
 				response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
@@ -361,7 +364,7 @@ public class Memory extends HttpServlet {
 
 	@Override
 	protected void doPost(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		if (REDIRECT_TO_UPSTREAM) {
+		if (REDIRECT_TO_UPSTREAM && request.getHeader("Force-Upload") == null) {
 			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
 			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
 
@@ -444,11 +447,16 @@ public class Memory extends HttpServlet {
 		response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
 
 		response.sendError(HttpServletResponse.SC_CREATED);
+
+		final SQLtoUDP udpSender = SQLtoUDP.getInstance();
+
+		if (udpSender != null)
+			udpSender.newObject(newBlob);
 	}
 
 	@Override
 	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		if (REDIRECT_TO_UPSTREAM) {
+		if (REDIRECT_TO_UPSTREAM && request.getParameter("Force-Update") == null) {
 			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
 			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
 
@@ -460,7 +468,7 @@ public class Memory extends HttpServlet {
 
 	@Override
 	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		if (REDIRECT_TO_UPSTREAM) {
+		if (REDIRECT_TO_UPSTREAM && request.getParameter("Force-Delete") == null) {
 			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
 			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
 
