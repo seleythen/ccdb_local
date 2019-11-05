@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
@@ -41,6 +40,7 @@ import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
 import alien.test.cassandra.tomcat.Options;
 import ch.alice.o2.ccdb.multicast.Utils.Pair;
+import utils.CachedThreadPool;
 
 /**
  * @author ddosaru
@@ -517,6 +517,8 @@ public class UDPReceiver extends Thread {
 	}
 
 	private void runMulticastReceiver() {
+		setName("MulticastReceiver");
+
 		try (MulticastSocket socket = new MulticastSocket(this.multicastPortNumber)) {
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			socket.joinGroup(group);
@@ -711,7 +713,7 @@ public class UDPReceiver extends Thread {
 		expirationChecker = new ExpirationChecker();
 		expirationChecker.start();
 
-		executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES);
 	}
 
 }
