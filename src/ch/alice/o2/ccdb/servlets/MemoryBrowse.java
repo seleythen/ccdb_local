@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
@@ -23,6 +24,7 @@ import ch.alice.o2.ccdb.servlets.formatters.SQLFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.TextFormatter;
 import ch.alice.o2.ccdb.servlets.formatters.XMLFormatter;
 import lazyj.Format;
+import lazyj.Utils;
 
 /**
  * In-memory implementation of CCDB. This servlet implements browsing of
@@ -101,10 +103,11 @@ public class MemoryBrowse extends HttpServlet {
 			formatter.footer(pw);
 
 			if (!parser.wildcardMatching) {
+				formatter.setExtendedReport(Utils.stringToBool(request.getParameter("report"), false));
+
 				// It is not clear which subfolders to list in case of a wildcard matching of
 				// objects. As the full hierarchy was included in the search there is no point
-				// in showing them, so just skip
-				// this section.
+				// in showing them, so just skip this section.
 				formatter.subfoldersListingHeader(pw);
 
 				String suffix = "";
@@ -120,10 +123,67 @@ public class MemoryBrowse extends HttpServlet {
 
 				// TODO: search for all keys that have as prefix the current parser.path
 
+				Map<String, SubfolderStats> subfolderAggregate = new TreeMap<>();
+
+				for (Map.Entry<String, List<Blob>> entry : UDPReceiver.currentCacheContent.entrySet()) {
+					final String key = entry.getKey();
+
+					if (parser.path == null || parser.path.length() == 0 || key.startsWith(parser.path + "/")) {
+						String folder = parser.path != null ? key.substring(parser.path.length()) : key;
+
+						while (folder.startsWith("/"))
+							folder = folder.substring(1);
+
+						String firstLevelFolder = folder;
+
+						boolean isOwnData = true;
+
+						if (firstLevelFolder.indexOf('/') > 0) {
+							firstLevelFolder = firstLevelFolder.substring(0, firstLevelFolder.indexOf('/'));
+							isOwnData = false;
+						}
+
+						final SubfolderStats stats = subfolderAggregate.computeIfAbsent(firstLevelFolder, k -> new SubfolderStats());
+
+						for (Blob b : entry.getValue())
+							stats.addObject(isOwnData, b.getSize());
+					}
+				}
+
+				for (Map.Entry<String, SubfolderStats> entry : subfolderAggregate.entrySet()) {
+					String subfolder = entry.getKey();
+
+					if (parser.path != null && parser.path.length() > 0)
+						subfolder = parser.path + "/" + subfolder;
+
+					final SubfolderStats stats = entry.getValue();
+
+					formatter.subfoldersListing(pw, subfolder, subfolder + suffix, stats.ownCount, stats.ownSize, stats.subfolderCount, stats.subfolderSize);
+				}
+
 				formatter.subfoldersListingFooter(pw, 0, 0);
 			}
 
 			formatter.end(pw);
+		}
+	}
+
+	private static class SubfolderStats {
+		int ownCount = 0;
+		int ownSize = 0;
+
+		int subfolderCount = 0;
+		int subfolderSize = 0;
+
+		public void addObject(boolean own, long size) {
+			if (own) {
+				ownCount++;
+				ownSize += size;
+			}
+			else {
+				subfolderCount++;
+				subfolderSize += size;
+			}
 		}
 	}
 
