@@ -15,11 +15,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.StringTokenizer;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.tomcat.util.http.fileupload.IOUtils;
 
 import ch.alice.o2.ccdb.Options;
 import lazyj.Format;
+import utils.CachedThreadPool;
 
 /**
  * Upload the newly created SQL object to other CCDB instances. Targets are expected to by proxy services to EPN farm, that
@@ -35,6 +38,8 @@ import lazyj.Format;
 public class SQLtoHTTP implements SQLNotifier {
 
 	private final List<URL> destinations = new LinkedList<>();
+
+	private final ExecutorService asyncUploaders = new CachedThreadPool(4, 2, TimeUnit.MINUTES);
 
 	private SQLtoHTTP() {
 		final String httpNotifications = Options.getOption("http.targets", null);
@@ -79,80 +84,76 @@ public class SQLtoHTTP implements SQLNotifier {
 	@Override
 	public void newObject(final SQLObject object) {
 		// notify all UDP receivers of the new object
-		for (final URL destination : destinations) {
-			try {
-				upload(object, destination);
-			}
-			catch (final IOException e) {
-				System.err.println("Exception uploading to " + destination + " :" + e.getMessage());
-				e.printStackTrace();
-			}
-		}
+		for (final URL destination : destinations)
+			asyncUploaders.submit(() -> upload(object, destination));
 	}
 
-	private static void upload(final SQLObject object, final URL target) throws IOException {
-		final File localFile = object.getLocalFile(false);
+	private static void upload(final SQLObject object, final URL target) {
+		try {
+			final File localFile = object.getLocalFile(false);
 
-		if (localFile == null)
-			throw new IOException("Local file doesn't exist");
+			if (localFile == null)
+				throw new IOException("Local file doesn't exist");
 
-		final URL url = new URL(target, object.getPath() + "/" + object.validFrom + "/" + object.validUntil);
+			final URL url = new URL(target, object.getPath() + "/" + object.validFrom + "/" + object.validUntil);
 
-		System.err.println("Making connection to " + url);
+			System.err.println("Making connection to " + url);
 
-		// TODO: add metadata keys
+			// TODO: add metadata keys
 
-		final HttpURLConnection http = (HttpURLConnection) url.openConnection();
-		http.setRequestMethod("POST"); // PUT is another valid option
-		http.setRequestProperty("Expect", "100-continue");
-		http.setRequestProperty("Force-Upload", "true");
+			final HttpURLConnection http = (HttpURLConnection) url.openConnection();
+			http.setRequestMethod("POST"); // PUT is another valid option
+			http.setRequestProperty("Expect", "100-continue");
+			http.setRequestProperty("Force-Upload", "true");
 
-		http.setDoOutput(true);
-		http.setDoInput(true);
+			http.setDoOutput(true);
+			http.setDoInput(true);
 
-		final String boundary = UUID.randomUUID().toString();
-		final byte[] boundaryBytes = ("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8);
-		final byte[] finishBoundaryBytes = ("\r\n--" + boundary + "--").getBytes(StandardCharsets.UTF_8);
-		http.setRequestProperty("Content-Type", "multipart/form-data; charset=UTF-8; boundary=" + boundary);
+			final String boundary = UUID.randomUUID().toString();
+			final byte[] boundaryBytes = ("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8);
+			final byte[] finishBoundaryBytes = ("\r\n--" + boundary + "--").getBytes(StandardCharsets.UTF_8);
+			http.setRequestProperty("Content-Type", "multipart/form-data; charset=UTF-8; boundary=" + boundary);
 
-		try (ByteArrayOutputStream out = new ByteArrayOutputStream((int) object.size + 10240)) {
-			out.write(boundaryBytes);
+			try (ByteArrayOutputStream out = new ByteArrayOutputStream((int) object.size + 10240)) {
+				out.write(boundaryBytes);
 
-			final String partName = object.getProperty("partName", "blob");
+				final String partName = object.getProperty("partName", "blob");
 
-			final String mpHeader = "Content-Disposition: form-data; name=\"" + Format.encode(partName) + "\"; filename=\"" + Format.encode(object.fileName) + "\"\r\n" +
-					"Content-Length: " + object.size + "\r\n" +
-					"Content-Type: " + object.contentType + "\r\n" +
-					"\r\n";
+				final String mpHeader = "Content-Disposition: form-data; name=\"" + Format.encode(partName) + "\"; filename=\"" + Format.encode(object.fileName) + "\"\r\n" +
+						"Content-Length: " + object.size + "\r\n" +
+						"Content-Type: " + object.contentType + "\r\n" +
+						"\r\n";
 
-			out.write(mpHeader.getBytes(StandardCharsets.UTF_8));
+				out.write(mpHeader.getBytes(StandardCharsets.UTF_8));
 
-			final byte[] multipartHeader = out.toByteArray();
+				final byte[] multipartHeader = out.toByteArray();
 
-			http.setFixedLengthStreamingMode(multipartHeader.length + localFile.length() + finishBoundaryBytes.length);
+				http.setFixedLengthStreamingMode(multipartHeader.length + localFile.length() + finishBoundaryBytes.length);
 
-			try (OutputStream httpOut = http.getOutputStream()) {
-				httpOut.write(multipartHeader);
+				try (OutputStream httpOut = http.getOutputStream()) {
+					httpOut.write(multipartHeader);
 
-				try (InputStream is = new FileInputStream(localFile)) {
-					IOUtils.copy(is, httpOut);
-				}
+					try (InputStream is = new FileInputStream(localFile)) {
+						IOUtils.copy(is, httpOut);
+					}
 
-				httpOut.write(finishBoundaryBytes);
+					httpOut.write(finishBoundaryBytes);
 
-				httpOut.flush();
+					httpOut.flush();
 
-				String line;
+					String line;
 
-				try (BufferedReader br = new BufferedReader(new InputStreamReader(http.getInputStream()))) {
-					while ((line = br.readLine()) != null)
-						System.err.println(line);
+					try (BufferedReader br = new BufferedReader(new InputStreamReader(http.getInputStream()))) {
+						while ((line = br.readLine()) != null)
+							System.err.println(line);
+					}
 				}
 			}
+
 		}
-
-		System.err.println("Response code: " + http.getResponseCode());
-
+		catch (final IOException ioe) {
+			System.err.println("Error notifying " + target + " of " + object.getPath() + "/" + object.id + " : " + ioe.getMessage());
+		}
 	}
 
 	@Override
