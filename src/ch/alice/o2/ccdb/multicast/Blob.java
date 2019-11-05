@@ -810,7 +810,7 @@ public class Blob implements Comparable<Blob> {
 		try {
 			this.payloadChecksum = Utils.calculateChecksum(payload);
 		}
-		catch (NoSuchAlgorithmException e) {
+		catch (final NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
@@ -1017,7 +1017,7 @@ public class Blob implements Comparable<Blob> {
 	 * @return the last modified timestamp (best effort to get it from metadata, creation time, UUID ...)
 	 */
 	public long getLastModified() {
-		String value = getProperty("Last-Modified");
+		final String value = getProperty("Last-Modified");
 
 		try {
 			return Long.parseLong(value);
@@ -1026,7 +1026,7 @@ public class Blob implements Comparable<Blob> {
 			// ignore
 		}
 
-		Date d = Format.parseDate(value);
+		final Date d = Format.parseDate(value);
 
 		if (d != null)
 			return d.getTime();
@@ -1050,13 +1050,13 @@ public class Blob implements Comparable<Blob> {
 	 * @return content MD5 checksum, if known, otherwise <code>null</code>
 	 */
 	public String getMD5() {
-		String value = getProperty("Content-MD5");
+		final String value = getProperty("Content-MD5");
 
 		if (value != null && value.length() > 0)
 			return value;
 
 		if (payloadChecksum != null) {
-			String inMemMD5 = String.format("%032x", new BigInteger(1, payloadChecksum));
+			final String inMemMD5 = String.format("%032x", new BigInteger(1, payloadChecksum));
 
 			if (complete)
 				setProperty("Content-MD5", inMemMD5);

@@ -33,9 +33,9 @@ public class SingletonLogger {
 			sf = new SimpleFormatter();
 			fh.setFormatter(sf);
 
-			for (Handler h: logger.getHandlers())
+			for (final Handler h : logger.getHandlers())
 				logger.removeHandler(h);
-			
+
 			logger.addHandler(fh);
 		}
 		else {
