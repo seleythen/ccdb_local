@@ -77,6 +77,11 @@ public class SQLBacked extends HttpServlet {
 
 		if (udpSender != null)
 			notifiers.add(udpSender);
+
+		final SQLtoHTTP httpSender = SQLtoHTTP.getInstance();
+
+		if (httpSender != null)
+			notifiers.add(httpSender);
 	}
 
 	@Override
