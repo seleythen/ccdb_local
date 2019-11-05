@@ -142,11 +142,18 @@ public class Memory extends HttpServlet {
 	private static void setHeaders(final Blob obj, final HttpServletResponse response) {
 		response.setDateHeader("Date", System.currentTimeMillis());
 
-		for (final String metadataKey : new String[] { "Valid-From", "Valid-Until", "Created", "Last-Modified" }) {
+		for (final String metadataKey : new String[] { "Valid-From", "Valid-Until", "Created" }) {
 			final String value = obj.getProperty(metadataKey);
 
 			if (value != null)
 				response.setHeader(metadataKey, value);
+		}
+
+		try {
+			response.setDateHeader("Last-Modified", Long.parseLong(obj.getProperty("Last-Modified")));
+		}
+		catch (@SuppressWarnings("unused") NullPointerException | NumberFormatException ignore) {
+			response.setDateHeader("Last-Modified", (obj.getCreateTime()));
 		}
 
 		response.setHeader("ETag", '"' + obj.getUuid().toString() + '"');
