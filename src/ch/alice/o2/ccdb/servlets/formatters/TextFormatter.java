@@ -73,8 +73,7 @@ public class TextFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void format(PrintWriter writer, Blob obj) {
-		// TODO Auto-generated method stub
-		
+	public void format(final PrintWriter writer, final Blob obj) {
+		writer.println(obj.toString());
 	}
 }

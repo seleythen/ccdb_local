@@ -277,7 +277,7 @@ public class HTMLFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void format(PrintWriter writer, Blob obj) {
+	public void format(final PrintWriter writer, final Blob obj) {
 		writer.print("<tr><td nowrap align=left>");
 		writer.print(obj.getUuid());
 
@@ -343,8 +343,8 @@ public class HTMLFormatter implements SQLFormatter {
 			if (obj.isComplete()) {
 				isComplete = true;
 
-				writer.print("<li><a href='");
-				writer.print(obj.getStartTime() + "/" + obj.getUuid() + "'>0");
+				writer.print("<li><a href='/");
+				writer.print(obj.getKey() + "/" + obj.getStartTime() + "/" + obj.getUuid() + "'>0");
 				writer.print("</a></li>\n");
 			}
 		}

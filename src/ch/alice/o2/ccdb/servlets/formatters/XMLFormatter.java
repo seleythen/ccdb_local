@@ -1,6 +1,8 @@
 package ch.alice.o2.ccdb.servlets.formatters;
 
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
 import ch.alice.o2.ccdb.multicast.Blob;
@@ -191,8 +193,70 @@ public class XMLFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void format(PrintWriter writer, Blob obj) {
-		// TODO Auto-generated method stub
-		
+	public void format(final PrintWriter writer, final Blob obj) {
+		writer.print("<object id='");
+		writer.print(Format.escHtml(obj.getUuid().toString()));
+
+		writer.print("' validFrom='");
+		writer.print(obj.getStartTime());
+
+		writer.print("' validUntil='");
+		writer.print(obj.getEndTime());
+
+		writer.print("' initialValidity='");
+		writer.print(obj.getInitialValidity());
+
+		writer.print("' created='");
+		writer.print(obj.getCreateTime());
+
+		writer.print("' lastModified='");
+		writer.print(obj.getLastModified());
+
+		writer.print("' md5='");
+		writer.print(Format.escHtml(obj.getProperty("Content-MD5")));
+
+		writer.print("' fileName='");
+		writer.print(Format.escHtml(obj.getOriginalName()));
+
+		writer.print("' contentType='");
+		writer.print(Format.escHtml(obj.getProperty("Content-Type", "application/octet-stream")));
+
+		writer.print("' size='");
+		writer.print(obj.getSize());
+
+		writer.print("'  path='");
+		writer.print(Format.escHtml(obj.getKey()));
+
+		boolean isComplete = false;
+
+		try {
+			if (obj.isComplete()) {
+				isComplete = true;
+			}
+		}
+		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {
+			// ignore
+		}
+
+		writer.print("' complete='");
+		writer.print(isComplete ? "true" : "false");
+
+		writer.print("'>\n");
+
+		for (final String key : obj.getMetadataMap().keySet()) {
+			writer.print("  <metadata key='");
+			writer.print(Format.escHtml(key));
+			writer.print("' value='");
+			writer.print(Format.escHtml(obj.getProperty(key)));
+			writer.print("'/>\n");
+		}
+
+		if (isComplete) {
+			writer.print("  <replica id='0' addr='/");
+			writer.print(obj.getKey() + "/" + obj.getStartTime() + "/" + obj.getUuid());
+			writer.print("'/>\n");
+		}
+
+		writer.print("</object>\n");
 	}
 }

@@ -1,6 +1,8 @@
 package ch.alice.o2.ccdb.servlets.formatters;
 
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
 import ch.alice.o2.ccdb.multicast.Blob;
@@ -192,8 +194,68 @@ public class JSONFormatter implements SQLFormatter {
 	}
 
 	@Override
-	public void format(PrintWriter writer, Blob obj) {
-		// TODO Auto-generated method stub
-		
+	public void format(final PrintWriter writer, final Blob obj) {
+		writer.print("{\n  \"id\":\"");
+		writer.print(Format.escJSON(obj.getUuid().toString()));
+
+		writer.print("\",\n  \"validFrom\":\"");
+		writer.print(obj.getStartTime());
+
+		writer.print("\",\n  \"validUntil\":\"");
+		writer.print(obj.getEndTime());
+
+		writer.print("\",\n  \"initialValidity\":\"");
+		writer.print(obj.getInitialValidity());
+
+		writer.print("\",\n  \"createTime\":\"");
+		writer.print(obj.getCreateTime());
+
+		writer.print("\",\n  \"lastModified\":\"");
+		writer.print(obj.getLastModified());
+
+		writer.print("\",\n  \"MD5\":\"");
+		writer.print(Format.escJSON(obj.getProperty("Content-MD5")));
+
+		writer.print("\",\n  \"fileName\":\"");
+		writer.print(Format.escJSON(obj.getOriginalName()));
+
+		writer.print("\",\n  \"contentType\":\"");
+		writer.print(Format.escJSON(obj.getProperty("Content-Type", "application/octet-stream")));
+
+		writer.print("\",\n  \"size\":\"");
+		writer.print(obj.getSize());
+
+		writer.print("\",\n  \"path\":\"");
+		writer.print(Format.escJSON(obj.getKey()));
+
+		writer.print("\"");
+		for (final String key : obj.getMetadataMap().keySet()) {
+			writer.print(",\n  \"");
+			writer.print(Format.escJSON(key));
+			writer.print("\":\"");
+			writer.print(Format.escJSON(obj.getProperty(key)));
+			writer.print("\"");
+		}
+
+		boolean isComplete = false;
+
+		try {
+			if (obj.isComplete()) {
+				isComplete = true;
+
+				writer.print(",\n  \"replica0\":\"/");
+				writer.print(obj.getKey() + "/" + obj.getStartTime() + "/" + obj.getUuid());
+				writer.print("\"");
+			}
+		}
+		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {
+			// ignore
+		}
+
+		if (!isComplete) {
+			writer.print(",\n  \"incomplete\":\"true\"");
+		}
+
+		writer.print("\n}");
 	}
 }
