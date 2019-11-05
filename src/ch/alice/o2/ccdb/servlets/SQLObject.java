@@ -556,6 +556,29 @@ public class SQLObject {
 	}
 
 	/**
+	 * @param key
+	 * @return the value for this key, if found, otherwise <code>null</code>
+	 */
+	public String getProperty(final String key) {
+		return getProperty(key, null);
+	}
+
+	/**
+	 * @param key
+	 * @param defaultValue
+	 * @return value for this key, or the default value if the requested metadata key is not defined for this object
+	 */
+	public String getProperty(final String key, final String defaultValue) {
+		for (final Map.Entry<Integer, String> entry : metadata.entrySet()) {
+
+			if (key.equals(getMetadataString(entry.getKey())))
+				return entry.getValue();
+		}
+
+		return defaultValue;
+	}
+
+	/**
 	 * Modify the expiration time of an object
 	 *
 	 * @param newEndTime
