@@ -16,14 +16,14 @@ public class Options {
 	public static String getOption(final String key, final String defaultValue) {
 		String tmp = System.getProperty(key);
 
-		if (tmp != null && tmp.length() > 0)
+		if (tmp != null)
 			return tmp;
 
 		final String envKey = key.toUpperCase().replace('.', '_');
 
 		tmp = System.getenv(envKey);
 
-		if (tmp != null && tmp.length() > 0)
+		if (tmp != null)
 			return tmp;
 
 		return defaultValue;
@@ -43,7 +43,8 @@ public class Options {
 		if (value != null)
 			try {
 				return Integer.parseInt(value);
-			} catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
+			}
+			catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 				// ignore
 			}
 
