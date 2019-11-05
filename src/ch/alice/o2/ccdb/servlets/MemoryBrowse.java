@@ -25,7 +25,7 @@ import ch.alice.o2.ccdb.servlets.formatters.XMLFormatter;
 import lazyj.Format;
 
 /**
- * SQL-backed implementation of CCDB. This servlet implements browsing of
+ * In-memory implementation of CCDB. This servlet implements browsing of
  * objects in a particular path
  *
  * @author costing
@@ -159,7 +159,7 @@ public class MemoryBrowse extends HttpServlet {
 				for (Blob b : entry.getValue()) {
 					if (Memory.blobMatchesParser(b, parser)) {
 						if (parser.latestFlag) {
-							if (b.compareTo(bBest) > 0)
+							if (bBest == null || b.compareTo(bBest) < 0)
 								bBest = b;
 						}
 						else
