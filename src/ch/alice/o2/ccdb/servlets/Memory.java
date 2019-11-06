@@ -25,6 +25,9 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 
 import alien.catalogue.GUIDUtils;
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import alien.test.cassandra.tomcat.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
@@ -37,12 +40,14 @@ import ch.alice.o2.ccdb.multicast.Utils;
  * where calibration data should only stay in memory
  *
  * @author costing
- * @since 2017-09-20
+ * @since 2019-11-01
  */
 @WebServlet("/*")
 @MultipartConfig
 public class Memory extends HttpServlet {
 	private static final long serialVersionUID = 1L;
+
+	private static final Monitor monitor = MonitorFactory.getMonitor(Memory.class.getCanonicalName());
 
 	private static final boolean REDIRECT_TO_UPSTREAM;
 
@@ -75,12 +80,16 @@ public class Memory extends HttpServlet {
 
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, true);
+		try (Timing t = new Timing(monitor, "HEAD_ms")) {
+			doGet(request, response, true);
+		}
 	}
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		doGet(request, response, false);
+		try (Timing t = new Timing(monitor, "GET_ms")) {
+			doGet(request, response, false);
+		}
 	}
 
 	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head) throws IOException {
@@ -100,6 +109,8 @@ public class Memory extends HttpServlet {
 		final Blob matchingObject = getMatchingObject(parser);
 
 		if (matchingObject == null) {
+			monitor.incrementCacheMisses("memcache");
+
 			// nothing matches, or the best matching object is incomplete
 
 			if (REDIRECT_TO_UPSTREAM) {
@@ -111,6 +122,8 @@ public class Memory extends HttpServlet {
 
 			return;
 		}
+
+		monitor.incrementCacheHits("memcache");
 
 		if (parser.cachedValue != null && matchingObject.getUuid().toString().equalsIgnoreCase(parser.cachedValue.toString())) {
 			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
@@ -321,10 +334,8 @@ public class Memory extends HttpServlet {
 			final StringBuilder subHeader = new StringBuilder();
 
 			subHeader.append("\n--").append(boundaryString);
-			subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream"))
-					.append('\n');
-			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/")
-					.append(payloadSize).append("\n\n");
+			subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
+			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(payloadSize).append("\n\n");
 
 			final String sh = subHeader.toString();
 
@@ -364,134 +375,144 @@ public class Memory extends HttpServlet {
 
 	@Override
 	protected void doPost(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		if (REDIRECT_TO_UPSTREAM && request.getHeader("Force-Upload") == null) {
-			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
-			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+		try (Timing t = new Timing(monitor, "POST_ms")) {
+			if (REDIRECT_TO_UPSTREAM && request.getHeader("Force-Upload") == null) {
+				response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+				response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
 
-			return;
+				return;
+			}
+
+			// create the given object and return the unique identifier to it
+			// URL parameters are:
+			// task name / detector name / start time [/ end time] [ / flag ]*
+			// mime-encoded blob is the value to be stored
+			// if end time is missing then it will be set to the same value as start time
+			// flags are in the form "key=value"
+
+			final RequestParser parser = new RequestParser(request);
+
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
+			}
+
+			final Collection<Part> parts = request.getParts();
+
+			if (parts.size() == 0) {
+				response.sendError(HttpServletResponse.SC_BAD_REQUEST, "POST request doesn't contain the data to upload");
+				return;
+			}
+
+			final long newObjectTime = System.currentTimeMillis();
+
+			byte[] remoteAddress = null;
+
+			try {
+				final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
+
+				remoteAddress = ia.getAddress();
+			}
+			catch (@SuppressWarnings("unused") final Throwable t1) {
+				// ignore
+			}
+
+			final UUID targetUUID = parser.uuidConstraint != null ? parser.uuidConstraint : UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
+
+			final Part part = parts.iterator().next();
+
+			final byte[] metadata = new byte[0];
+
+			final byte[] payload = new byte[part.getInputStream().available()];
+			part.getInputStream().read(payload);
+
+			final String blobKey = parser.path;
+			Blob newBlob = null;
+			try {
+				newBlob = new Blob(metadata, payload, blobKey, targetUUID);
+
+				newBlob.startTime = parser.startTime;
+				newBlob.endTime = parser.endTime;
+
+				if (parser.flagConstraints != null)
+					newBlob.setMetadata(Utils.serializeMetadata(parser.flagConstraints));
+
+				newBlob.setProperty("InitialValidityLimit", String.valueOf(parser.endTime));
+				newBlob.setProperty("OriginalFileName", part.getSubmittedFileName());
+				newBlob.setProperty("Content-Type", part.getContentType());
+				newBlob.setProperty("UploadedFrom", request.getRemoteHost());
+				newBlob.setProperty("File-Size", String.valueOf(payload.length));
+				newBlob.setProperty("Content-MD5", String.format("%032x", new BigInteger(1, Utils.calculateChecksum(payload))));
+
+				if (newBlob.getProperty("Created") == null)
+					newBlob.setProperty("Created", String.valueOf(GUIDUtils.epochTime(targetUUID)));
+			}
+			catch (NoSuchAlgorithmException | SecurityException e) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+				return;
+			}
+
+			newBlob.setComplete(true);
+			UDPReceiver.addToCacheContent(newBlob);
+
+			setHeaders(newBlob, response);
+
+			response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
+
+			response.sendError(HttpServletResponse.SC_CREATED);
+
+			final SQLtoUDP udpSender = SQLtoUDP.getInstance();
+
+			if (udpSender != null)
+				udpSender.newObject(newBlob);
 		}
-
-		// create the given object and return the unique identifier to it
-		// URL parameters are:
-		// task name / detector name / start time [/ end time] [ / flag ]*
-		// mime-encoded blob is the value to be stored
-		// if end time is missing then it will be set to the same value as start time
-		// flags are in the form "key=value"
-
-		final RequestParser parser = new RequestParser(request);
-
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
-		}
-
-		final Collection<Part> parts = request.getParts();
-
-		if (parts.size() == 0) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "POST request doesn't contain the data to upload");
-			return;
-		}
-
-		final long newObjectTime = System.currentTimeMillis();
-
-		byte[] remoteAddress = null;
-
-		try {
-			final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
-
-			remoteAddress = ia.getAddress();
-		}
-		catch (@SuppressWarnings("unused") final Throwable t) {
-			// ignore
-		}
-
-		final UUID targetUUID = parser.uuidConstraint != null ? parser.uuidConstraint : UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
-
-		final Part part = parts.iterator().next();
-
-		final byte[] metadata = new byte[0];
-
-		final byte[] payload = new byte[part.getInputStream().available()];
-		part.getInputStream().read(payload);
-
-		final String blobKey = parser.path;
-		Blob newBlob = null;
-		try {
-			newBlob = new Blob(metadata, payload, blobKey, targetUUID);
-
-			newBlob.startTime = parser.startTime;
-			newBlob.endTime = parser.endTime;
-
-			if (parser.flagConstraints != null)
-				newBlob.setMetadata(Utils.serializeMetadata(parser.flagConstraints));
-
-			newBlob.setProperty("InitialValidityLimit", String.valueOf(parser.endTime));
-			newBlob.setProperty("OriginalFileName", part.getSubmittedFileName());
-			newBlob.setProperty("Content-Type", part.getContentType());
-			newBlob.setProperty("UploadedFrom", request.getRemoteHost());
-			newBlob.setProperty("File-Size", String.valueOf(payload.length));
-			newBlob.setProperty("Content-MD5", String.format("%032x", new BigInteger(1, Utils.calculateChecksum(payload))));
-
-			if (newBlob.getProperty("Created") == null)
-				newBlob.setProperty("Created", String.valueOf(GUIDUtils.epochTime(targetUUID)));
-		}
-		catch (NoSuchAlgorithmException | SecurityException e) {
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
-			return;
-		}
-
-		UDPReceiver.addToCacheContent(newBlob);
-
-		setHeaders(newBlob, response);
-
-		response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
-
-		response.sendError(HttpServletResponse.SC_CREATED);
-
-		final SQLtoUDP udpSender = SQLtoUDP.getInstance();
-
-		if (udpSender != null)
-			udpSender.newObject(newBlob);
 	}
 
 	@Override
 	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		if (REDIRECT_TO_UPSTREAM && request.getParameter("Force-Update") == null) {
-			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
-			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+		try (Timing t = new Timing(monitor, "PUT_ms")) {
+			if (REDIRECT_TO_UPSTREAM && request.getParameter("Force-Update") == null) {
+				response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+				response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
 
-			return;
+				return;
+			}
+
+			response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "You cannot modify objects in the cache");
 		}
-
-		response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "You cannot modify objects in the cache");
 	}
 
 	@Override
 	protected void doDelete(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
-		if (REDIRECT_TO_UPSTREAM && request.getParameter("Force-Delete") == null) {
-			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
-			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+		try (Timing t = new Timing(monitor, "DELETE_ms")) {
+			if (REDIRECT_TO_UPSTREAM && request.getParameter("Force-Delete") == null) {
+				response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+				response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
 
-			return;
+				return;
+			}
+
+			final RequestParser parser = new RequestParser(request);
+
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
+			}
+
+			final Blob matchingObject = getMatchingObject(parser);
+
+			if (matchingObject == null) {
+				response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
+				return;
+			}
+
+			final List<Blob> keyContent = UDPReceiver.currentCacheContent.get(matchingObject.getKey());
+
+			if (keyContent != null)
+				keyContent.remove(matchingObject);
+
+			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 		}
-
-		final RequestParser parser = new RequestParser(request);
-
-		if (!parser.ok) {
-			printUsage(request, response);
-			return;
-		}
-
-		final Blob matchingObject = getMatchingObject(parser);
-
-		if (matchingObject == null) {
-			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
-			return;
-		}
-
-		UDPReceiver.currentCacheContent.remove(matchingObject.getKey(), matchingObject);
-
-		response.sendError(HttpServletResponse.SC_NO_CONTENT);
 	}
 
 	private static Blob getMatchingObject(final RequestParser parser) {
@@ -507,7 +528,7 @@ public class Memory extends HttpServlet {
 				continue;
 
 			// most recently created object wins
-			if (bestMatch == null || blob.compareTo(bestMatch) > 0)
+			if (bestMatch == null || blob.compareTo(bestMatch) < 0)
 				bestMatch = blob;
 		}
 
