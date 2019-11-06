@@ -79,6 +79,8 @@ public class Blob implements Comparable<Blob> {
 
 	private volatile boolean complete = true;
 
+	private volatile boolean isCompleteRecalculate = true;
+
 	/**
 	 * Parameterized constructor - creates a Blob object to be sent that contains a
 	 * payload and a checksum. The checksum is the Utils.CHECKSUM_TYPE of the
@@ -468,10 +470,10 @@ public class Blob implements Comparable<Blob> {
 
 		complete = newCompleteFlag;
 
+		isCompleteRecalculate = false;
+
 		return oldComplete;
 	}
-
-	private volatile boolean isCompleteRecalculate = true;
 
 	/**
 	 * At next {@link #isComplete()} call, do a full re-assessment of its status, otherwise the cached value could be used
