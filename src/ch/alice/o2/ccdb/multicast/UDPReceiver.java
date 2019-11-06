@@ -3,6 +3,7 @@ package ch.alice.o2.ccdb.multicast;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.SoftReference;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
@@ -72,7 +73,7 @@ public class UDPReceiver extends Thread {
 	/**
 	 * Blob-uri complete
 	 */
-	public static final Map<String, List<Blob>> currentCacheContent = new ConcurrentHashMap<>();
+	public static final Map<String, List<SoftReference<Blob>>> currentCacheContent = new ConcurrentHashMap<>();
 
 	private static final ReentrantReadWriteLock contentStructureLock = new ReentrantReadWriteLock();
 
@@ -388,9 +389,21 @@ public class UDPReceiver extends Thread {
 		}
 	});
 
-	private static final Comparator<Blob> startTimeComparator = new Comparator<>() {
+	private static final Comparator<SoftReference<Blob>> startTimeComparator = new Comparator<>() {
 		@Override
-		public int compare(final Blob o1, final Blob o2) {
+		public int compare(final SoftReference<Blob> sb1, final SoftReference<Blob> sb2) {
+			final Blob o1 = sb1.get();
+			final Blob o2 = sb2.get();
+
+			if (o1 == null && o2 == null)
+				return 0;
+
+			if (o1 == null)
+				return -1;
+
+			if (o2 == null)
+				return 1;
+
 			final long diff = o1.startTime - o2.startTime;
 
 			if (diff > Integer.MAX_VALUE)
@@ -419,13 +432,16 @@ public class UDPReceiver extends Thread {
 		contentStructureWriteLock.lock();
 
 		try {
-			final List<Blob> currentBlobsForKey = currentCacheContent.computeIfAbsent(blob.getKey(), k -> new Vector<>(Arrays.asList(blob)));
+			final List<SoftReference<Blob>> currentBlobsForKey = currentCacheContent.computeIfAbsent(blob.getKey(), k -> new Vector<>(Arrays.asList(new SoftReference<>(blob))));
 
-			for (final Blob b : currentBlobsForKey)
-				if (b.getUuid().equals(blob.getUuid()))
+			for (final SoftReference<Blob> sb : currentBlobsForKey) {
+				final Blob b = sb.get();
+
+				if (b != null && b.getUuid().equals(blob.getUuid()))
 					return b;
+			}
 
-			currentBlobsForKey.add(blob);
+			currentBlobsForKey.add(new SoftReference<>(blob));
 			currentBlobsForKey.sort(startTimeComparator);
 
 			return blob;
@@ -439,7 +455,7 @@ public class UDPReceiver extends Thread {
 		contentStructureReadLock.lock();
 
 		try {
-			final List<Blob> currentBlobsForKey = currentCacheContent.get(key);
+			final List<SoftReference<Blob>> currentBlobsForKey = currentCacheContent.get(key);
 
 			if (currentBlobsForKey != null)
 				currentBlobsForKey.sort(startTimeComparator);
@@ -457,14 +473,17 @@ public class UDPReceiver extends Thread {
 		Blob blob = null;
 
 		try {
-			final List<Blob> candidates = currentCacheContent.get(fragmentedBlob.getKey());
+			final List<SoftReference<Blob>> candidates = currentCacheContent.get(fragmentedBlob.getKey());
 
 			if (candidates != null)
-				for (final Blob b : candidates)
-					if (b.getUuid().equals(fragmentedBlob.getUuid())) {
+				for (final SoftReference<Blob> sb : candidates) {
+					final Blob b = sb.get();
+
+					if (b != null && b.getUuid().equals(fragmentedBlob.getUuid())) {
 						blob = b;
 						break;
 					}
+				}
 		}
 		finally {
 			contentStructureReadLock.unlock();
@@ -587,12 +606,12 @@ public class UDPReceiver extends Thread {
 				contentStructureWriteLock.lock();
 
 				try {
-					final Iterator<Map.Entry<String, List<Blob>>> cacheContentIterator = currentCacheContent.entrySet().iterator();
+					final Iterator<Map.Entry<String, List<SoftReference<Blob>>>> cacheContentIterator = currentCacheContent.entrySet().iterator();
 
 					while (cacheContentIterator.hasNext()) {
-						final Map.Entry<String, List<Blob>> currentEntry = cacheContentIterator.next();
+						final Map.Entry<String, List<SoftReference<Blob>>> currentEntry = cacheContentIterator.next();
 
-						final List<Blob> objects = currentEntry.getValue();
+						final List<SoftReference<Blob>> objects = currentEntry.getValue();
 
 						if (objects.size() == 0) {
 							cacheContentIterator.remove();
@@ -602,10 +621,17 @@ public class UDPReceiver extends Thread {
 						final long currentTime = System.currentTimeMillis();
 
 						synchronized (objects) {
-							final Iterator<Blob> objectIterator = objects.iterator();
+							final Iterator<SoftReference<Blob>> objectIterator = objects.iterator();
 
 							while (objectIterator.hasNext()) {
-								final Blob b = objectIterator.next();
+								final SoftReference<Blob> sb = objectIterator.next();
+
+								final Blob b = sb.get();
+
+								if (b == null) {
+									objectIterator.remove();
+									continue;
+								}
 
 								try {
 									if (b.isComplete()) {
@@ -640,10 +666,12 @@ public class UDPReceiver extends Thread {
 
 							// the most recent object should stay in any case
 							for (int i = 0; i < objects.size() - 1; i++) {
-								final Blob b = objects.get(i);
+								final SoftReference<Blob> sb = objects.get(i);
+
+								final Blob b = sb.get();
 
 								try {
-									if (!b.isComplete())
+									if (b == null || !b.isComplete())
 										continue;
 								}
 								catch (@SuppressWarnings("unused") NoSuchAlgorithmException | IOException e) {

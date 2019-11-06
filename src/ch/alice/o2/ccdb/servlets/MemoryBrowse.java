@@ -2,6 +2,7 @@ package ch.alice.o2.ccdb.servlets;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -123,9 +124,9 @@ public class MemoryBrowse extends HttpServlet {
 
 				// TODO: search for all keys that have as prefix the current parser.path
 
-				Map<String, SubfolderStats> subfolderAggregate = new TreeMap<>();
+				final Map<String, SubfolderStats> subfolderAggregate = new TreeMap<>();
 
-				for (Map.Entry<String, List<Blob>> entry : UDPReceiver.currentCacheContent.entrySet()) {
+				for (final Map.Entry<String, List<SoftReference<Blob>>> entry : UDPReceiver.currentCacheContent.entrySet()) {
 					final String key = entry.getKey();
 
 					if (parser.path == null || parser.path.length() == 0 || key.startsWith(parser.path + "/")) {
@@ -145,12 +146,16 @@ public class MemoryBrowse extends HttpServlet {
 
 						final SubfolderStats stats = subfolderAggregate.computeIfAbsent(firstLevelFolder, k -> new SubfolderStats());
 
-						for (Blob b : entry.getValue())
-							stats.addObject(isOwnData, b.getSize());
+						for (final SoftReference<Blob> sb : entry.getValue()) {
+							final Blob b = sb.get();
+
+							if (b != null)
+								stats.addObject(isOwnData, b.getSize());
+						}
 					}
 				}
 
-				for (Map.Entry<String, SubfolderStats> entry : subfolderAggregate.entrySet()) {
+				for (final Map.Entry<String, SubfolderStats> entry : subfolderAggregate.entrySet()) {
 					String subfolder = entry.getKey();
 
 					if (parser.path != null && parser.path.length() > 0)
@@ -175,7 +180,7 @@ public class MemoryBrowse extends HttpServlet {
 		int subfolderCount = 0;
 		int subfolderSize = 0;
 
-		public void addObject(boolean own, long size) {
+		public void addObject(final boolean own, final long size) {
 			if (own) {
 				ownCount++;
 				ownSize += size;
@@ -210,13 +215,18 @@ public class MemoryBrowse extends HttpServlet {
 				pathFilter = pathFilter.substring(0, pathFilter.length() - 1);
 		}
 
-		for (Map.Entry<String, List<Blob>> entry : UDPReceiver.currentCacheContent.entrySet()) {
-			String path = entry.getKey();
+		for (final Map.Entry<String, List<SoftReference<Blob>>> entry : UDPReceiver.currentCacheContent.entrySet()) {
+			final String path = entry.getKey();
 
 			if ((pFilter == null && path.equals(pathFilter)) || (pFilter != null && pFilter.matcher(path).matches())) {
 				Blob bBest = null;
 
-				for (Blob b : entry.getValue()) {
+				for (final SoftReference<Blob> sb : entry.getValue()) {
+					final Blob b = sb.get();
+
+					if (b == null)
+						continue;
+
 					if (Memory.blobMatchesParser(b, parser)) {
 						if (parser.latestFlag) {
 							if (bBest == null || b.compareTo(bBest) < 0)

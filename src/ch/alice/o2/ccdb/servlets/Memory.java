@@ -4,6 +4,7 @@ import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.ref.SoftReference;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.security.NoSuchAlgorithmException;
@@ -506,24 +507,46 @@ public class Memory extends HttpServlet {
 				return;
 			}
 
-			final List<Blob> keyContent = UDPReceiver.currentCacheContent.get(matchingObject.getKey());
+			final List<SoftReference<Blob>> keyContent = UDPReceiver.currentCacheContent.get(matchingObject.getKey());
 
-			if (keyContent != null)
-				keyContent.remove(matchingObject);
+			if (keyContent != null) {
+				synchronized (keyContent) {
+					final Iterator<SoftReference<Blob>> it = keyContent.iterator();
+
+					while (it.hasNext()) {
+						final SoftReference<Blob> sb = it.next();
+
+						final Blob b = sb.get();
+
+						if (b == null)
+							it.remove();
+						else
+							if (b.equals(matchingObject)) {
+								it.remove();
+								break;
+							}
+					}
+				}
+			}
 
 			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 		}
 	}
 
 	private static Blob getMatchingObject(final RequestParser parser) {
-		final List<Blob> candidates = UDPReceiver.currentCacheContent.get(parser.path);
+		final List<SoftReference<Blob>> candidates = UDPReceiver.currentCacheContent.get(parser.path);
 
 		if (candidates == null || candidates.size() == 0)
 			return null;
 
 		Blob bestMatch = null;
 
-		for (final Blob blob : candidates) {
+		for (final SoftReference<Blob> sblob : candidates) {
+			final Blob blob = sblob.get();
+
+			if (blob == null)
+				continue;
+
 			if (!blobMatchesParser(blob, parser))
 				continue;
 
