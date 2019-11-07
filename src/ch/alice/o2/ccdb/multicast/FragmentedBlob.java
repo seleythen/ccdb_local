@@ -8,6 +8,8 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import alien.catalogue.GUID;
+
 /**
  * @author ddosaru
  *
@@ -38,7 +40,6 @@ class FragmentedBlob {
 	 *
 	 */
 	public FragmentedBlob(final byte[] serialisedFragmentedBlob, final int packetLength) throws NoSuchAlgorithmException, IOException {
-
 		// Field 9: Packet Checksum
 		this.packetChecksum = Arrays.copyOfRange(serialisedFragmentedBlob, packetLength - Utils.SIZE_OF_PACKET_CHECKSUM, packetLength);
 
@@ -49,31 +50,21 @@ class FragmentedBlob {
 		}
 
 		// Field 1: Fragment Offset
-		final byte[] fragmentOffset_byte_array = Arrays.copyOfRange(serialisedFragmentedBlob, Utils.FRAGMENT_OFFSET_START_INDEX, Utils.FRAGMENT_OFFSET_START_INDEX + Utils.SIZE_OF_FRAGMENT_OFFSET);
-		// Get the fragment Offset:
-		this.fragmentOffset = Utils.intFromByteArray(fragmentOffset_byte_array);
+		this.fragmentOffset = Utils.intFromByteArray(serialisedFragmentedBlob, Utils.FRAGMENT_OFFSET_START_INDEX);
 
 		// Field 2: Packet type
-		final byte[] packetType_byte_array = Arrays.copyOfRange(serialisedFragmentedBlob, Utils.PACKET_TYPE_START_INDEX, Utils.PACKET_TYPE_START_INDEX + Utils.SIZE_OF_PACKET_TYPE);
-		this.packetType = packetType_byte_array[0];
+		this.packetType = serialisedFragmentedBlob[Utils.PACKET_TYPE_START_INDEX];
 
 		// Field 3: UUID
 		final byte[] uuid_byte_array = Arrays.copyOfRange(serialisedFragmentedBlob, Utils.UUID_START_INDEX, Utils.UUID_START_INDEX + Utils.SIZE_OF_UUID);
 
-		this.uuid = Utils.getUuid(uuid_byte_array);
+		this.uuid = GUID.getUUID(uuid_byte_array);
 
 		// Field 4: Blob Payload Length
-		final byte[] blobDataLength_byte_array = Arrays.copyOfRange(serialisedFragmentedBlob, Utils.BLOB_PAYLOAD_LENGTH_START_INDEX,
-				Utils.BLOB_PAYLOAD_LENGTH_START_INDEX + Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH);
-
-		// Get the blob payload length:
-		this.blobDataLength = Utils.intFromByteArray(blobDataLength_byte_array);
+		this.blobDataLength = Utils.intFromByteArray(serialisedFragmentedBlob, Utils.BLOB_PAYLOAD_LENGTH_START_INDEX);
 
 		// Field 5: Key length
-		final byte[] keyLength_byte_array = Arrays.copyOfRange(serialisedFragmentedBlob, Utils.KEY_LENGTH_START_INDEX, Utils.KEY_LENGTH_START_INDEX + Utils.SIZE_OF_KEY_LENGTH);
-
-		// Get the key length:
-		final short keyLength = Utils.shortFromByteArray(keyLength_byte_array);
+		final short keyLength = Utils.shortFromByteArray(serialisedFragmentedBlob, Utils.KEY_LENGTH_START_INDEX);
 
 		// Field 6: Payload checksum
 		this.payloadChecksum = Arrays.copyOfRange(serialisedFragmentedBlob, Utils.PAYLOAD_CHECKSUM_START_INDEX, Utils.PAYLOAD_CHECKSUM_START_INDEX + Utils.SIZE_OF_PAYLOAD_CHECKSUM);
@@ -145,26 +136,26 @@ class FragmentedBlob {
 
 	@Override
 	public String toString() {
-		String output = "";
-		if (this.packetType == Blob.METADATA_CODE) {
-			output += "Metadata ";
-		}
-		else
-			if (this.packetType == Blob.DATA_CODE) {
-				output += "Data ";
-			}
-			else
-				if (this.packetType == Blob.SMALL_BLOB_CODE) {
-					output += "Small Blob ";
-				}
-		output += "fragmentedBlob with \n";
-		output += "fragmentOffset = " + Integer.toString(this.fragmentOffset) + "\n";
-		output += "key = " + this.key + "\n";
-		output += "uuid = " + this.uuid.toString() + "\n";
-		output += "payloadChecksum = " + new String(this.payloadChecksum) + "\n";
-		output += "payload = " + new String(this.payload) + "\n";
-		output += "packetChecksum = " + new String(this.packetChecksum) + "\n";
+		final StringBuilder output = new StringBuilder();
 
-		return output;
+		switch (this.packetType) {
+			case Blob.METADATA_CODE:
+				output.append("Metadata");
+				break;
+			case Blob.DATA_CODE:
+				output.append("Data");
+				break;
+			default:
+				output.append("Small Blob");
+		}
+
+		output.append(" fragmentedBlob with \nfragmentOffset = ").append(this.fragmentOffset);
+		output.append("\nkey = ").append(this.key);
+		output.append("\nuuid = ").append(this.uuid.toString());
+		output.append("\npayloadChecksum = ").append(Utils.humanReadableChecksum(payloadChecksum));
+		output.append("\npayload = ").append(payload.length).append(" bytes");
+		output.append("\npacketChecksum = ").append(Utils.humanReadableChecksum(packetChecksum));
+
+		return output.toString();
 	}
 }
