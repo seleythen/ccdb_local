@@ -504,10 +504,11 @@ public class UDPReceiver extends Thread {
 
 		final DelayedBlob delayedBlob = new DelayedBlob(blob);
 
+		// remove the entry with the same UUID, if any
+		recoveryQueue.remove(delayedBlob);
+
 		if (blob.isComplete()) {
 			System.err.println("Object is now complete, removing from notification queue");
-
-			recoveryQueue.remove(delayedBlob);
 
 			// just to correctly sort by start time once it is computed by Blob.isComplete()
 			sort(blob.getKey());
@@ -515,10 +516,8 @@ public class UDPReceiver extends Thread {
 			monitor.incrementCounter("fullyReceivedObjects");
 		}
 		else {
-			synchronized (recoveryQueue) {
-				if (!recoveryQueue.contains(delayedBlob))
-					recoveryQueue.offer(delayedBlob);
-			}
+			// add it back, with the new time to start recovery
+			recoveryQueue.offer(delayedBlob);
 		}
 	}
 
