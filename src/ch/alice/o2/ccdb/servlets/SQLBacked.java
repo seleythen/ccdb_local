@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -29,6 +28,7 @@ import alien.monitoring.Timing;
 import alien.se.SEUtils;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
+import ch.alice.o2.ccdb.multicast.Utils;
 import lazyj.DBFunctions;
 
 /**
@@ -259,7 +259,7 @@ public class SQLBacked extends HttpServlet {
 			newObject.uploadedFrom = request.getRemoteHost();
 			newObject.fileName = part.getSubmittedFileName();
 			newObject.contentType = part.getContentType();
-			newObject.md5 = String.format("%032x", new BigInteger(1, md5.digest())); // UUIDTools.getMD5(targetFile);
+			newObject.md5 = Utils.humanReadableChecksum(md5.digest()); // UUIDTools.getMD5(targetFile);
 			newObject.setProperty("partName", part.getName());
 
 			newObject.replicas.add(Integer.valueOf(0));
