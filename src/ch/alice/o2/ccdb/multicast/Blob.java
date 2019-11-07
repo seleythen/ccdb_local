@@ -9,7 +9,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,6 +24,7 @@ import java.util.logging.Logger;
 
 import alien.catalogue.GUIDUtils;
 import alien.test.cassandra.tomcat.Options;
+import ch.alice.o2.ccdb.UUIDTools;
 import ch.alice.o2.ccdb.multicast.Utils.Pair;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
@@ -107,6 +107,8 @@ public class Blob implements Comparable<Blob> {
 
 		this.metadataByteRanges.add(new Pair(0, this.metadata.length));
 		this.payloadByteRanges.add(new Pair(0, this.payload.length));
+
+		setComplete(true);
 	}
 
 	/**
@@ -272,51 +274,52 @@ public class Blob implements Comparable<Blob> {
 			/*
 			 * fragment metadata
 			 */
-			final byte[] commonHeader = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER - Utils.SIZE_OF_FRAGMENT_OFFSET
-					- Utils.SIZE_OF_PAYLOAD_CHECKSUM];
+			final byte[] commonHeader = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER - Utils.SIZE_OF_FRAGMENT_OFFSET - Utils.SIZE_OF_PAYLOAD_CHECKSUM];
+
 			// 2. 1 byte, packet type or flags
 			commonHeader[0] = METADATA_CODE;
+
 			// 3. 16 bytes, uuid
-			System.arraycopy(Utils.getBytes(this.uuid), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE, Utils.SIZE_OF_UUID);
+			System.arraycopy(UUIDTools.getBytes(this.uuid), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE, Utils.SIZE_OF_UUID);
+
 			// 4. 4 bytes, blob metadata Length
-			System.arraycopy(Utils.intToByteArray(this.metadata.length), 0, commonHeader,
-					Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID, Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH);
+			System.arraycopy(Utils.intToByteArray(this.metadata.length), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID, Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH);
+
 			// 5. 2 bytes, keyLength
-			System.arraycopy(Utils.shortToByteArray((short) this.key.getBytes().length), 0, commonHeader,
-					Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID + Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH,
+			System.arraycopy(Utils.shortToByteArray((short) this.key.getBytes().length), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID + Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH,
 					Utils.SIZE_OF_KEY_LENGTH);
 
 			int indexMetadata = 0;
 
 			while (indexMetadata < metadataToSend.length) {
 				int maxPayloadSize_copy = maxPayloadSize;
+
 				if (maxPayloadSize_copy + indexMetadata > metadataToSend.length) {
 					maxPayloadSize_copy = metadataToSend.length - indexMetadata;
 				}
 
-				final byte[] packet = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER_AND_TRAILER + maxPayloadSize_copy
-						+ this.key.getBytes().length];
+				final byte[] packet = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER_AND_TRAILER + maxPayloadSize_copy + this.key.getBytes().length];
 
 				// 1. fragment offset
-				System.arraycopy(Utils.intToByteArray(indexMetadata), 0, packet, Utils.FRAGMENT_OFFSET_START_INDEX,
-						Utils.SIZE_OF_FRAGMENT_OFFSET);
+				System.arraycopy(Utils.intToByteArray(indexMetadata), 0, packet, Utils.FRAGMENT_OFFSET_START_INDEX, Utils.SIZE_OF_FRAGMENT_OFFSET);
+
 				// Fields 2,3,4,5 from commonHeader:packet type, uuid, blob metadata Length,
 				// keyLength
 				System.arraycopy(commonHeader, 0, packet, Utils.PACKET_TYPE_START_INDEX, commonHeader.length);
+
 				// payload checksum
-				System.arraycopy(this.metadataChecksum, 0, packet, Utils.PAYLOAD_CHECKSUM_START_INDEX,
-						Utils.SIZE_OF_PAYLOAD_CHECKSUM);
+				System.arraycopy(this.metadataChecksum, 0, packet, Utils.PAYLOAD_CHECKSUM_START_INDEX, Utils.SIZE_OF_PAYLOAD_CHECKSUM);
+
 				// the key
 				System.arraycopy(this.key.getBytes(), 0, packet, Utils.KEY_START_INDEX, this.key.getBytes().length);
+
 				// the payload metadata
-				System.arraycopy(metadataToSend, indexMetadata, packet,
-						Utils.KEY_START_INDEX + this.key.getBytes().length, maxPayloadSize_copy);
+				System.arraycopy(metadataToSend, indexMetadata, packet, Utils.KEY_START_INDEX + this.key.getBytes().length, maxPayloadSize_copy);
+
 				// the packet checksum
-				System.arraycopy(
-						Utils.calculateChecksum(
-								Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)),
-						0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy,
-						Utils.SIZE_OF_PACKET_CHECKSUM);
+				System.arraycopy(Utils.calculateChecksum(Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)),
+						0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy, Utils.SIZE_OF_PACKET_CHECKSUM);
+
 				// send the metadata packet
 				Utils.sendFragmentMulticast(packet, targetIp, port);
 
@@ -330,23 +333,25 @@ public class Blob implements Comparable<Blob> {
 				// build packet
 				// Utils.sendFragmentMulticast(packet, targetIp, port);
 				final byte[] payloadToSend = new byte[missingBlock.second - missingBlock.first];
-				System.arraycopy(this.payload, missingBlock.first, payloadToSend, 0,
-						missingBlock.second - missingBlock.first);
+
+				System.arraycopy(this.payload, missingBlock.first, payloadToSend, 0, missingBlock.second - missingBlock.first);
+
 				/*
 				 * fragment metadata
 				 */
-				final byte[] commonHeader = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER - Utils.SIZE_OF_FRAGMENT_OFFSET
-						- Utils.SIZE_OF_PAYLOAD_CHECKSUM];
+				final byte[] commonHeader = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER - Utils.SIZE_OF_FRAGMENT_OFFSET - Utils.SIZE_OF_PAYLOAD_CHECKSUM];
+
 				// 2. 1 byte, packet type or flags
 				commonHeader[0] = DATA_CODE;
+
 				// 3. 16 bytes, uuid
-				System.arraycopy(Utils.getBytes(this.uuid), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE, Utils.SIZE_OF_UUID);
+				System.arraycopy(UUIDTools.getBytes(this.uuid), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE, Utils.SIZE_OF_UUID);
+
 				// 4. 4 bytes, blob payload Length
-				System.arraycopy(Utils.intToByteArray(this.payload.length), 0, commonHeader,
-						Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID, Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH);
+				System.arraycopy(Utils.intToByteArray(this.payload.length), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID, Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH);
+
 				// 5. 2 bytes, keyLength
-				System.arraycopy(Utils.shortToByteArray((short) this.key.getBytes().length), 0, commonHeader,
-						Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID + Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH,
+				System.arraycopy(Utils.shortToByteArray((short) this.key.getBytes().length), 0, commonHeader, Utils.SIZE_OF_PACKET_TYPE + Utils.SIZE_OF_UUID + Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH,
 						Utils.SIZE_OF_KEY_LENGTH);
 
 				int indexPayload = 0;
@@ -357,29 +362,26 @@ public class Blob implements Comparable<Blob> {
 						maxPayloadSize_copy = payloadToSend.length - indexPayload;
 					}
 
-					final byte[] packet = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER_AND_TRAILER + maxPayloadSize_copy
-							+ this.key.getBytes().length];
+					final byte[] packet = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER_AND_TRAILER + maxPayloadSize_copy + this.key.getBytes().length];
 
 					// 1. fragment offset
-					System.arraycopy(Utils.intToByteArray(indexPayload), 0, packet, Utils.FRAGMENT_OFFSET_START_INDEX,
-							Utils.SIZE_OF_FRAGMENT_OFFSET);
+					System.arraycopy(Utils.intToByteArray(indexPayload), 0, packet, Utils.FRAGMENT_OFFSET_START_INDEX, Utils.SIZE_OF_FRAGMENT_OFFSET);
+
 					// Fields 2,3,4,5 from commonHeader:packet type, uuid, blob metadata Length,
 					// keyLength
 					System.arraycopy(commonHeader, 0, packet, Utils.PACKET_TYPE_START_INDEX, commonHeader.length);
+
 					// payload checksum
-					System.arraycopy(this.payloadChecksum, 0, packet, Utils.PAYLOAD_CHECKSUM_START_INDEX,
-							Utils.SIZE_OF_PAYLOAD_CHECKSUM);
+					System.arraycopy(this.payloadChecksum, 0, packet, Utils.PAYLOAD_CHECKSUM_START_INDEX, Utils.SIZE_OF_PAYLOAD_CHECKSUM);
+
 					// the key
 					System.arraycopy(this.key.getBytes(), 0, packet, Utils.KEY_START_INDEX, this.key.getBytes().length);
 					// the payload metadata
-					System.arraycopy(payloadToSend, indexPayload, packet,
-							Utils.KEY_START_INDEX + this.key.getBytes().length, maxPayloadSize_copy);
+					System.arraycopy(payloadToSend, indexPayload, packet, Utils.KEY_START_INDEX + this.key.getBytes().length, maxPayloadSize_copy);
+
 					// the packet checksum
-					System.arraycopy(
-							Utils.calculateChecksum(
-									Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)),
-							0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy,
-							Utils.SIZE_OF_PACKET_CHECKSUM);
+					System.arraycopy(Utils.calculateChecksum(Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)),
+							0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy, Utils.SIZE_OF_PACKET_CHECKSUM);
 
 					// send the metadata packet
 					Utils.sendFragmentMulticast(packet, targetIp, port);
@@ -422,7 +424,7 @@ public class Blob implements Comparable<Blob> {
 			packet[Utils.PACKET_TYPE_START_INDEX] = SMALL_BLOB_CODE;
 
 			// 3. 16 bytes, uuid
-			System.arraycopy(Utils.getBytes(this.uuid), 0, packet, Utils.UUID_START_INDEX, Utils.SIZE_OF_UUID);
+			System.arraycopy(UUIDTools.getBytes(this.uuid), 0, packet, Utils.UUID_START_INDEX, Utils.SIZE_OF_UUID);
 
 			// 4. 4 bytes, blob payload + metadata Length
 			System.arraycopy(Utils.intToByteArray(this.payload.length), 0, packet,
@@ -1058,7 +1060,7 @@ public class Blob implements Comparable<Blob> {
 			return value;
 
 		if (payloadChecksum != null) {
-			final String inMemMD5 = String.format("%032x", new BigInteger(1, payloadChecksum));
+			final String inMemMD5 = Utils.humanReadableChecksum(payloadChecksum);
 
 			if (complete)
 				setProperty("Content-MD5", inMemMD5);
