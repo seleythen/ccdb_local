@@ -97,15 +97,14 @@ public class LocalBrowse extends HttpServlet {
 
 				boolean first = true;
 
-				if (matchingObjects != null)
-					for (final LocalObjectWithVersion object : matchingObjects) {
-						if (first)
-							first = false;
-						else
-							formatter.middle(pw);
+				for (final LocalObjectWithVersion object : matchingObjects) {
+					if (first)
+						first = false;
+					else
+						formatter.middle(pw);
 
-						formatter.format(pw, object);
-					}
+					formatter.format(pw, object);
+				}
 
 				formatter.footer(pw);
 
@@ -210,7 +209,7 @@ public class LocalBrowse extends HttpServlet {
 					return Arrays.asList(new LocalObjectWithVersion(parser.startTime, toDownload));
 
 				// a particular object was requested but it doesn't exist
-				return null;
+				return Collections.emptyList();
 			}
 
 			matchingPattern = null;
