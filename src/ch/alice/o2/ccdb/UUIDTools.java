@@ -80,7 +80,7 @@ public class UUIDTools {
 
 		return GUID.getUUID(contents);
 	}
-	
+
 	/**
 	 * Converts an uuid into byte[]
 	 *

@@ -61,7 +61,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 
 	/**
 	 * Create a local object based on a local file.
-	 * 
+	 *
 	 * @param startTime
 	 * @param entry
 	 */
@@ -300,7 +300,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 
 	/**
 	 * Save the metadata to a persistent file on disk.
-	 * 
+	 *
 	 * @param remoteAddress
 	 * @throws IOException
 	 */
@@ -322,7 +322,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	 */
 	public long getInitialValidity() {
 		if (objectProperties != null) {
-			String s = objectProperties.getProperty("InitialValidityLimit");
+			final String s = objectProperties.getProperty("InitialValidityLimit");
 
 			if (s != null)
 				return Long.parseLong(s);
@@ -336,7 +336,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	 */
 	public long getLastModified() {
 		if (objectProperties != null) {
-			String s = objectProperties.getProperty("Last-Modified");
+			final String s = objectProperties.getProperty("Last-Modified");
 
 			if (s != null)
 				return Long.parseLong(s);

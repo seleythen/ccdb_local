@@ -7,8 +7,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * Utilities common for servlets 
- * 
+ * Utilities common for servlets
+ *
  * @author costing
  * @since 2019-05-10
  */

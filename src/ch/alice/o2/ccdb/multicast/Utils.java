@@ -208,9 +208,9 @@ public class Utils {
 
 			final byte[] key_array = Arrays.copyOfRange(metadata, index, index + keyLength);
 			index += keyLength;
-			String key = new String(key_array, StandardCharsets.UTF_8);
+			final String key = new String(key_array, StandardCharsets.UTF_8);
 
-			int valueLength = intFromByteArray(metadata, index);
+			final int valueLength = intFromByteArray(metadata, index);
 			index += Integer.BYTES;
 
 			final byte[] value_array = Arrays.copyOfRange(metadata, index, index + valueLength);
