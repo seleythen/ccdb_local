@@ -2,17 +2,16 @@ package ch.alice.o2.ccdb.multicast;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * @author ddosaru
@@ -122,32 +121,6 @@ public class Utils {
 	}
 
 	/**
-	 * Converts a byte[] into uuid
-	 *
-	 * @param bytes the serialized uuid
-	 * @return uuid - the deserialized UUID
-	 */
-	public static UUID getUuid(final byte[] bytes) {
-		final ByteBuffer bb = ByteBuffer.wrap(bytes);
-		final long firstLong = bb.getLong();
-		final long secondLong = bb.getLong();
-		return new UUID(firstLong, secondLong);
-	}
-
-	/**
-	 * Converts an uuid into byte[]
-	 *
-	 * @param uuid - An UUID
-	 * @return byte[] - the serialized uuid
-	 */
-	public static byte[] getBytes(final UUID uuid) {
-		final ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-		bb.putLong(uuid.getMostSignificantBits());
-		bb.putLong(uuid.getLeastSignificantBits());
-		return bb.array();
-	}
-
-	/**
 	 * Sends multicast message that contains the serialized version of a
 	 * fragmentedBlob
 	 *
@@ -157,8 +130,7 @@ public class Utils {
 	 * @throws IOException
 	 * @throws NoSuchAlgorithmException
 	 */
-	public static void sendFragmentMulticast(final byte[] packet, final String destinationIp, final int destinationPort)
-			throws IOException, NoSuchAlgorithmException {
+	public static void sendFragmentMulticast(final byte[] packet, final String destinationIp, final int destinationPort) throws IOException, NoSuchAlgorithmException {
 		try (DatagramSocket socket = new DatagramSocket()) {
 			final InetAddress group = InetAddress.getByName(destinationIp);
 			final DatagramPacket datagramPacket = new DatagramPacket(packet, packet.length, group, destinationPort);
@@ -171,16 +143,16 @@ public class Utils {
 		return new byte[] { (byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value };
 	}
 
-	static int intFromByteArray(final byte[] bytes) {
-		return bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
+	static int intFromByteArray(final byte[] bytes, final int offset) {
+		return bytes[offset] << 24 | (bytes[offset + 1] & 0xFF) << 16 | (bytes[offset + 2] & 0xFF) << 8 | (bytes[offset + 3] & 0xFF);
 	}
 
 	static final byte[] shortToByteArray(final short value) {
 		return new byte[] { (byte) (value >>> 8), (byte) value };
 	}
 
-	static short shortFromByteArray(final byte[] bytes) {
-		return (short) ((bytes[0] & 0xFF) << 8 | (bytes[1] & 0xFF));
+	static short shortFromByteArray(final byte[] bytes, final int offset) {
+		return (short) ((bytes[offset] & 0xFF) << 8 | (bytes[offset + 1] & 0xFF));
 	}
 
 	/**
@@ -191,22 +163,16 @@ public class Utils {
 	 * @throws IOException
 	 */
 	public static byte[] serializeMetadata(final Map<String, String> metadataMap) throws IOException {
-		final byte[] size_array = intToByteArray(metadataMap.size());
-		byte[] key_length_array;
-		byte[] value_length_array;
-
 		try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-			out.write(size_array);
+			out.write(intToByteArray(metadataMap.size()));
 
 			for (final Map.Entry<String, String> pair : metadataMap.entrySet()) {
 				final byte[] key = pair.getKey().getBytes();
 				final byte[] value = pair.getValue().getBytes();
 
-				key_length_array = intToByteArray(key.length);
-				value_length_array = intToByteArray(value.length);
-				out.write(key_length_array);
+				out.write(intToByteArray(key.length));
 				out.write(key);
-				out.write(value_length_array);
+				out.write(intToByteArray(value.length));
 				out.write(value);
 			}
 
@@ -231,38 +197,37 @@ public class Utils {
 			return new HashMap<>();
 		}
 
-		byte[] key_length_array;
-		byte[] value_length_array;
-		byte[] key_array;
-		byte[] value_array;
-		String key, value;
-		int keyLength, valueLength;
+		final int size = intFromByteArray(metadata, 0);
 		int index = Integer.BYTES;
 
-		final byte[] size_array = Arrays.copyOfRange(metadata, 0, index);
-		final int size = intFromByteArray(size_array);
 		final Map<String, String> metadataMap = new HashMap<>();
 
 		for (int i = 0; i < size; i++) {
-			key_length_array = Arrays.copyOfRange(metadata, index, index + Integer.BYTES);
+			final int keyLength = intFromByteArray(metadata, index);
 			index += Integer.BYTES;
-			keyLength = intFromByteArray(key_length_array);
 
-			key_array = Arrays.copyOfRange(metadata, index, index + keyLength);
+			final byte[] key_array = Arrays.copyOfRange(metadata, index, index + keyLength);
 			index += keyLength;
-			key = new String(key_array, StandardCharsets.UTF_8);
+			String key = new String(key_array, StandardCharsets.UTF_8);
 
-			value_length_array = Arrays.copyOfRange(metadata, index, index + Integer.BYTES);
+			int valueLength = intFromByteArray(metadata, index);
 			index += Integer.BYTES;
-			valueLength = intFromByteArray(value_length_array);
 
-			value_array = Arrays.copyOfRange(metadata, index, index + valueLength);
+			final byte[] value_array = Arrays.copyOfRange(metadata, index, index + valueLength);
 			index += valueLength;
-			value = new String(value_array, StandardCharsets.UTF_8);
+			final String value = new String(value_array, StandardCharsets.UTF_8);
 
 			metadataMap.put(key, value);
 		}
 
 		return metadataMap;
+	}
+
+	/**
+	 * @param checksum
+	 * @return the checksum in printable hex characters
+	 */
+	public static String humanReadableChecksum(final byte[] checksum) {
+		return String.format("%032x", new BigInteger(1, checksum));
 	}
 }
