@@ -1,5 +1,6 @@
 package ch.alice.o2.ccdb;
 
+import java.nio.ByteBuffer;
 import java.util.UUID;
 
 import alien.catalogue.GUID;
@@ -78,5 +79,18 @@ public class UUIDTools {
 		contents[8] |= (byte) 0x80;
 
 		return GUID.getUUID(contents);
+	}
+	
+	/**
+	 * Converts an uuid into byte[]
+	 *
+	 * @param uuid - An UUID
+	 * @return byte[] - the serialized uuid
+	 */
+	public static byte[] getBytes(final UUID uuid) {
+		final ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+		bb.putLong(uuid.getMostSignificantBits());
+		bb.putLong(uuid.getLeastSignificantBits());
+		return bb.array();
 	}
 }
