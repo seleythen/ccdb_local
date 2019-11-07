@@ -5,7 +5,6 @@ import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.ref.SoftReference;
-import java.math.BigInteger;
 import java.net.InetAddress;
 import java.security.NoSuchAlgorithmException;
 import java.util.AbstractMap;
@@ -428,7 +427,8 @@ public class Memory extends HttpServlet {
 			part.getInputStream().read(payload);
 
 			final String blobKey = parser.path;
-			Blob newBlob = null;
+			Blob newBlob;
+
 			try {
 				newBlob = new Blob(metadata, payload, blobKey, targetUUID);
 
@@ -443,17 +443,18 @@ public class Memory extends HttpServlet {
 				newBlob.setProperty("Content-Type", part.getContentType());
 				newBlob.setProperty("UploadedFrom", request.getRemoteHost());
 				newBlob.setProperty("File-Size", String.valueOf(payload.length));
-				newBlob.setProperty("Content-MD5", String.format("%032x", new BigInteger(1, Utils.calculateChecksum(payload))));
 
 				if (newBlob.getProperty("Created") == null)
 					newBlob.setProperty("Created", String.valueOf(GUIDUtils.epochTime(targetUUID)));
+
+				// set the Content-MD5 metadata field if missing at this point
+				newBlob.getMD5();
 			}
 			catch (NoSuchAlgorithmException | SecurityException e) {
 				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
 				return;
 			}
 
-			newBlob.setComplete(true);
 			UDPReceiver.addToCacheContent(newBlob);
 
 			setHeaders(newBlob, response);
