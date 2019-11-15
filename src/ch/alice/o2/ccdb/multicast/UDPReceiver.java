@@ -60,7 +60,7 @@ public class UDPReceiver extends Thread {
 	/**
 	 * For how long superseded objects should be kept around, in case delayed processing needs them
 	 */
-	private static final long TTL_FOR_SUPERSEDED_OBJECTS = 1000 * 60 * 1;
+	private static final long TTL_FOR_SUPERSEDED_OBJECTS = 1000 * 60 * 2;
 
 	private String multicastIPaddress = null;
 
@@ -379,8 +379,12 @@ public class UDPReceiver extends Thread {
 						continue;
 					}
 
-					if (recoverBlob(blob))
+					if (recoverBlob(blob)) {
+						monitor.incrementCounter("recovered_blobs");
 						sort(blob.getKey());
+					}
+					else
+						monitor.incrementCounter("failed_to_recover_blobs");
 				}
 				catch (final Exception e) {
 					logger.log(Level.WARNING, "Exception running the recovery for " + blob.getKey() + " / " + blob.getUuid(), e);
@@ -548,18 +552,15 @@ public class UDPReceiver extends Thread {
 					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
 					socket.receive(packet);
 
-					// System.out.println("Received one fragment on multicast");
-
 					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 
-					// System.out.println("cacheContent: " + currentCacheContent.size());
+					monitor.incrementCounter("multicast_packets");
 				}
 				catch (final Exception e) {
 					// logger.log(Level.WARNING, "Exception thrown");
 					e.printStackTrace();
 				}
 			}
-			// socket.leaveGroup(group);
 		}
 		catch (final IOException e) {
 			logger.log(Level.SEVERE, "Exception running the multicast receiver", e);
@@ -577,11 +578,9 @@ public class UDPReceiver extends Thread {
 					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
 					serverSocket.receive(packet);
 
-					// System.out.println("Received one fragment on unicast");
-
 					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 
-					// System.out.println("cacheContent: " + currentCacheContent.size());
+					monitor.incrementCounter("unicast_packets");
 				}
 				catch (final Exception e) {
 					// logger.log(Level.WARNING, "Exception thrown");
@@ -604,6 +603,10 @@ public class UDPReceiver extends Thread {
 			while (true) {
 				contentStructureWriteLock.lock();
 
+				long seriesInMemory = 0;
+				long objectsInMemory = 0;
+				long sizeOfObjectsInMemory = 0;
+
 				try {
 					final Iterator<Map.Entry<String, List<SoftReference<Blob>>>> cacheContentIterator = currentCacheContent.entrySet().iterator();
 
@@ -613,9 +616,13 @@ public class UDPReceiver extends Thread {
 						final List<SoftReference<Blob>> objects = currentEntry.getValue();
 
 						if (objects.size() == 0) {
+							monitor.incrementCounter("cleaned_empty_lists");
+
 							cacheContentIterator.remove();
 							continue;
 						}
+
+						seriesInMemory++;
 
 						final long currentTime = System.currentTimeMillis();
 
@@ -628,6 +635,8 @@ public class UDPReceiver extends Thread {
 								final Blob b = sb.get();
 
 								if (b == null) {
+									monitor.incrementCounter("evicted_gc_objects");
+
 									objectIterator.remove();
 									continue;
 								}
@@ -638,6 +647,8 @@ public class UDPReceiver extends Thread {
 											if (logger.isLoggable(Level.INFO))
 												logger.log(Level.INFO, "Removing expired object for " + b.getKey() + ": " + b.getUuid() + " (expired " + b.getEndTime() + ")");
 
+											monitor.incrementCounter("evicted_expired_objects");
+
 											objectIterator.remove();
 										}
 									}
@@ -645,6 +656,8 @@ public class UDPReceiver extends Thread {
 										if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 60) {
 											if (logger.isLoggable(Level.INFO))
 												logger.log(Level.INFO, "Removing incomplete and not yet recovered object " + b.getKey() + ": " + b.getUuid());
+
+											monitor.incrementCounter("evicted_incomplete_objects");
 
 											objectIterator.remove();
 										}
@@ -682,7 +695,18 @@ public class UDPReceiver extends Thread {
 									if (logger.isLoggable(Level.INFO))
 										logger.log(Level.INFO, "Removing superseded object for " + b.getKey() + ": " + b.getUuid() + " (valid since " + b.getStartTime() + "):\n" + b);
 
+									monitor.incrementCounter("evicted_superseded_objects");
+
 									objects.remove(i);
+								}
+							}
+
+							for (final SoftReference<Blob> activeObject : objects) {
+								final Blob b = activeObject.get();
+
+								if (b != null) {
+									objectsInMemory++;
+									sizeOfObjectsInMemory += b.getSize();
 								}
 							}
 						}
@@ -692,8 +716,12 @@ public class UDPReceiver extends Thread {
 					contentStructureWriteLock.unlock();
 				}
 
+				monitor.sendParameter("active_series_cnt", Double.valueOf(seriesInMemory));
+				monitor.sendParameter("objects_in_memory_cnt", Double.valueOf(objectsInMemory));
+				monitor.sendParameter("objects_in_memory_size", Double.valueOf(sizeOfObjectsInMemory));
+
 				try {
-					sleep(1000);
+					sleep(15000);
 				}
 				catch (@SuppressWarnings("unused") final InterruptedException e) {
 					return;
