@@ -204,8 +204,10 @@ public class EmbeddedTomcat extends Tomcat {
 
 		ctx.setLoginConfig(loginConfig);
 
-		addSecurityConstraint(getAddOrUpdateConstraint());
-		addSecurityConstraint(getRemovalConstraint());
+		if (Options.getIntOption("ccdb.ssl.enforce", 1) > 1) {
+			addSecurityConstraint(getAddOrUpdateConstraint());
+			addSecurityConstraint(getRemovalConstraint());
+		}
 
 		ctx.setRealm(ldapRealm);
 		ctx.getPipeline().addValve(new SSLAuthenticator());
