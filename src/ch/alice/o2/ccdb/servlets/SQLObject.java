@@ -531,6 +531,9 @@ public class SQLObject {
 	public void setProperty(final String key, final String value) {
 		final Integer keyID = getMetadataID(key, true);
 
+		if (keyID == null)
+			return;
+
 		if (value == null) {
 			final String oldValue = metadata.remove(keyID);
 
