@@ -791,6 +791,9 @@ public class SQLObject {
 	private static Map<Integer, String> CONTENTTYPE_REVERSE = new HashMap<>();
 
 	private static synchronized Integer getContentTypeID(final String contentType, final boolean createIfNotExists) {
+		if (contentType == null || contentType.isBlank())
+			return null;
+		
 		Integer value = CONTENTTYPE.get(contentType);
 
 		if (value != null)
