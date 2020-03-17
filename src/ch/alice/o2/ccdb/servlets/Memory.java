@@ -567,6 +567,11 @@ public class Memory extends HttpServlet {
 		return bestMatch;
 	}
 
+	/**
+	 * @param blob
+	 * @param parser
+	 * @return <code>true</code> if the request parameters are met by this in-memory object
+	 */
 	static boolean blobMatchesParser(final Blob blob, final RequestParser parser) {
 		if (parser.uuidConstraint != null && !blob.getUuid().equals(parser.uuidConstraint))
 			return false;

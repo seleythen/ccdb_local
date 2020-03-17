@@ -13,6 +13,11 @@ import javax.servlet.http.HttpServletResponse;
  * @since 2019-05-10
  */
 public class ServletHelper {
+	/**
+	 * @param request
+	 * @param response
+	 * @throws IOException
+	 */
 	static void printUsage(final HttpServletRequest request, final HttpServletResponse response) throws IOException {
 		response.setContentType("text/plain");
 

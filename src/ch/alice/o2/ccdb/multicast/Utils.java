@@ -34,17 +34,44 @@ public class Utils {
 	public final static String CHECKSUM_TYPE = "MD5";
 
 	// Field size (in bytes)
+	/**
+	 * Length of the fragment offset field, in bytes
+	 */
 	final static int SIZE_OF_FRAGMENT_OFFSET = 4;
+	/**
+	 * Length of packet type field
+	 */
 	final static int SIZE_OF_PACKET_TYPE = 1;
+	/**
+	 * UUID length
+	 */
 	final static int SIZE_OF_UUID = 16;
+	/**
+	 * Blob size, in bytes
+	 */
 	final static int SIZE_OF_BLOB_PAYLOAD_LENGTH = 4;
+	/**
+	 * Key cannot be longer than a UDP packet size, 2 bytes are enough
+	 */
 	final static int SIZE_OF_KEY_LENGTH = 2;
+	/**
+	 * MD5 checksum length
+	 */
 	final static int SIZE_OF_PAYLOAD_CHECKSUM = 16;
+	/**
+	 * MD5 checksum as well
+	 */
 	final static int SIZE_OF_PACKET_CHECKSUM = 16;
 
+	/**
+	 * Total header size
+	 */
 	final static int SIZE_OF_FRAGMENTED_BLOB_HEADER = SIZE_OF_FRAGMENT_OFFSET + SIZE_OF_PACKET_TYPE
 			+ SIZE_OF_UUID + SIZE_OF_BLOB_PAYLOAD_LENGTH + SIZE_OF_KEY_LENGTH + SIZE_OF_PAYLOAD_CHECKSUM;
 
+	/**
+	 * One fragment, the above plus the packet checksum
+	 */
 	final static int SIZE_OF_FRAGMENTED_BLOB_HEADER_AND_TRAILER = SIZE_OF_FRAGMENTED_BLOB_HEADER
 			+ SIZE_OF_PACKET_CHECKSUM;
 
@@ -59,12 +86,33 @@ public class Utils {
 	// packetChecksum: -- 43+x+y ... 58+x+y
 
 	// Start indexes of the fields in the serialized byte[]
+	/**
+	 * Precalculated offsets in the header
+	 */
 	final static int FRAGMENT_OFFSET_START_INDEX = 0;
+	/**
+	 * Where the packet type starts
+	 */
 	final static int PACKET_TYPE_START_INDEX = FRAGMENT_OFFSET_START_INDEX + SIZE_OF_FRAGMENT_OFFSET;
+	/**
+	 * Where the UUID field starts
+	 */
 	final static int UUID_START_INDEX = PACKET_TYPE_START_INDEX + SIZE_OF_PACKET_TYPE;
+	/**
+	 * Where the blob length starts
+	 */
 	final static int BLOB_PAYLOAD_LENGTH_START_INDEX = UUID_START_INDEX + SIZE_OF_UUID;
+	/**
+	 * Where the key length starts
+	 */
 	final static int KEY_LENGTH_START_INDEX = BLOB_PAYLOAD_LENGTH_START_INDEX + SIZE_OF_BLOB_PAYLOAD_LENGTH;
+	/**
+	 * Where the payload checksum starts
+	 */
 	final static int PAYLOAD_CHECKSUM_START_INDEX = KEY_LENGTH_START_INDEX + SIZE_OF_KEY_LENGTH;
+	/**
+	 * Where the key starts
+	 */
 	final static int KEY_START_INDEX = PAYLOAD_CHECKSUM_START_INDEX + SIZE_OF_PAYLOAD_CHECKSUM;
 	// public final static int PAYLOAD_START_INDEX = KEY_START_INDEX + SIZE_OF_KEY
 	// (unknown);
@@ -139,18 +187,36 @@ public class Utils {
 	}
 
 	// Java has only signed data types, be aware of negatives values
+	/**
+	 * @param value
+	 * @return serialization of an int in 4 bytes
+	 */
 	static final byte[] intToByteArray(final int value) {
 		return new byte[] { (byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value };
 	}
 
+	/**
+	 * @param bytes
+	 * @param offset
+	 * @return the rebuilt int from 4 bytes
+	 */
 	static int intFromByteArray(final byte[] bytes, final int offset) {
 		return bytes[offset] << 24 | (bytes[offset + 1] & 0xFF) << 16 | (bytes[offset + 2] & 0xFF) << 8 | (bytes[offset + 3] & 0xFF);
 	}
 
+	/**
+	 * @param value
+	 * @return serialized short in a 2-byte array
+	 */
 	static final byte[] shortToByteArray(final short value) {
 		return new byte[] { (byte) (value >>> 8), (byte) value };
 	}
 
+	/**
+	 * @param bytes
+	 * @param offset
+	 * @return short value rebuilt from 2 bytes
+	 */
 	static short shortFromByteArray(final byte[] bytes, final int offset) {
 		return (short) ((bytes[offset] & 0xFF) << 8 | (bytes[offset + 1] & 0xFF));
 	}

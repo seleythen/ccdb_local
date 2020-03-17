@@ -158,11 +158,23 @@ public class SQLBacked extends HttpServlet {
 		return hasLocalReplica;
 	}
 
+	/**
+	 * Write out the MD5 header, if known
+	 * 
+	 * @param obj
+	 * @param response
+	 */
 	static void setMD5Header(final SQLObject obj, final HttpServletResponse response) {
 		if (obj.md5 != null && !obj.md5.isEmpty())
 			response.setHeader("Content-MD5", obj.md5);
 	}
 
+	/**
+	 * Set the response headers with the internal and any user-set metadata information
+	 * 
+	 * @param obj
+	 * @param response
+	 */
 	static void setHeaders(final SQLObject obj, final HttpServletResponse response) {
 		response.setDateHeader("Date", System.currentTimeMillis());
 		response.setHeader("Valid-Until", String.valueOf(obj.validUntil));

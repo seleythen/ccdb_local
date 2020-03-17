@@ -35,7 +35,7 @@ public class AsyncPhysicalRemovalThread extends Thread {
 
 	private static AsyncPhysicalRemovalThread instance = null;
 
-	static synchronized AsyncPhysicalRemovalThread getInstance() {
+	private static synchronized AsyncPhysicalRemovalThread getInstance() {
 		if (instance == null) {
 			instance = new AsyncPhysicalRemovalThread();
 			instance.start();
@@ -44,6 +44,9 @@ public class AsyncPhysicalRemovalThread extends Thread {
 		return instance;
 	}
 
+	/**
+	 * @param object object to delete asynchronously
+	 */
 	static void queueDeletion(final SQLObject object) {
 		getInstance().asyncPhysicalRemovalQueue.offer(object);
 	}

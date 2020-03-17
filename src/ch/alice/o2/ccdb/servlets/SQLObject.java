@@ -629,6 +629,10 @@ public class SQLObject {
 	private static Map<String, Integer> PATHS = new HashMap<>();
 	private static Map<Integer, String> PATHS_REVERSE = new HashMap<>();
 
+	/**
+	 * @param parser
+	 * @return all path IDs that match the request
+	 */
 	static List<Integer> getPathIDsWithPatternFallback(final RequestParser parser) {
 		final Integer exactPathId = parser.wildcardMatching ? null : getPathID(parser.path, false);
 
@@ -684,6 +688,10 @@ public class SQLObject {
 		return null;
 	}
 
+	/**
+	 * @param pathID
+	 * @return cleaned up value, if any
+	 */
 	static synchronized String removePathID(final Integer pathID) {
 		final String path = PATHS_REVERSE.remove(pathID);
 
@@ -1041,6 +1049,9 @@ public class SQLObject {
 		return sb.toString();
 	}
 
+	/**
+	 * @return an AliEn GUID with all the details of this object
+	 */
 	GUID toGUID() {
 		final GUID guid = GUIDUtils.getGUID(id, true);
 
@@ -1050,8 +1061,7 @@ public class SQLObject {
 
 		guid.size = size;
 		guid.md5 = StringFactory.get(md5);
-		guid.owner = StringFactory.get("ccdb");
-		guid.gowner = StringFactory.get("ccdb");
+		guid.gowner = guid.owner = StringFactory.get("ccdb");
 		guid.perm = "755";
 		guid.ctime = new Date(createTime);
 		guid.expiretime = null;

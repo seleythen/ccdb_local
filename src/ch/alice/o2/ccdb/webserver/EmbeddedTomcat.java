@@ -40,15 +40,23 @@ import ch.alice.o2.ccdb.Options;
  * @since 2017-10-13
  */
 public class EmbeddedTomcat extends Tomcat {
-	static transient final Monitor monitor = MonitorFactory.getMonitor(EmbeddedTomcat.class.getCanonicalName());
+	private static transient final Monitor monitor = MonitorFactory.getMonitor(EmbeddedTomcat.class.getCanonicalName());
 
 	static {
 		System.setProperty(Globals.CATALINA_HOME_PROP, System.getProperty("java.io.tmpdir"));
 	}
 
+	/**
+	 * Debug level, set to TOMCAT_DEBUG to &gt;0 to get more info on errors.
+	 */
 	final int debugLevel;
+	
+	/**
+	 * Address to bind to
+	 */
 	final String address;
-	final StandardContext ctx;
+	
+	private final StandardContext ctx;
 
 	/**
 	 * @param defaultAddress

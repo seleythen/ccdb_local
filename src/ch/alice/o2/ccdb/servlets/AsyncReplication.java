@@ -36,7 +36,7 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 		// singleton
 	}
 
-	static class AsyncReplicationTarget implements Runnable {
+	private static class AsyncReplicationTarget implements Runnable {
 		final SQLObject object;
 		final SE se;
 
@@ -87,7 +87,7 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 		}
 	}
 
-	static class AliEnReplicationTarget implements Runnable {
+	private static class AliEnReplicationTarget implements Runnable {
 		final SQLObject object;
 
 		public AliEnReplicationTarget(final SQLObject object) {
@@ -143,6 +143,9 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 
 	private static AsyncReplication instance = null;
 
+	/**
+	 * @return singleton
+	 */
 	static synchronized AsyncReplication getInstance() {
 		if (instance == null) {
 			instance = new AsyncReplication();
@@ -203,6 +206,11 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 		return;
 	}
 
+	/**
+	 * @param object
+	 * @param seName
+	 * @return <code>true</code> if the operation was successfully queued
+	 */
 	static boolean queueMirror(final SQLObject object, final String seName) {
 		try {
 			final SE se = SEUtils.getSE(seName);
@@ -217,6 +225,11 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 		return false;
 	}
 
+	/**
+	 * @param object
+	 * @param se
+	 * @return <code>true</code> if the operation was successfully queued
+	 */
 	static boolean queueMirror(final SQLObject object, final SE se) {
 		return getInstance().asyncReplicationQueue.offer(new AsyncReplicationTarget(object, se));
 	}

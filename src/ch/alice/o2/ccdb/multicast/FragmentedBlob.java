@@ -78,58 +78,100 @@ class FragmentedBlob {
 		this.payload = Arrays.copyOfRange(serialisedFragmentedBlob, Utils.KEY_START_INDEX + keyLength, packetLength - Utils.SIZE_OF_PACKET_CHECKSUM);
 	}
 
+	/**
+	 * @return fragment offset within the block
+	 */
 	int getFragmentOffset() {
 		return this.fragmentOffset;
 	}
 
+	/**
+	 * @param fragmentOffset new offset value
+	 */
 	void setFragmentOffset(final int fragmentOffset) {
 		this.fragmentOffset = fragmentOffset;
 	}
 
+	/**
+	 * @return key
+	 */
 	String getKey() {
 		return this.key;
 	}
 
+	/**
+	 * @param key new key value
+	 */
 	void setKey(final String key) {
 		this.key = key;
 	}
 
+	/**
+	 * @return unique identifier of this object
+	 */
 	UUID getUuid() {
 		return this.uuid;
 	}
 
+	/**
+	 * @param uuid new uuid
+	 */
 	void setUuid(final UUID uuid) {
 		this.uuid = uuid;
 	}
 
+	/**
+	 * @return checksum
+	 */
 	byte[] getPayloadChecksum() {
 		return this.payloadChecksum;
 	}
 
+	/**
+	 * @param payloadChecksum new checksum value
+	 */
 	void setPayloadChecksum(final byte[] payloadChecksum) {
 		this.payloadChecksum = payloadChecksum;
 	}
 
+	/**
+	 * @return binary content length
+	 */
 	int getblobDataLength() {
 		return this.blobDataLength;
 	}
 
+	/**
+	 * @param blobDataLength setter
+	 */
 	void setblobDataLength(final int blobDataLength) {
 		this.blobDataLength = blobDataLength;
 	}
 
+	/**
+	 * @return packet type
+	 */
 	byte getPachetType() {
 		return this.packetType;
 	}
 
+	/**
+	 * @param packetType new value
+	 */
 	void setPachetType(final byte packetType) {
 		this.packetType = packetType;
 	}
 
+	/**
+	 * @return content
+	 */
 	byte[] getPayload() {
 		return this.payload;
 	}
 
+	/**
+	 * @param payload new content
+	 */
 	void setPayload(final byte[] payload) {
 		this.payload = payload;
 	}

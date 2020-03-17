@@ -79,6 +79,13 @@ public class SQLDownload extends HttpServlet {
 		download(head, matchingObject, request, response);
 	}
 
+	/**
+	 * @param head
+	 * @param obj
+	 * @param request
+	 * @param response
+	 * @throws IOException
+	 */
 	static void download(final boolean head, final SQLObject obj, final HttpServletRequest request, final HttpServletResponse response) throws IOException {
 		SQLBacked.setHeaders(obj, response);
 

@@ -15,6 +15,9 @@ public class SQLLocalRemoval implements SQLNotifier {
 
 	private static SQLLocalRemoval instance = null;
 
+	/**
+	 * @return singleton
+	 */
 	static synchronized SQLLocalRemoval getInstance() {
 		if (instance == null) {
 			instance = new SQLLocalRemoval();

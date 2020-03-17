@@ -64,6 +64,9 @@ public class SQLtoUDP implements SQLNotifier {
 
 	private static SQLtoUDP instance = null;
 
+	/**
+	 * @return singleton
+	 */
 	static synchronized SQLtoUDP getInstance() {
 		if (instance == null) {
 			final SQLtoUDP attempt = new SQLtoUDP();
