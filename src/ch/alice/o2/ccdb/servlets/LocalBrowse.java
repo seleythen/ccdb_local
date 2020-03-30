@@ -1,5 +1,7 @@
 package ch.alice.o2.ccdb.servlets;
 
+import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -51,6 +53,11 @@ public class LocalBrowse extends HttpServlet {
 			// query string example: "quality=2"
 
 			final RequestParser parser = new RequestParser(request, true);
+
+			if (!parser.ok) {
+				printUsage(request, response);
+				return;
+			}
 
 			final List<LocalObjectWithVersion> matchingObjects = getAllMatchingObjects(parser);
 
@@ -109,8 +116,8 @@ public class LocalBrowse extends HttpServlet {
 				formatter.footer(pw);
 
 				if (!parser.wildcardMatching) {
-					// It is not clear which subfolders to list in case of a wildcard matching of objects. As the full hierarchy was included in the search there is no point in showing them, so just skip
-					// this section.
+					// It is not clear which subfolders to list in case of a wildcard matching of objects. As the full hierarchy was included in the search there is no point in showing them, so just
+					// skip this section.
 					formatter.subfoldersListingHeader(pw);
 
 					final String prefix = Local.basePath + "/" + parser.path;
