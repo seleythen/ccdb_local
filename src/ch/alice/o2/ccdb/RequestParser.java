@@ -10,6 +10,8 @@ import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 
+import lazyj.Format;
+
 /**
  * Parse the request parameters and make the constraints available to the application
  *
@@ -97,13 +99,18 @@ public class RequestParser {
 		if (request == null)
 			return;
 
-		if (request.getServletPath().contains("browse") || request.getServletPath().contains("truncate"))
+		final String servletPath = request.getServletPath();
+
+		if (servletPath.contains("browse") || servletPath.contains("truncate"))
 			latestFlag = false;
 
-		final String pathInfo = request.getPathInfo();
+		String pathInfo = request.getRequestURI();
 
 		if (pathInfo == null || pathInfo.isEmpty())
 			return;
+
+		if (pathInfo.startsWith(servletPath))
+			pathInfo = pathInfo.substring(servletPath.length());
 
 		final StringTokenizer st = new StringTokenizer(pathInfo, "/");
 
@@ -152,10 +159,15 @@ public class RequestParser {
 			catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
 				final int idx = token.indexOf('=');
 
-				if (idx >= 0)
-					flagConstraints.put(token.substring(0, idx).trim(), token.substring(idx + 1).trim());
-				else
-					pathElements.add(token);
+				if (idx >= 0) {
+					final String key = Format.decode(token.substring(0, idx).trim());
+					final String value = Format.decode(token.substring(idx + 1).trim());
+					flagConstraints.put(key, value);
+				}
+				else {
+					final String decodedToken = Format.decode(token);
+					pathElements.add(decodedToken);
+				}
 			}
 		}
 
@@ -171,8 +183,11 @@ public class RequestParser {
 
 			final int idx = token.indexOf('=');
 
-			if (idx >= 0)
-				flagConstraints.put(token.substring(0, idx).trim(), token.substring(idx + 1).trim());
+			if (idx >= 0) {
+				final String key = Format.decode(token.substring(0, idx).trim());
+				final String value = Format.decode(token.substring(idx + 1).trim());
+				flagConstraints.put(key, value);
+			}
 			else
 				try {
 					final long tmp = Long.parseLong(token);
