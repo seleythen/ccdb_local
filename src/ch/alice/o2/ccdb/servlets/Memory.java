@@ -158,13 +158,6 @@ public class Memory extends HttpServlet {
 	private static void setHeaders(final Blob obj, final HttpServletResponse response) {
 		response.setDateHeader("Date", System.currentTimeMillis());
 
-		for (final String metadataKey : new String[] { "Valid-From", "Valid-Until", "Created" }) {
-			final String value = obj.getProperty(metadataKey);
-
-			if (value != null)
-				response.setHeader(metadataKey, value);
-		}
-
 		try {
 			response.setDateHeader("Last-Modified", Long.parseLong(obj.getProperty("Last-Modified")));
 		}
@@ -173,6 +166,17 @@ public class Memory extends HttpServlet {
 		}
 
 		response.setHeader("ETag", '"' + obj.getUuid().toString() + '"');
+
+		final Map<String, String> metadata = obj.getMetadataMap();
+
+		for (final Map.Entry<String, String> entry : metadata.entrySet()) {
+			final String key = entry.getKey();
+
+			if (key.equals("Last-Modified") || key.equals("Date") || key.equals("ETag"))
+				continue;
+
+			response.setHeader(entry.getKey(), entry.getValue());
+		}
 	}
 
 	private static void setMD5Header(final Blob obj, final HttpServletResponse response) {
@@ -226,8 +230,7 @@ public class Memory extends HttpServlet {
 
 				if (start >= payloadSize) {
 					response.setHeader("Content-Range", "bytes */" + payloadSize);
-					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-							"You requested an invalid range, starting beyond the end of the file (" + start + ")");
+					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
 					return;
 				}
 
@@ -236,8 +239,7 @@ public class Memory extends HttpServlet {
 
 					if (end >= payloadSize) {
 						response.setHeader("Content-Range", "bytes */" + payloadSize);
-						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-								"You requested bytes beyond what the file contains (" + end + ")");
+						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested bytes beyond what the file contains (" + end + ")");
 						return;
 					}
 				}
@@ -247,8 +249,7 @@ public class Memory extends HttpServlet {
 				if (start > end) {
 					response.setHeader("Content-Range", "bytes */" + payloadSize);
 					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-							"The requested range is wrong, the second value (" + end
-									+ ") should be larger than the first (" + start + ")");
+							"The requested range is wrong, the second value (" + end + ") should be larger than the first (" + start + ")");
 					return;
 				}
 			}
@@ -264,8 +265,7 @@ public class Memory extends HttpServlet {
 					if (start < 0) {
 						response.setHeader("Content-Range", "bytes */" + payloadSize);
 						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-								"You requested more last bytes (" + s.substring(idx + 1)
-										+ ") from the end of the file than the file actually has (" + payloadSize + ")");
+								"You requested more last bytes (" + s.substring(idx + 1) + ") from the end of the file than the file actually has (" + payloadSize + ")");
 						start = 0;
 					}
 				}
@@ -274,8 +274,7 @@ public class Memory extends HttpServlet {
 
 					if (start >= payloadSize) {
 						response.setHeader("Content-Range", "bytes */" + payloadSize);
-						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-								"You requested an invalid range, starting beyond the end of the file (" + start + ")");
+						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
 						return;
 					}
 
@@ -316,8 +315,7 @@ public class Memory extends HttpServlet {
 
 		// the content length should be computed based on the ranges and the header
 		// sizes. Or just don't send it :)
-		final String boundaryString = "THIS_STRING_SEPARATES_"
-				+ UUIDTools.generateTimeUUID(System.currentTimeMillis(), null).toString();
+		final String boundaryString = "THIS_STRING_SEPARATES_" + UUIDTools.generateTimeUUID(System.currentTimeMillis(), null).toString();
 
 		response.setHeader("Content-Type", "multipart/byteranges; boundary=" + boundaryString);
 
@@ -606,9 +604,6 @@ public class Memory extends HttpServlet {
 			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
 			return;
 		}
-
-		for (final String key : matchingObject.getMetadataMap().keySet())
-			response.setHeader(key.toString(), matchingObject.getMetadataMap().get(key));
 
 		setHeaders(matchingObject, response);
 	}
