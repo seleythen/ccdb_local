@@ -10,8 +10,12 @@ T="apache-tomcat"
 TB="$T/bin"
 TL="$T/lib"
 
+jar -xf ../lib/alien.jar
+
+rm -rf apmon com hep io javax lazyj lia META-INF org src
+
 # the minimal set of JARs to start Tomcat and load the servler
-for jar in $TB/tomcat-juli.jar $TL/{catalina.jar,servlet-api.jar,tomcat-api.jar,tomcat-util.jar,tomcat-util-scan.jar,tomcat-coyote.jar,tomcat-jni.jar,annotations-api.jar,jaspic-api.jar,jasper.jar} ../lib/alien.jar ../lib/lazyj.jar ../lib/FarmMonitor.jar ../lib/apmon.jar ../lib/javax.mail.jar ../lib/javax.activation-1.2.0.jar; do
+for jar in $TB/tomcat-juli.jar $TL/{catalina.jar,servlet-api.jar,tomcat-api.jar,tomcat-util.jar,tomcat-util-scan.jar,tomcat-coyote.jar,tomcat-jni.jar,annotations-api.jar,jaspic-api.jar,jasper.jar} ../lib/lazyj.jar ../lib/FarmMonitor.jar ../lib/apmon.jar ../lib/javax.mail.jar ../lib/javax.activation-1.2.0.jar; do
     jar -xf $jar
 done
 
