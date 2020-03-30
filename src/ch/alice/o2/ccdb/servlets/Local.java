@@ -197,6 +197,9 @@ public class Local extends HttpServlet {
 		catch (@SuppressWarnings("unused") NullPointerException | NumberFormatException ignore) {
 			response.setDateHeader("Last-Modified", (obj.getCreateTime()));
 		}
+
+		for (final String key : obj.getUserPropertiesKeys())
+			response.setHeader(key, obj.getProperty(key));
 	}
 
 	private static void setMD5Header(final LocalObjectWithVersion obj, final HttpServletResponse response) {
