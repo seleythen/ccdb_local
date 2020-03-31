@@ -74,3 +74,5 @@ jar -cfe sql.jar \
 
 # remove all intermediate folders
 rm -rf javax org ch org lazyj alien config utils lia com org hep apmon trusted_authorities.jks io jline joptsimple
+
+cp memory.jar /var/ftp/pub
