@@ -554,7 +554,7 @@ public class UDPReceiver extends Thread {
 
 					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 
-					monitor.incrementCounter("multicast_packets");
+					monitor.addMeasurement("multicast_packets", packet.getLength());
 				}
 				catch (final Exception e) {
 					// logger.log(Level.WARNING, "Exception thrown");
