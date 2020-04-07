@@ -42,8 +42,24 @@ import ch.alice.o2.ccdb.Options;
 public class EmbeddedTomcat extends Tomcat {
 	private static transient final Monitor monitor = MonitorFactory.getMonitor(EmbeddedTomcat.class.getCanonicalName());
 
+	private static final String tempDir;
+
 	static {
-		System.setProperty(Globals.CATALINA_HOME_PROP, System.getProperty("java.io.tmpdir"));
+		final String tmpDir = System.getenv("TMPDIR");
+
+		if (tmpDir != null && !tmpDir.isBlank()) {
+			final File fTmpDir = new File(tmpDir);
+
+			if (!fTmpDir.exists() || !fTmpDir.isDirectory() || !fTmpDir.canWrite())
+				System.err.println("Indicated TMPDIR is not a valid temp dir: " + tmpDir + ", ignoring and falling back to " + System.getProperty("java.io.tmpdir"));
+			else
+				System.setProperty("java.io.tmpdir", tmpDir);
+		}
+
+		tempDir = System.getProperty("java.io.tmpdir");
+
+		System.setProperty(Globals.CATALINA_HOME_PROP, tempDir);
+
 		System.setProperty("org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH", "true");
 		System.setProperty("org.apache.catalina.connector.CoyoteAdapter.ALLOW_BACKSLASH", "true");
 	}
@@ -52,12 +68,12 @@ public class EmbeddedTomcat extends Tomcat {
 	 * Debug level, set to TOMCAT_DEBUG to &gt;0 to get more info on errors.
 	 */
 	final int debugLevel;
-	
+
 	/**
 	 * Address to bind to
 	 */
 	final String address;
-	
+
 	private final StandardContext ctx;
 
 	/**
@@ -87,7 +103,9 @@ public class EmbeddedTomcat extends Tomcat {
 		decorateConnector(getConnector());
 
 		// Add a dummy ROOT context
+
 		ctx = (StandardContext) addContext(getHost(), "", null);
+		ctx.setWorkDir(tempDir);
 
 		if (Options.getIntOption("ccdb.ssl", 0) > 0)
 			initializeSSLEndpoint();
