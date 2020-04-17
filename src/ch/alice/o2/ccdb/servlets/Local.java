@@ -469,8 +469,8 @@ public class Local extends HttpServlet {
 
 			final File targetFile = new File(folder, targetUUID.toString());
 
-			try (FileOutputStream fos = new FileOutputStream(targetFile)) {
-				IOUtils.copy(part.getInputStream(), fos);
+			try (FileOutputStream fos = new FileOutputStream(targetFile); InputStream is = part.getInputStream()) {
+				IOUtils.copy(is, fos);
 			}
 
 			final LocalObjectWithVersion newObject = new LocalObjectWithVersion(parser.startTime, targetFile);

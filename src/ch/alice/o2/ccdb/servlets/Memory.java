@@ -3,6 +3,7 @@ package ch.alice.o2.ccdb.servlets;
 import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.SoftReference;
 import java.net.InetAddress;
@@ -421,8 +422,11 @@ public class Memory extends HttpServlet {
 
 			final byte[] metadata = new byte[0];
 
-			final byte[] payload = new byte[part.getInputStream().available()];
-			part.getInputStream().read(payload);
+			final byte[] payload;
+			try (InputStream is = part.getInputStream()) {
+				payload = new byte[is.available()];
+				is.read(payload);
+			}
 
 			final String blobKey = parser.path;
 			Blob newBlob;
