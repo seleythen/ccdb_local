@@ -260,25 +260,30 @@ public class UDPReceiver extends Thread {
 				if (payloadMissingBlocks.size() > 1) {
 					// more than one Range will come as multipart responses
 
-					final ByteArrayDataSource dataSource = new ByteArrayDataSource(con.getInputStream(), con.getHeaderField("Content-Type"));
-					final MimeMultipart mm = new MimeMultipart(dataSource);
+					try (InputStream conIS = con.getInputStream()) {
+						final ByteArrayDataSource dataSource = new ByteArrayDataSource(conIS, con.getHeaderField("Content-Type"));
 
-					for (int part = 0; part < mm.getCount(); part++) {
-						final BodyPart bp = mm.getBodyPart(part);
+						final MimeMultipart mm = new MimeMultipart(dataSource);
 
-						final byte[] content = new byte[bp.getSize()];
+						for (int part = 0; part < mm.getCount(); part++) {
+							final BodyPart bp = mm.getBodyPart(part);
 
-						bp.getInputStream().read(content);
+							final String contentRange = bp.getHeader("Content-Range")[0];
 
-						final String contentRange = bp.getHeader("Content-Range")[0];
+							final byte[] content = new byte[bp.getSize()];
 
-						final StringTokenizer st = new StringTokenizer(contentRange, " -/");
+							try (InputStream is = bp.getInputStream()) {
+								is.read(content);
+							}
 
-						st.nextToken();
+							final StringTokenizer st = new StringTokenizer(contentRange, " -/");
 
-						final int startOffset = Integer.parseInt(st.nextToken());
+							st.nextToken();
 
-						blob.addByteRange(content, new Pair(startOffset, startOffset + content.length));
+							final int startOffset = Integer.parseInt(st.nextToken());
+
+							blob.addByteRange(content, new Pair(startOffset, startOffset + content.length));
+						}
 					}
 				}
 				else {
