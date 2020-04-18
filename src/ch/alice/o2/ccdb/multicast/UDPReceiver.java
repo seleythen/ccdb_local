@@ -541,7 +541,7 @@ public class UDPReceiver extends Thread {
 			for (int i = 0;i < 4;i++) {
 				new Thread(() -> {
 					runMulticastReceiver(socket);
-				});
+				}).start();
 			}
 
 		} catch (final IOException e) {
