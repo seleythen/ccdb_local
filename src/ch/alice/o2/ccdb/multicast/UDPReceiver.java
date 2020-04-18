@@ -20,11 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.DelayQueue;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
@@ -538,32 +534,38 @@ public class UDPReceiver extends Thread {
 		});
 	}
 
-	private void runMulticastReceiver() {
-		setName("MulticastReceiver");
-
+	private void runMulticastReceivers() {
 		try (MulticastSocket socket = new MulticastSocket(this.multicastPortNumber)) {
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			socket.joinGroup(group);
-
-			while (true) {
-				try {
-					final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
-					// Receive object
-					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
-					socket.receive(packet);
-
-					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
-
-					monitor.addMeasurement("multicast_packets", packet.getLength());
-				}
-				catch (final Exception e) {
-					// logger.log(Level.WARNING, "Exception thrown");
-					e.printStackTrace();
-				}
+			for (int i = 0;i < 4;i++) {
+				new Thread(() -> {
+					runMulticastReceiver(socket);
+				});
 			}
-		}
-		catch (final IOException e) {
+
+		} catch (final IOException e) {
 			logger.log(Level.SEVERE, "Exception running the multicast receiver", e);
+		}
+	}
+
+	private void runMulticastReceiver(MulticastSocket socket) {
+		setName("MulticastReceiver");
+		while (true) {
+			try {
+				final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
+				// Receive object
+				final DatagramPacket packet = new DatagramPacket(buf, buf.length);
+				socket.receive(packet);
+
+				queueProcessing(new FragmentedBlob(buf, packet.getLength()));
+
+				monitor.addMeasurement("multicast_packets", packet.getLength());
+			}
+			catch (final Exception e) {
+				// logger.log(Level.WARNING, "Exception thrown");
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -739,7 +741,7 @@ public class UDPReceiver extends Thread {
 		if (multicastIPaddress != null && multicastIPaddress.length() > 0 && multicastPortNumber > 0) {
 			System.err.println("Starting multicast receiver on " + multicastIPaddress + ":" + multicastPortNumber);
 
-			new Thread(() -> runMulticastReceiver()).start();
+			new Thread(() -> runMulticastReceivers()).start();
 
 			anyListenerStarted = true;
 		}
