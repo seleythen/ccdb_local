@@ -538,7 +538,7 @@ public class UDPReceiver extends Thread {
 		try (MulticastSocket socket = new MulticastSocket(this.multicastPortNumber)) {
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			socket.joinGroup(group);
-			for (int i = 0;i < 4;i++) {
+			for (int i = 0;i < 2;i++) {
 				new Thread(() -> {
 					runMulticastReceiver(socket);
 				}).start();
