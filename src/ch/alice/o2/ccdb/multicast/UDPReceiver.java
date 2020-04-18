@@ -556,8 +556,9 @@ public class UDPReceiver extends Thread {
 				final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
 				// Receive object
 				final DatagramPacket packet = new DatagramPacket(buf, buf.length);
-				socket.receive(packet);
-
+				synchronized(socket) {
+					socket.receive(packet);
+				}
 				queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 
 				monitor.addMeasurement("multicast_packets", packet.getLength());
