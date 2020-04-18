@@ -1,6 +1,7 @@
 package ch.alice.o2.ccdb.multicast;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
@@ -560,7 +561,7 @@ public class UDPReceiver extends Thread {
 					socket.receive(packet);
 				}
 				queueProcessing(new FragmentedBlob(buf, packet.getLength()));
-
+				File.createTempFile("receiverUDP", ".tmp");
 				monitor.addMeasurement("multicast_packets", packet.getLength());
 			}
 			catch (final Exception e) {
