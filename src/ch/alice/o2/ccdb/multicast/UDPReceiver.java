@@ -561,7 +561,6 @@ public class UDPReceiver extends Thread {
 					socket.receive(packet);
 				}
 				queueProcessing(new FragmentedBlob(buf, packet.getLength()));
-				File.createTempFile("receiverUDP", ".tmp");
 				monitor.addMeasurement("multicast_packets", packet.getLength());
 			}
 			catch (final Exception e) {
@@ -772,7 +771,7 @@ public class UDPReceiver extends Thread {
 		expirationChecker = new ExpirationChecker();
 		expirationChecker.start();
 
-		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES);
+		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 16), 1, TimeUnit.MINUTES);
 	}
 
 }
