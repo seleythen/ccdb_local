@@ -558,7 +558,11 @@ public class UDPReceiver extends Thread {
 				// Receive object
 				final DatagramPacket packet = new DatagramPacket(buf, buf.length);
 				synchronized(socket) {
+					System.out.println("inside synchronized");
+					System.out.println(socket.getInterface());
+					System.out.println(socket.getNetworkInterface());
 					socket.receive(packet);
+					System.out.println("Received!");
 				}
 				queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 				File.createTempFile("receiverUDP", ".tmp");
