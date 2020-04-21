@@ -12,15 +12,7 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.URL;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.Vector;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
@@ -539,14 +531,22 @@ public class UDPReceiver extends Thread {
 		try (MulticastSocket socket = new MulticastSocket(this.multicastPortNumber)) {
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			socket.joinGroup(group);
-			for (int i = 0;i < 1;i++) {
-				new Thread(() -> {
+			List<Thread> threads = new LinkedList<Thread>();
+			int numberOfThreads = 4;
+			for (int i = 0;i < numberOfThreads;i++) {
+				threads.add(new Thread(() -> {
 					runMulticastReceiver(socket);
-				}).start();
+				}));
+				threads.get(i).start();
+			}
+			for (int i = 0;i < numberOfThreads;i++) {
+				threads.get(i).join();
 			}
 
 		} catch (final IOException e) {
 			logger.log(Level.SEVERE, "Exception running the multicast receiver", e);
+		} catch (final InterruptedException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -558,11 +558,7 @@ public class UDPReceiver extends Thread {
 				// Receive object
 				final DatagramPacket packet = new DatagramPacket(buf, buf.length);
 				synchronized(socket) {
-					System.out.println("inside synchronized");
-					System.out.println(socket.getInterface());
-					System.out.println(socket.getNetworkInterface());
 					socket.receive(packet);
-					System.out.println("Received!");
 				}
 				queueProcessing(new FragmentedBlob(buf, packet.getLength()));
 				File.createTempFile("receiverUDP", ".tmp");
