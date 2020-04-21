@@ -1,6 +1,7 @@
 package ch.alice.o2.ccdb.multicast;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
@@ -11,20 +12,8 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.URL;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.DelayQueue;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
@@ -538,32 +527,46 @@ public class UDPReceiver extends Thread {
 		});
 	}
 
-	private void runMulticastReceiver() {
-		setName("MulticastReceiver");
-
+	private void runMulticastReceivers() {
 		try (MulticastSocket socket = new MulticastSocket(this.multicastPortNumber)) {
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			socket.joinGroup(group);
-
-			while (true) {
-				try {
-					final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
-					// Receive object
-					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
-					socket.receive(packet);
-
-					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
-
-					monitor.addMeasurement("multicast_packets", packet.getLength());
-				}
-				catch (final Exception e) {
-					// logger.log(Level.WARNING, "Exception thrown");
-					e.printStackTrace();
-				}
+			List<Thread> threads = new LinkedList<Thread>();
+			int numberOfThreads = 4;
+			for (int i = 0;i < numberOfThreads;i++) {
+				threads.add(new Thread(() -> {
+					runMulticastReceiver(socket);
+				}));
+				threads.get(i).start();
 			}
-		}
-		catch (final IOException e) {
+			for (int i = 0;i < numberOfThreads;i++) {
+				threads.get(i).join();
+			}
+
+		} catch (final IOException e) {
 			logger.log(Level.SEVERE, "Exception running the multicast receiver", e);
+		} catch (final InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void runMulticastReceiver(MulticastSocket socket) {
+		setName("MulticastReceiver");
+		while (true) {
+			try {
+				final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
+				// Receive object
+				final DatagramPacket packet = new DatagramPacket(buf, buf.length);
+				synchronized(socket) {
+					socket.receive(packet);
+				}
+				queueProcessing(new FragmentedBlob(buf, packet.getLength()));
+				monitor.addMeasurement("multicast_packets", packet.getLength());
+			}
+			catch (final Exception e) {
+				// logger.log(Level.WARNING, "Exception thrown");
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -739,7 +742,7 @@ public class UDPReceiver extends Thread {
 		if (multicastIPaddress != null && multicastIPaddress.length() > 0 && multicastPortNumber > 0) {
 			System.err.println("Starting multicast receiver on " + multicastIPaddress + ":" + multicastPortNumber);
 
-			new Thread(() -> runMulticastReceiver()).start();
+			new Thread(() -> runMulticastReceivers()).start();
 
 			anyListenerStarted = true;
 		}
@@ -768,7 +771,7 @@ public class UDPReceiver extends Thread {
 		expirationChecker = new ExpirationChecker();
 		expirationChecker.start();
 
-		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES);
+		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 16), 1, TimeUnit.MINUTES);
 	}
 
 }
