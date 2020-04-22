@@ -474,8 +474,9 @@ public class UDPReceiver extends Thread {
 		}
 	}
 
-	private static void processPacket(final FragmentedBlob fragmentedBlob) throws NoSuchAlgorithmException, IOException {
+	private static void processPacket(final byte[] packet) throws NoSuchAlgorithmException, IOException {
 		// System.out.println("Fragment payload offset " + fragmentedBlob.getFragmentOffset() + " size " + fragmentedBlob.getblobDataLength());
+		final FragmentedBlob fragmentedBlob = new FragmentedBlob(packet, packet.length);
 
 		contentStructureReadLock.lock();
 
@@ -532,10 +533,10 @@ public class UDPReceiver extends Thread {
 
 	private static ExecutorService executorService = null;
 
-	private static void queueProcessing(final FragmentedBlob fragmentedBlob) {
+	private static void queueProcessing(final byte[] packet) {
 		executorService.submit(() -> {
 			try {
-				processPacket(fragmentedBlob);
+				processPacket(packet);
 			}
 			catch (NoSuchAlgorithmException | IOException e) {
 				e.printStackTrace();
@@ -550,16 +551,23 @@ public class UDPReceiver extends Thread {
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			socket.joinGroup(group);
 
+			final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
+			final DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
 			while (true) {
 				try {
-					final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
 					// Receive object
-					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
 					socket.receive(packet);
 
-					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
+					final int len = packet.getLength();
 
-					monitor.addMeasurement("multicast_packets", packet.getLength());
+					final byte[] activePart = new byte[len];
+					System.arraycopy(buf, 0, activePart, 0, len);
+
+					queueProcessing(activePart);
+
+					monitor.addMeasurement("multicast_packets", len);
 				}
 				catch (final Exception e) {
 					// logger.log(Level.WARNING, "Exception thrown");
@@ -576,16 +584,21 @@ public class UDPReceiver extends Thread {
 		setName("UnicastReceiver");
 
 		try (DatagramSocket serverSocket = new DatagramSocket(this.unicastPortNumber)) {
+			final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
+			final DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
 			while (true) {
 				try {
-					final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
-					// Receive object
-					final DatagramPacket packet = new DatagramPacket(buf, buf.length);
 					serverSocket.receive(packet);
 
-					queueProcessing(new FragmentedBlob(buf, packet.getLength()));
+					final int len = packet.getLength();
 
-					monitor.addMeasurement("unicast_packets", packet.getLength());
+					final byte[] activePart = new byte[len];
+					System.arraycopy(buf, 0, activePart, 0, len);
+
+					queueProcessing(activePart);
+
+					monitor.addMeasurement("unicast_packets", len);
 				}
 				catch (final Exception e) {
 					// logger.log(Level.WARNING, "Exception thrown");
