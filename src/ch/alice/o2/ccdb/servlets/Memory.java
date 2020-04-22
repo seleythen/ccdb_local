@@ -156,7 +156,13 @@ public class Memory extends HttpServlet {
 		response.sendRedirect(getURLPrefix(request) + matchingObject.getStartTime() + "/" + matchingObject.getUuid().toString());
 	}
 
-	private static void setHeaders(final Blob obj, final HttpServletResponse response) {
+	/**
+	 * Set the HTTP headers common for both GET and HEAD requests, for a given object
+	 * 
+	 * @param obj
+	 * @param response
+	 */
+	static void setHeaders(final Blob obj, final HttpServletResponse response) {
 		response.setDateHeader("Date", System.currentTimeMillis());
 
 		try {
@@ -180,15 +186,31 @@ public class Memory extends HttpServlet {
 		}
 	}
 
-	private static void setMD5Header(final Blob obj, final HttpServletResponse response) {
+	/**
+	 * Set the MD5 checksum header only. For HEAD requests the assumption is that the entire content would be served and this is the checksum
+	 * 
+	 * @param obj
+	 * @param response
+	 */
+	static void setMD5Header(final Blob obj, final HttpServletResponse response) {
 		final String md5 = obj.getMD5();
 
 		if (md5 != null && !md5.isEmpty())
 			response.setHeader("Content-MD5", md5);
 	}
 
-	private static void download(final Blob obj, final HttpServletRequest request, final HttpServletResponse response) throws IOException {
+	/**
+	 * Download the content of an object from memory
+	 * 
+	 * @param obj
+	 * @param request
+	 * @param response
+	 * @throws IOException
+	 */
+	static void download(final Blob obj, final HttpServletRequest request, final HttpServletResponse response) throws IOException {
 		final String range = request.getHeader("Range");
+
+		System.err.println("Client " + request.getRemoteAddr() + " requested to download " + obj.getUuid() + ", range: " + range);
 
 		if (range == null || range.trim().isEmpty()) {
 			response.setHeader("Accept-Ranges", "bytes");
