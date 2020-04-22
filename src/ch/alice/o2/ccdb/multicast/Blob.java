@@ -86,10 +86,14 @@ public class Blob implements Comparable<Blob> {
 	 * payload and a checksum. The checksum is the Utils.CHECKSUM_TYPE of the
 	 * payload.
 	 *
-	 * @param payload - The data byte array
-	 * @param metadata - The metadata byte array
-	 * @param key - The key string
-	 * @param uuid - The UUID of the Blob
+	 * @param payload
+	 *            - The data byte array
+	 * @param metadata
+	 *            - The metadata byte array
+	 * @param key
+	 *            - The key string
+	 * @param uuid
+	 *            - The UUID of the Blob
 	 *
 	 * @throws NoSuchAlgorithmException
 	 * @throws IOException
@@ -116,10 +120,14 @@ public class Blob implements Comparable<Blob> {
 	 * payload and a checksum. The checksum is the Utils.CHECKSUM_TYPE of the
 	 * payload.
 	 *
-	 * @param metadataMap - The metadata HaspMap
-	 * @param payload - The data byte array
-	 * @param key - The key string
-	 * @param uuid - The UUID of the Blob
+	 * @param metadataMap
+	 *            - The metadata HaspMap
+	 * @param payload
+	 *            - The data byte array
+	 * @param key
+	 *            - The key string
+	 * @param uuid
+	 *            - The UUID of the Blob
 	 *
 	 * @throws NoSuchAlgorithmException
 	 * @throws IOException
@@ -142,8 +150,10 @@ public class Blob implements Comparable<Blob> {
 	 * members via addFragmentedBlob method
 	 *
 	 *
-	 * @param key - The key string
-	 * @param uuid - The UUID of the Blob
+	 * @param key
+	 *            - The key string
+	 * @param uuid
+	 *            - The UUID of the Blob
 	 * @throws SecurityException
 	 */
 	public Blob(final String key, final UUID uuid) {
@@ -250,27 +260,30 @@ public class Blob implements Comparable<Blob> {
 	 * Send method - fragment (if necessary) and send the missingBlock from metadata
 	 * or payload as packetType parameter specifies
 	 *
-	 * @param maxPayloadSize - the maximum payload supported by a fragmented packet
-	 * @param missingBlock - the interval to be sent via multicast from metadata
+	 * @param maxPayloadSize
+	 *            - the maximum payload supported by a fragmented packet
+	 * @param missingBlock
+	 *            - the interval to be sent via multicast from metadata
 	 *            or payload
-	 * @param packetType - specify what kind of data is missing so that it
+	 * @param packetType
+	 *            - specify what kind of data is missing so that it
 	 *            should be send: METADATA_CODE or DATA_CODE
-	 * @param targetIp - Destination multicast IP
-	 * @param port - Socket port number
+	 * @param targetIp
+	 *            - Destination multicast IP
+	 * @param port
+	 *            - Socket port number
 	 *
 	 * @throws IOException
 	 * @throws NoSuchAlgorithmException
 	 */
-	public void send(final int maxPayloadSize, final Pair missingBlock, final byte packetType, final String targetIp, final int port)
-			throws IOException, NoSuchAlgorithmException {
+	public void send(final int maxPayloadSize, final Pair missingBlock, final byte packetType, final String targetIp, final int port) throws IOException, NoSuchAlgorithmException {
 
 		if (packetType == METADATA_CODE) {
 			// fragment [missingBlock.first, missingBlock.second]
 			// build packet
 			// Utils.sendFragmentMulticast(packet, targetIp, port);
 			final byte[] metadataToSend = new byte[missingBlock.second - missingBlock.first];
-			System.arraycopy(this.metadata, missingBlock.first, metadataToSend, 0,
-					missingBlock.second - missingBlock.first);
+			System.arraycopy(this.metadata, missingBlock.first, metadataToSend, 0, missingBlock.second - missingBlock.first);
 			/*
 			 * fragment metadata
 			 */
@@ -317,8 +330,8 @@ public class Blob implements Comparable<Blob> {
 				System.arraycopy(metadataToSend, indexMetadata, packet, Utils.KEY_START_INDEX + this.key.getBytes().length, maxPayloadSize_copy);
 
 				// the packet checksum
-				System.arraycopy(Utils.calculateChecksum(Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)),
-						0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy, Utils.SIZE_OF_PACKET_CHECKSUM);
+				System.arraycopy(Utils.calculateChecksum(Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)), 0, packet,
+						Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy, Utils.SIZE_OF_PACKET_CHECKSUM);
 
 				// send the metadata packet
 				Utils.sendFragmentMulticast(packet, targetIp, port);
@@ -380,8 +393,8 @@ public class Blob implements Comparable<Blob> {
 					System.arraycopy(payloadToSend, indexPayload, packet, Utils.KEY_START_INDEX + this.key.getBytes().length, maxPayloadSize_copy);
 
 					// the packet checksum
-					System.arraycopy(Utils.calculateChecksum(Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)),
-							0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy, Utils.SIZE_OF_PACKET_CHECKSUM);
+					System.arraycopy(Utils.calculateChecksum(Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)), 0, packet,
+							Utils.KEY_START_INDEX + this.key.getBytes().length + maxPayloadSize_copy, Utils.SIZE_OF_PACKET_CHECKSUM);
 
 					// send the metadata packet
 					Utils.sendFragmentMulticast(packet, targetIp, port);
@@ -398,8 +411,10 @@ public class Blob implements Comparable<Blob> {
 	 * Send method - fragments a blob into smaller serialized fragmentedBlobs and
 	 * sends them via UDP multicast. Reads the maxPayloadSize from a file <--TODO
 	 *
-	 * @param targetIp - Destination multicast IP
-	 * @param port - Socket port number
+	 * @param targetIp
+	 *            - Destination multicast IP
+	 * @param port
+	 *            - Socket port number
 	 * @throws NoSuchAlgorithmException
 	 * @throws IOException
 	 */
@@ -413,12 +428,10 @@ public class Blob implements Comparable<Blob> {
 			System.arraycopy(this.metadata, 0, metadataAndPayload, 0, this.metadata.length);
 			System.arraycopy(this.payload, 0, metadataAndPayload, this.metadata.length, this.payload.length);
 
-			final byte[] packet = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER_AND_TRAILER + metadataAndPayload.length
-					+ this.key.getBytes().length];
+			final byte[] packet = new byte[Utils.SIZE_OF_FRAGMENTED_BLOB_HEADER_AND_TRAILER + metadataAndPayload.length + this.key.getBytes().length];
 			// Fill the fields:
 			// 1. fragment offset will always be zero
-			System.arraycopy(Utils.intToByteArray(0), 0, packet, Utils.FRAGMENT_OFFSET_START_INDEX,
-					Utils.SIZE_OF_FRAGMENT_OFFSET);
+			System.arraycopy(Utils.intToByteArray(0), 0, packet, Utils.FRAGMENT_OFFSET_START_INDEX, Utils.SIZE_OF_FRAGMENT_OFFSET);
 
 			// 2. 1 byte, packet type
 			packet[Utils.PACKET_TYPE_START_INDEX] = SMALL_BLOB_CODE;
@@ -427,30 +440,23 @@ public class Blob implements Comparable<Blob> {
 			System.arraycopy(UUIDTools.getBytes(this.uuid), 0, packet, Utils.UUID_START_INDEX, Utils.SIZE_OF_UUID);
 
 			// 4. 4 bytes, blob payload + metadata Length
-			System.arraycopy(Utils.intToByteArray(this.payload.length), 0, packet,
-					Utils.BLOB_PAYLOAD_LENGTH_START_INDEX, Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH);
+			System.arraycopy(Utils.intToByteArray(this.payload.length), 0, packet, Utils.BLOB_PAYLOAD_LENGTH_START_INDEX, Utils.SIZE_OF_BLOB_PAYLOAD_LENGTH);
 
 			// 5. 2 bytes, keyLength
-			System.arraycopy(Utils.shortToByteArray((short) this.key.getBytes().length), 0, packet,
-					Utils.KEY_LENGTH_START_INDEX, Utils.SIZE_OF_KEY_LENGTH);
+			System.arraycopy(Utils.shortToByteArray((short) this.key.getBytes().length), 0, packet, Utils.KEY_LENGTH_START_INDEX, Utils.SIZE_OF_KEY_LENGTH);
 
 			// 6. payload checksum
-			System.arraycopy(this.payloadChecksum, 0, packet, Utils.PAYLOAD_CHECKSUM_START_INDEX,
-					Utils.SIZE_OF_PAYLOAD_CHECKSUM);
+			System.arraycopy(this.payloadChecksum, 0, packet, Utils.PAYLOAD_CHECKSUM_START_INDEX, Utils.SIZE_OF_PAYLOAD_CHECKSUM);
 
 			// 7. the key
 			System.arraycopy(this.key.getBytes(), 0, packet, Utils.KEY_START_INDEX, this.key.getBytes().length);
 
 			// 8. the payload and metadata
-			System.arraycopy(metadataAndPayload, 0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length,
-					metadataAndPayload.length);
+			System.arraycopy(metadataAndPayload, 0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length, metadataAndPayload.length);
 
 			// 9. the packet checksum
-			System.arraycopy(
-					Utils.calculateChecksum(
-							Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)),
-					0, packet, Utils.KEY_START_INDEX + this.key.getBytes().length + metadataAndPayload.length,
-					Utils.SIZE_OF_PACKET_CHECKSUM);
+			System.arraycopy(Utils.calculateChecksum(Arrays.copyOfRange(packet, 0, packet.length - Utils.SIZE_OF_PACKET_CHECKSUM)), 0, packet,
+					Utils.KEY_START_INDEX + this.key.getBytes().length + metadataAndPayload.length, Utils.SIZE_OF_PACKET_CHECKSUM);
 
 			// send the metadata packet
 			Utils.sendFragmentMulticast(packet, targetIp, port);
@@ -671,7 +677,7 @@ public class Blob implements Comparable<Blob> {
 	 */
 	public ArrayList<Pair> getMissingPayloadBlocks() {
 		if (this.payload == null) {
-			System.err.println("No payload so far, have to ask for the entire content");
+			// System.err.println("No payload so far, have to ask for the entire content");
 			return null;
 		}
 
@@ -792,7 +798,8 @@ public class Blob implements Comparable<Blob> {
 	}
 
 	/**
-	 * @param metadata set the metadata block
+	 * @param metadata
+	 *            set the metadata block
 	 */
 	public void setMetadata(final byte[] metadata) {
 		this.metadata = metadata;
@@ -806,7 +813,8 @@ public class Blob implements Comparable<Blob> {
 	}
 
 	/**
-	 * @param payload new payload blob
+	 * @param payload
+	 *            new payload blob
 	 */
 	public void setPayload(final byte[] payload) {
 		this.payload = payload;
@@ -960,8 +968,7 @@ public class Blob implements Comparable<Blob> {
 		if (flagConstraints.isEmpty())
 			return true;
 
-		search:
-		for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
+		search: for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
 			final String metadataKey = entry.getKey().trim();
 			final String value = entry.getValue().trim();
 
