@@ -750,6 +750,8 @@ public class UDPReceiver extends Thread {
 
 	@Override
 	public void run() {
+		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES);
+
 		boolean anyListenerStarted = false;
 
 		if (multicastIPaddress != null && multicastIPaddress.length() > 0 && multicastPortNumber > 0) {
@@ -783,8 +785,6 @@ public class UDPReceiver extends Thread {
 
 		expirationChecker = new ExpirationChecker();
 		expirationChecker.start();
-
-		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES);
 	}
 
 }
