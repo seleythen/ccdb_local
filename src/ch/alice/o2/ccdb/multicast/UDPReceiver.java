@@ -356,8 +356,6 @@ public class UDPReceiver extends Thread {
 	private final Thread incompleteBlobRecovery = new Thread(new Runnable() {
 		@Override
 		public void run() {
-			setName("IncompleteBlobRecovery");
-
 			while (true) {
 				DelayedBlob toRecover;
 				try {
@@ -390,7 +388,7 @@ public class UDPReceiver extends Thread {
 				}
 			}
 		}
-	});
+	}, "IncompleteBlobRecovery");
 
 	private static final Comparator<SoftReference<Blob>> startTimeComparator = new Comparator<>() {
 		@Override
@@ -543,8 +541,6 @@ public class UDPReceiver extends Thread {
 	}
 
 	private void runMulticastReceiver() {
-		setName("MulticastReceiver");
-
 		try (MulticastSocket socket = new MulticastSocket(this.multicastPortNumber)) {
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			socket.joinGroup(group);
@@ -579,8 +575,6 @@ public class UDPReceiver extends Thread {
 	}
 
 	private void runUnicastReceiver() {
-		setName("UnicastReceiver");
-
 		try (DatagramSocket serverSocket = new DatagramSocket(this.unicastPortNumber)) {
 			final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
 			final DatagramPacket packet = new DatagramPacket(buf, buf.length);
@@ -750,14 +744,14 @@ public class UDPReceiver extends Thread {
 
 	@Override
 	public void run() {
-		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES);
+		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES, (r) -> new Thread(r, "UDPPacketProcessor"));
 
 		boolean anyListenerStarted = false;
 
 		if (multicastIPaddress != null && multicastIPaddress.length() > 0 && multicastPortNumber > 0) {
 			System.err.println("Starting multicast receiver on " + multicastIPaddress + ":" + multicastPortNumber);
 
-			new Thread(() -> runMulticastReceiver()).start();
+			new Thread(() -> runMulticastReceiver(), "MulticastReceiver").start();
 
 			anyListenerStarted = true;
 		}
@@ -767,7 +761,7 @@ public class UDPReceiver extends Thread {
 		if (unicastPortNumber > 0) {
 			System.err.println("Starting unicast receiver on " + unicastPortNumber);
 
-			new Thread(() -> runUnicastReceiver()).start();
+			new Thread(() -> runUnicastReceiver(), "UnicastReceiver").start();
 
 			anyListenerStarted = true;
 		}
@@ -786,5 +780,4 @@ public class UDPReceiver extends Thread {
 		expirationChecker = new ExpirationChecker();
 		expirationChecker.start();
 	}
-
 }
