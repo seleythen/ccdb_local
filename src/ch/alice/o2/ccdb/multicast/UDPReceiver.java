@@ -55,7 +55,7 @@ public class UDPReceiver extends Thread {
 	/**
 	 * How soon to start the recovery of incomplete objects after the last received fragment
 	 */
-	private static final long DELTA_T = 10000;
+	private static final long DELTA_T = Options.getIntOption("udp_receiver.recovery_after_ms", 2000);
 
 	/**
 	 * For how long superseded objects should be kept around, in case delayed processing needs them
