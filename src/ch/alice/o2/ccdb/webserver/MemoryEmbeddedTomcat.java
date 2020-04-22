@@ -8,6 +8,7 @@ import org.apache.catalina.Wrapper;
 import ch.alice.o2.ccdb.multicast.UDPReceiver;
 import ch.alice.o2.ccdb.servlets.Memory;
 import ch.alice.o2.ccdb.servlets.MemoryBrowse;
+import ch.alice.o2.ccdb.servlets.MemoryDownload;
 import ch.alice.o2.ccdb.servlets.MonitorServlet;
 
 /**
@@ -35,7 +36,10 @@ public class MemoryEmbeddedTomcat {
 
 		final Wrapper browser = tomcat.addServlet(MemoryBrowse.class.getName(), "/browse/*");
 		browser.addMapping("/latest/*");
+
 		tomcat.addServlet(Memory.class.getName(), "/*");
+		tomcat.addServlet(MemoryDownload.class.getName(), "/download/*");
+
 		tomcat.addServlet(MonitorServlet.class.getName(), "/monitor/*");
 
 		// Start the server
