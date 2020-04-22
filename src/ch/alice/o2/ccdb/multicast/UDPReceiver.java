@@ -148,8 +148,6 @@ public class UDPReceiver extends Thread {
 		final ArrayList<Pair> payloadMissingBlocks = blob.getMissingPayloadBlocks();
 
 		if (payloadMissingBlocks == null) {
-			System.err.println("Full recovery");
-
 			// Recover the entire Blob
 			try (Timing t = new Timing(monitor, "fullRecovery_ms")) {
 				final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
@@ -196,7 +194,6 @@ public class UDPReceiver extends Thread {
 		}
 
 		if (payloadMissingBlocks.size() == 0) {
-			System.err.println("Header recovery");
 			// Just the metadata is incomplete, ask for the header
 			try (Timing t = new Timing(monitor, "headersRecovery_ms")) {
 				final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
@@ -237,13 +234,11 @@ public class UDPReceiver extends Thread {
 			missingBytes += range.second - range.first + 1;
 		}
 
-		System.err.println("Asking URL\n" + recoveryBaseURL + "download/" + blob.getUuid().toString() + "\nfor \nRange: bytes=" + ranges);
+		System.err.println("Asking URL " + recoveryBaseURL + "download/" + blob.getUuid().toString() + " for \n  Range: bytes=" + ranges);
 
 		monitor.addMeasurement("missingBytes", missingBytes);
 
 		try (Timing t = new Timing(monitor, "rangeRecovery_ms")) {
-			System.err.println("Range recovery");
-
 			final URL url = new URL(recoveryBaseURL + "download/" + blob.getUuid().toString());
 			final HttpURLConnection con = (HttpURLConnection) url.openConnection();
 			con.setRequestProperty("Range", "bytes=" + ranges);
@@ -312,7 +307,11 @@ public class UDPReceiver extends Thread {
 
 			blob.recomputeIsComplete();
 
-			return blob.isComplete();
+			final boolean isNowComplete = blob.isComplete();
+
+			System.err.println("  Blob " + blob.getUuid() + " after recovery is complete: " + isNowComplete);
+
+			return isNowComplete;
 		}
 		catch (final Exception e) {
 			logger.log(Level.WARNING, "Exception recovering ranges from " + blob.getKey() + " / " + blob.getUuid(), e);
@@ -349,13 +348,8 @@ public class UDPReceiver extends Thread {
 
 			final String oldValue = blob.getProperty(key);
 
-			if (oldValue == null || !oldValue.equals(value)) {
-				System.err.println("Copying header: " + key + " = " + value + " (old = " + oldValue + ")");
+			if (oldValue == null || !oldValue.equals(value))
 				blob.setProperty(key, value);
-			}
-			else {
-				System.err.println("Keeping the old value " + key + " = " + oldValue);
-			}
 		}
 	}
 
@@ -514,11 +508,10 @@ public class UDPReceiver extends Thread {
 
 		final DelayedBlob delayedBlob = new DelayedBlob(blob);
 
-		// remove the entry with the same UUID, if any
-		recoveryQueue.remove(delayedBlob);
-
 		if (blob.isComplete()) {
-			System.err.println("Object is now complete, removing from notification queue");
+			recoveryQueue.remove(delayedBlob);
+
+			System.err.println("Object " + blob.getUuid() + " was fully received");
 
 			// just to correctly sort by start time once it is computed by Blob.isComplete()
 			sort(blob.getKey());
@@ -526,8 +519,13 @@ public class UDPReceiver extends Thread {
 			monitor.incrementCounter("fullyReceivedObjects");
 		}
 		else {
-			// add it back, with the new time to start recovery
-			recoveryQueue.offer(delayedBlob);
+			synchronized (recoveryQueue) {
+				// remove the notification
+				recoveryQueue.remove(delayedBlob);
+
+				// add it back, with the new time to start recovery
+				recoveryQueue.offer(delayedBlob);
+			}
 		}
 	}
 
