@@ -45,6 +45,8 @@ public class EmbeddedTomcat extends Tomcat {
 	private static final String tempDir;
 
 	static {
+		System.setProperty("force_fork", "false");
+
 		final String tmpDir = System.getenv("TMPDIR");
 
 		if (tmpDir != null && !tmpDir.isBlank()) {
