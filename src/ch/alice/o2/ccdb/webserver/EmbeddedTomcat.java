@@ -117,6 +117,7 @@ public class EmbeddedTomcat extends Tomcat {
 
 	private void decorateConnector(final Connector connector) {
 		connector.setProperty("address", address);
+		connector.setProperty("encodedSolidusHandling", "PASS_THROUGH");
 		connector.setProperty("maxKeepAliveRequests", String.valueOf(Options.getIntOption("maxKeepAliveRequests", 1000)));
 
 		// large headers are needed since alternate locations include access envelopes, that are rather large (default is 8KB)
