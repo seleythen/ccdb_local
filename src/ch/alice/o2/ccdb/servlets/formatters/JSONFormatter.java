@@ -10,10 +10,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import alien.test.cassandra.tomcat.Options;
 import ch.alice.o2.ccdb.multicast.Blob;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
+import lazyj.Utils;
 
 /**
  * @author costing
@@ -31,6 +33,8 @@ class JSONFormatter implements SQLFormatter {
 	private final boolean hasFilter;
 
 	private final boolean isQCShortcut;
+
+	private final boolean NEW_LINES = Utils.stringToBool(Options.getOption("json.expanded", "false"), false);
 
 	/**
 	 * Restrict the returned fields to the ones in this set. Can be <code>null</code> or empty to mean "all".
@@ -65,6 +69,13 @@ class JSONFormatter implements SQLFormatter {
 		}
 	}
 
+	private void writeMap(final PrintWriter writer, final Map<String, Object> jsonContent) {
+		if (NEW_LINES)
+			writer.println(Format.toJSON(jsonContent, true));
+		else
+			writer.print(Format.toJSON(jsonContent, false));
+	}
+
 	@Override
 	public void format(final PrintWriter writer, final SQLObject obj) {
 		final Map<String, Object> jsonContent = new LinkedHashMap<>();
@@ -75,7 +86,7 @@ class JSONFormatter implements SQLFormatter {
 
 		if (isQCShortcut) {
 			// quick exit if these are all the fields needed by QC
-			writer.println(Format.toJSON(jsonContent));
+			writeMap(writer, jsonContent);
 			return;
 		}
 
@@ -106,7 +117,7 @@ class JSONFormatter implements SQLFormatter {
 
 		filterContent(jsonContent);
 
-		writer.print(Format.toJSON(jsonContent));
+		writeMap(writer, jsonContent);
 	}
 
 	@Override
@@ -146,7 +157,7 @@ class JSONFormatter implements SQLFormatter {
 		jsonContent.put("filesInSubfolders", Long.valueOf(subfolderCount));
 		jsonContent.put("sizeOfSubfolders", Long.valueOf(subfolderSize));
 
-		writer.println(Format.toJSON(jsonContent));
+		writeMap(writer, jsonContent);
 	}
 
 	@Override
@@ -174,7 +185,7 @@ class JSONFormatter implements SQLFormatter {
 
 		if (isQCShortcut) {
 			// quick exit if these are all the fields needed by QC
-			writer.println(Format.toJSON(jsonContent));
+			writeMap(writer, jsonContent);
 			return;
 		}
 
@@ -196,7 +207,7 @@ class JSONFormatter implements SQLFormatter {
 
 		filterContent(jsonContent);
 
-		writer.println(Format.toJSON(jsonContent));
+		writeMap(writer, jsonContent);
 	}
 
 	@Override
@@ -214,7 +225,7 @@ class JSONFormatter implements SQLFormatter {
 
 		if (isQCShortcut) {
 			// quick exit if these are all the fields needed by QC
-			writer.println(Format.toJSON(jsonContent));
+			writeMap(writer, jsonContent);
 			return;
 		}
 
@@ -251,7 +262,7 @@ class JSONFormatter implements SQLFormatter {
 
 		filterContent(jsonContent);
 
-		writer.println(Format.toJSON(jsonContent));
+		writeMap(writer, jsonContent);
 	}
 
 	@Override
