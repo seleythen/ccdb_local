@@ -15,11 +15,8 @@ import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.RequestParser;
-import ch.alice.o2.ccdb.servlets.formatters.HTMLFormatter;
-import ch.alice.o2.ccdb.servlets.formatters.JSONFormatter;
+import ch.alice.o2.ccdb.servlets.formatters.FormatterFactory;
 import ch.alice.o2.ccdb.servlets.formatters.SQLFormatter;
-import ch.alice.o2.ccdb.servlets.formatters.TextFormatter;
-import ch.alice.o2.ccdb.servlets.formatters.XMLFormatter;
 import lazyj.DBFunctions;
 import lazyj.Format;
 import lazyj.Utils;
@@ -56,39 +53,9 @@ public class SQLBrowse extends HttpServlet {
 
 			final Collection<SQLObject> matchingObjects = SQLObject.getAllMatchingObjects(parser);
 
-			String sContentType;
-			SQLFormatter formatter = null;
+			final SQLFormatter formatter = FormatterFactory.getFormatter(request);
 
-			String sAccept = request.getParameter("Accept");
-
-			if ((sAccept == null) || (sAccept.length() == 0))
-				sAccept = request.getHeader("Accept");
-
-			if ((sAccept == null || sAccept.length() == 0))
-				sAccept = "text/plain";
-
-			sAccept = sAccept.toLowerCase();
-
-			if ((sAccept.indexOf("application/json") >= 0) || (sAccept.indexOf("text/json") >= 0)) {
-				sContentType = "application/json";
-				formatter = new JSONFormatter();
-			}
-			else
-				if (sAccept.indexOf("text/html") >= 0) {
-					sContentType = "text/html";
-					formatter = new HTMLFormatter();
-				}
-				else
-					if (sAccept.indexOf("text/xml") >= 0) {
-						sContentType = "text/xml";
-						formatter = new XMLFormatter();
-					}
-					else {
-						sContentType = "text/plain";
-						formatter = new TextFormatter();
-					}
-
-			response.setContentType(sContentType);
+			response.setContentType(formatter.getContentType());
 
 			final boolean sizeReport = Utils.stringToBool(request.getParameter("report"), false);
 
@@ -114,7 +81,8 @@ public class SQLBrowse extends HttpServlet {
 				formatter.footer(pw);
 
 				if (!parser.wildcardMatching) {
-					// It is not clear which subfolders to list in case of a wildcard matching of objects. As the full hierarchy was included in the search there is no point in showing them, so just skip
+					// It is not clear which subfolders to list in case of a wildcard matching of objects. As the full hierarchy was included in the search there is no point in showing them, so just
+					// skip
 					// this section.
 					formatter.subfoldersListingHeader(pw);
 

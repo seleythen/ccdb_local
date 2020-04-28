@@ -3,7 +3,12 @@ package ch.alice.o2.ccdb.servlets.formatters;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import ch.alice.o2.ccdb.multicast.Blob;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
@@ -14,68 +19,94 @@ import lazyj.Format;
  * @author costing
  * @since 2018-04-26
  */
-public class JSONFormatter implements SQLFormatter {
+class JSONFormatter implements SQLFormatter {
+
+	private static final Set<String> IGNORED_MEMORY_HEADERS = Set.of("InitialValidityLimit", "Valid-Until", "OriginalFileName", "Last-Modified", "Valid-From", "Content-Type", "File-Size", "Created",
+			"Content-MD5");
+
+	private static final Set<String> QC_SHORTCUT = Set.of("path", "createTime", "lastModified");
+
+	private final Set<String> fieldFilter;
+
+	private final boolean hasFilter;
+
+	private final boolean isQCShortcut;
+
+	/**
+	 * Restrict the returned fields to the ones in this set. Can be <code>null</code> or empty to mean "all".
+	 * 
+	 * @param fieldFilter
+	 */
+	JSONFormatter(final Set<String> fieldFilter) {
+		this.fieldFilter = fieldFilter;
+		this.hasFilter = fieldFilter != null && fieldFilter.size() > 0;
+
+		if (fieldFilter != null && fieldFilter.size() == 3 && fieldFilter.containsAll(QC_SHORTCUT))
+			isQCShortcut = true;
+		else
+			isQCShortcut = false;
+	}
+
 	@Override
 	public void header(final PrintWriter writer) {
 		writer.print("\"objects\":[\n");
 	}
 
-	@Override
-	public void format(final PrintWriter writer, final SQLObject obj) {
-		writer.print("{\n  \"id\":\"");
-		writer.print(obj.id.toString());
+	private final void filterContent(final Map<String, Object> jsonContent) {
+		if (hasFilter) {
+			final Iterator<Map.Entry<String, Object>> it = jsonContent.entrySet().iterator();
 
-		writer.print("\",\n  \"validFrom\":\"");
-		writer.print(obj.validFrom);
+			while (it.hasNext()) {
+				final Map.Entry<String, Object> entry = it.next();
 
-		writer.print("\",\n  \"validUntil\":\"");
-		writer.print(obj.validUntil);
-
-		writer.print("\",\n  \"initialValidity\":\"");
-		writer.print(obj.initialValidity);
-
-		writer.print("\",\n  \"createTime\":\"");
-		writer.print(obj.createTime);
-
-		writer.print("\",\n  \"lastModified\":\"");
-		writer.print(obj.getLastModified());
-
-		writer.print("\",\n  \"MD5\":\"");
-		writer.print(obj.md5);
-
-		writer.print("\",\n  \"fileName\":\"");
-		writer.print(Format.escJSON(obj.fileName));
-
-		writer.print("\",\n  \"contentType\":\"");
-		writer.print(Format.escJSON(obj.contentType));
-
-		writer.print("\",\n  \"size\":\"");
-		writer.print(obj.size);
-
-		writer.print("\",\n  \"path\":\"");
-		writer.print(Format.escJSON(obj.getPath()));
-
-		writer.print("\"");
-		for (final Map.Entry<Integer, String> entry : obj.metadata.entrySet()) {
-			writer.print(",\n  \"");
-			writer.print(Format.escJSON(SQLObject.getMetadataString(entry.getKey())));
-			writer.print("\":\"");
-			writer.print(Format.escJSON(entry.getValue()));
-			writer.print("\"");
-		}
-
-		int cnt = 0;
-		for (final Integer replica : obj.replicas) {
-			for (final String address : obj.getAddress(replica)) {
-				writer.print(",\n  \"replica");
-				writer.print(cnt++);
-				writer.print("\":\"");
-				writer.print(Format.escJSON(address));
-				writer.print("\"");
+				if (!fieldFilter.contains(entry.getKey()))
+					it.remove();
 			}
 		}
+	}
 
-		writer.print("\n}");
+	@Override
+	public void format(final PrintWriter writer, final SQLObject obj) {
+		final Map<String, Object> jsonContent = new LinkedHashMap<>();
+
+		jsonContent.put("path", obj.getPath());
+		jsonContent.put("createTime", Long.valueOf(obj.createTime));
+		jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
+
+		if (isQCShortcut) {
+			// quick exit if these are all the fields needed by QC
+			writer.println(Format.toJSON(jsonContent));
+			return;
+		}
+
+		jsonContent.put("id", obj.id.toString());
+		jsonContent.put("validFrom", Long.valueOf(obj.validFrom));
+		jsonContent.put("validUntil", Long.valueOf(obj.validUntil));
+		jsonContent.put("initialValidity", Long.valueOf(obj.initialValidity));
+		jsonContent.put("MD5", obj.md5);
+		jsonContent.put("fileName", obj.fileName);
+		jsonContent.put("contentType", obj.contentType);
+		jsonContent.put("size", Long.valueOf(obj.size));
+
+		if (obj.uploadedFrom != null)
+			jsonContent.put("UploadedFrom", obj.uploadedFrom);
+
+		if (!hasFilter || !jsonContent.keySet().containsAll(fieldFilter)) {
+			for (final Map.Entry<Integer, String> entry : obj.metadata.entrySet())
+				jsonContent.put(SQLObject.getMetadataString(entry.getKey()), entry.getValue());
+
+			final ArrayList<String> replicas = new ArrayList<>();
+
+			for (final Integer replica : obj.replicas)
+				for (final String address : obj.getAddress(replica))
+					replicas.add(address);
+
+			jsonContent.put("replicas", replicas);
+		}
+
+		filterContent(jsonContent);
+
+		writer.print(Format.toJSON(jsonContent));
 	}
 
 	@Override
@@ -107,17 +138,15 @@ public class JSONFormatter implements SQLFormatter {
 
 	@Override
 	public void subfoldersListing(final PrintWriter writer, final String path, final String url, final long ownCount, final long ownSize, final long subfolderCount, final long subfolderSize) {
-		writer.write("{\"name\": \"");
-		writer.write(Format.escJSON(path));
-		writer.write("\", \"ownFiles\":");
-		writer.write(String.valueOf(ownCount));
-		writer.write(", \"ownSize\":");
-		writer.write(String.valueOf(ownSize));
-		writer.write(", \"filesInSubfolders\": ");
-		writer.write(String.valueOf(subfolderCount));
-		writer.write(", \"sizeOfSubfolders\": ");
-		writer.write(String.valueOf(subfolderSize));
-		writer.write("}\n");
+		final Map<String, Object> jsonContent = new LinkedHashMap<>();
+
+		jsonContent.put("name", path);
+		jsonContent.put("ownFiles", Long.valueOf(ownCount));
+		jsonContent.put("ownSize", Long.valueOf(ownSize));
+		jsonContent.put("filesInSubfolders", Long.valueOf(subfolderCount));
+		jsonContent.put("sizeOfSubfolders", Long.valueOf(subfolderSize));
+
+		writer.println(Format.toJSON(jsonContent));
 	}
 
 	@Override
@@ -137,55 +166,37 @@ public class JSONFormatter implements SQLFormatter {
 	 */
 	@Override
 	public void format(final PrintWriter writer, final LocalObjectWithVersion obj) {
-		writer.print("{\n  \"id\":\"");
-		writer.print(Format.escJSON(obj.getID()));
+		final Map<String, Object> jsonContent = new LinkedHashMap<>();
 
-		writer.print("\",\n  \"validFrom\":\"");
-		writer.print(obj.getStartTime());
+		jsonContent.put("path", obj.getFolder());
+		jsonContent.put("createTime", Long.valueOf(obj.getCreateTime()));
+		jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
 
-		writer.print("\",\n  \"validUntil\":\"");
-		writer.print(obj.getEndTime());
-
-		writer.print("\",\n  \"initialValidity\":\"");
-		writer.print(obj.getInitialValidity());
-
-		writer.print("\",\n  \"createTime\":\"");
-		writer.print(obj.getCreateTime());
-
-		writer.print("\",\n  \"lastModified\":\"");
-		writer.print(obj.getLastModified());
-
-		writer.print("\",\n  \"MD5\":\"");
-		writer.print(Format.escJSON(obj.getProperty("Content-MD5")));
-
-		writer.print("\",\n  \"fileName\":\"");
-		writer.print(Format.escJSON(obj.getOriginalName()));
-
-		writer.print("\",\n  \"contentType\":\"");
-		writer.print(Format.escJSON(obj.getProperty("Content-Type", "application/octet-stream")));
-
-		writer.print("\",\n  \"size\":\"");
-		writer.print(obj.getSize());
-
-		writer.print("\",\n  \"path\":\"");
-		writer.print(Format.escJSON(obj.getFolder()));
-
-		writer.print("\"");
-		for (final Object key : obj.getUserPropertiesKeys()) {
-			writer.print(",\n  \"");
-			writer.print(Format.escJSON(key.toString()));
-			writer.print("\":\"");
-			writer.print(Format.escJSON(obj.getProperty(key.toString())));
-			writer.print("\"");
+		if (isQCShortcut) {
+			// quick exit if these are all the fields needed by QC
+			writer.println(Format.toJSON(jsonContent));
+			return;
 		}
 
-		writer.print(",\n  \"replica");
-		writer.print(0);
-		writer.print("\":\"");
-		writer.print(Format.escJSON(obj.getPath()));
-		writer.print("\"");
+		jsonContent.put("id", obj.getID());
+		jsonContent.put("validFrom", Long.valueOf(obj.getStartTime()));
+		jsonContent.put("validUntil", Long.valueOf(obj.getEndTime()));
+		jsonContent.put("initialValidity", Long.valueOf(obj.getInitialValidity()));
+		jsonContent.put("MD5", obj.getProperty("Content-MD5"));
+		jsonContent.put("fileName", obj.getOriginalName());
+		jsonContent.put("contentType", obj.getProperty("Content-Type", "application/octet-stream"));
+		jsonContent.put("size", Long.valueOf(obj.getSize()));
 
-		writer.print("\n}");
+		if (!hasFilter || !jsonContent.keySet().containsAll(fieldFilter)) {
+			for (final Object key : obj.getUserPropertiesKeys())
+				jsonContent.put(key.toString(), obj.getProperty(key.toString()));
+
+			jsonContent.put("replicas", Arrays.asList(obj.getPath()));
+		}
+
+		filterContent(jsonContent);
+
+		writer.println(Format.toJSON(jsonContent));
 	}
 
 	@Override
@@ -195,67 +206,56 @@ public class JSONFormatter implements SQLFormatter {
 
 	@Override
 	public void format(final PrintWriter writer, final Blob obj) {
-		writer.print("{\n  \"id\":\"");
-		writer.print(Format.escJSON(obj.getUuid().toString()));
+		final Map<String, Object> jsonContent = new LinkedHashMap<>();
 
-		writer.print("\",\n  \"validFrom\":\"");
-		writer.print(obj.getStartTime());
+		jsonContent.put("path", obj.getKey());
+		jsonContent.put("createTime", Long.valueOf(obj.getCreateTime()));
+		jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
 
-		writer.print("\",\n  \"validUntil\":\"");
-		writer.print(obj.getEndTime());
-
-		writer.print("\",\n  \"initialValidity\":\"");
-		writer.print(obj.getInitialValidity());
-
-		writer.print("\",\n  \"createTime\":\"");
-		writer.print(obj.getCreateTime());
-
-		writer.print("\",\n  \"lastModified\":\"");
-		writer.print(obj.getLastModified());
-
-		writer.print("\",\n  \"MD5\":\"");
-		writer.print(Format.escJSON(obj.getProperty("Content-MD5")));
-
-		writer.print("\",\n  \"fileName\":\"");
-		writer.print(Format.escJSON(obj.getOriginalName()));
-
-		writer.print("\",\n  \"contentType\":\"");
-		writer.print(Format.escJSON(obj.getProperty("Content-Type", "application/octet-stream")));
-
-		writer.print("\",\n  \"size\":\"");
-		writer.print(obj.getSize());
-
-		writer.print("\",\n  \"path\":\"");
-		writer.print(Format.escJSON(obj.getKey()));
-
-		writer.print("\"");
-		for (final String key : obj.getMetadataMap().keySet()) {
-			writer.print(",\n  \"");
-			writer.print(Format.escJSON(key));
-			writer.print("\":\"");
-			writer.print(Format.escJSON(obj.getProperty(key)));
-			writer.print("\"");
+		if (isQCShortcut) {
+			// quick exit if these are all the fields needed by QC
+			writer.println(Format.toJSON(jsonContent));
+			return;
 		}
 
-		boolean isComplete = false;
+		jsonContent.put("id", obj.getUuid().toString());
+		jsonContent.put("validFrom", Long.valueOf(obj.getStartTime()));
+		jsonContent.put("validUntil", Long.valueOf(obj.getEndTime()));
+		jsonContent.put("initialValidity", Long.valueOf(obj.getInitialValidity()));
+		jsonContent.put("MD5", obj.getProperty("Content-MD5"));
+		jsonContent.put("fileName", obj.getOriginalName());
+		jsonContent.put("contentType", obj.getProperty("Content-Type", "application/octet-stream"));
+		jsonContent.put("size", Long.valueOf(obj.getSize()));
 
-		try {
-			if (obj.isComplete()) {
-				isComplete = true;
+		if (!hasFilter || !jsonContent.keySet().containsAll(fieldFilter)) {
+			for (final String key : obj.getMetadataMap().keySet())
+				if (!IGNORED_MEMORY_HEADERS.contains(key))
+					jsonContent.put(key, obj.getProperty(key));
 
-				writer.print(",\n  \"replica0\":\"/");
-				writer.print(obj.getKey() + "/" + obj.getStartTime() + "/" + obj.getUuid());
-				writer.print("\"");
+			boolean isComplete = false;
+
+			try {
+				if (obj.isComplete()) {
+					isComplete = true;
+
+					jsonContent.put("replicas", Arrays.asList("/download/" + obj.getUuid()));
+				}
 			}
-		}
-		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {
-			// ignore
+			catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {
+				// ignore
+			}
+
+			if (!isComplete)
+				jsonContent.put("incomplete", Boolean.TRUE);
 		}
 
-		if (!isComplete) {
-			writer.print(",\n  \"incomplete\":\"true\"");
-		}
+		filterContent(jsonContent);
 
-		writer.print("\n}");
+		writer.println(Format.toJSON(jsonContent));
+	}
+
+	@Override
+	public String getContentType() {
+		return "application/json";
 	}
 }

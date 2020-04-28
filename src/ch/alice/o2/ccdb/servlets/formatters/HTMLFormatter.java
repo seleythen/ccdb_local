@@ -15,7 +15,7 @@ import lazyj.Format;
  * @author costing
  * @since 2018-04-26
  */
-public class HTMLFormatter implements SQLFormatter {
+class HTMLFormatter implements SQLFormatter {
 
 	private boolean extendedReport = false;
 
@@ -347,9 +347,7 @@ public class HTMLFormatter implements SQLFormatter {
 			if (obj.isComplete()) {
 				isComplete = true;
 
-				writer.print("<li><a href='/");
-				writer.print(obj.getKey() + "/" + obj.getStartTime() + "/" + obj.getUuid() + "'>0");
-				writer.print("</a></li>\n");
+				writer.print("<li><a href='/download/" + obj.getUuid() + "'>0</a></li>\n");
 			}
 		}
 		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {
@@ -361,5 +359,10 @@ public class HTMLFormatter implements SQLFormatter {
 		}
 
 		writer.print("</ul></td></tr>\n");
+	}
+
+	@Override
+	public String getContentType() {
+		return "text/html";
 	}
 }

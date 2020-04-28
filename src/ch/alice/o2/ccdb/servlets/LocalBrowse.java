@@ -24,11 +24,8 @@ import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.RequestParser;
-import ch.alice.o2.ccdb.servlets.formatters.HTMLFormatter;
-import ch.alice.o2.ccdb.servlets.formatters.JSONFormatter;
+import ch.alice.o2.ccdb.servlets.formatters.FormatterFactory;
 import ch.alice.o2.ccdb.servlets.formatters.SQLFormatter;
-import ch.alice.o2.ccdb.servlets.formatters.TextFormatter;
-import ch.alice.o2.ccdb.servlets.formatters.XMLFormatter;
 import lazyj.Format;
 
 /**
@@ -63,39 +60,9 @@ public class LocalBrowse extends HttpServlet {
 
 			Collections.sort(matchingObjects, (o1, o2) -> o1.getPath().compareTo(o2.getPath()));
 
-			String sContentType;
-			SQLFormatter formatter = null;
+			final SQLFormatter formatter = FormatterFactory.getFormatter(request);
 
-			String sAccept = request.getParameter("Accept");
-
-			if ((sAccept == null) || (sAccept.length() == 0))
-				sAccept = request.getHeader("Accept");
-
-			if ((sAccept == null || sAccept.length() == 0))
-				sAccept = "text/plain";
-
-			sAccept = sAccept.toLowerCase();
-
-			if ((sAccept.indexOf("application/json") >= 0) || (sAccept.indexOf("text/json") >= 0)) {
-				sContentType = "application/json";
-				formatter = new JSONFormatter();
-			}
-			else
-				if (sAccept.indexOf("text/html") >= 0) {
-					sContentType = "text/html";
-					formatter = new HTMLFormatter();
-				}
-				else
-					if (sAccept.indexOf("text/xml") >= 0) {
-						sContentType = "text/xml";
-						formatter = new XMLFormatter();
-					}
-					else {
-						sContentType = "text/plain";
-						formatter = new TextFormatter();
-					}
-
-			response.setContentType(sContentType);
+			response.setContentType(formatter.getContentType());
 
 			try (PrintWriter pw = response.getWriter()) {
 				formatter.start(pw);

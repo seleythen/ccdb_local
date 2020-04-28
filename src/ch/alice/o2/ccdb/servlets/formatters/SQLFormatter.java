@@ -125,4 +125,11 @@ public interface SQLFormatter {
 	 * @param extendedReport
 	 */
 	public void setExtendedReport(boolean extendedReport);
+	
+	/**
+	 * Get the MIME content type that is produced by this formatter
+	 * 
+	 * @return content type of the returned content
+	 */
+	public String getContentType();
 }

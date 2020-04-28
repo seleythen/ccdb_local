@@ -11,7 +11,7 @@ import lazyj.Format;
  * @author costing
  * @since 2018-04-26
  */
-public class TextFormatter implements SQLFormatter {
+class TextFormatter implements SQLFormatter {
 	@Override
 	public void header(final PrintWriter writer) {
 		// nothing
@@ -75,5 +75,10 @@ public class TextFormatter implements SQLFormatter {
 	@Override
 	public void format(final PrintWriter writer, final Blob obj) {
 		writer.println(obj.toString());
+	}
+
+	@Override
+	public String getContentType() {
+		return "text/plain";
 	}
 }

@@ -14,7 +14,7 @@ import lazyj.Format;
  * @author costing
  * @since 2018-04-26
  */
-public class XMLFormatter implements SQLFormatter {
+class XMLFormatter implements SQLFormatter {
 	@Override
 	public void header(final PrintWriter writer) {
 		writer.print("<objects>\n");
@@ -251,12 +251,14 @@ public class XMLFormatter implements SQLFormatter {
 			writer.print("'/>\n");
 		}
 
-		if (isComplete) {
-			writer.print("  <replica id='0' addr='/");
-			writer.print(obj.getKey() + "/" + obj.getStartTime() + "/" + obj.getUuid());
-			writer.print("'/>\n");
-		}
+		if (isComplete)
+			writer.print("  <replica id='0' addr='/download/" + obj.getUuid() + "'/>\n");
 
 		writer.print("</object>\n");
+	}
+
+	@Override
+	public String getContentType() {
+		return "text/xml";
 	}
 }
