@@ -344,7 +344,8 @@ public class SQLObject {
 	 * Return the full URL(s) to the physical representation on this replica ID
 	 *
 	 * @param replica
-	 * @param resolveAliEn whether or not to look up the PFNs for AliEn LFNs
+	 * @param resolveAliEn
+	 *            whether or not to look up the PFNs for AliEn LFNs
 	 * @return full URL
 	 */
 	public List<String> getAddress(final Integer replica, final boolean resolveAliEn) {
@@ -953,6 +954,61 @@ public class SQLObject {
 		}
 	}
 
+	private static final void getMatchingObjects(final RequestParser parser, final Integer pathId, final Collection<SQLObject> ret) {
+		final StringBuilder q = new StringBuilder("SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
+
+		final List<Object> arguments = new ArrayList<>();
+
+		arguments.add(pathId);
+
+		if (parser.uuidConstraint != null) {
+			q.append(" AND id=?");
+
+			arguments.add(parser.uuidConstraint);
+		}
+
+		if (parser.startTimeSet) {
+			q.append(" AND to_timestamp(?) AT TIME ZONE 'UTC' <@ validity");
+
+			arguments.add(Double.valueOf(parser.startTime / 1000.));
+		}
+
+		if (parser.notAfter > 0) {
+			q.append(" AND createTime<=?");
+
+			arguments.add(Long.valueOf(parser.notAfter));
+		}
+
+		if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
+			for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
+				final String key = constraint.getKey();
+
+				final Integer metadataId = getMetadataID(key, false);
+
+				if (metadataId == null)
+					continue;
+
+				final String value = constraint.getValue();
+
+				q.append(" AND metadata -> ? = ?");
+
+				arguments.add(metadataId.toString());
+				arguments.add(value);
+			}
+
+		q.append(" ORDER BY createTime DESC");
+
+		if (parser.latestFlag)
+			q.append(" LIMIT 1");
+
+		try (DBFunctions db = getDB()) {
+			db.query(q.toString(), false, arguments.toArray(new Object[0]));
+
+			while (db.moveNext())
+				ret.add(new SQLObject(db));
+		}
+	}
+
 	/**
 	 * @param parser
 	 * @return the most recent matching object
@@ -964,63 +1020,9 @@ public class SQLObject {
 			if (pathIDs == null || pathIDs.isEmpty())
 				return null;
 
-			final List<SQLObject> ret = new ArrayList<>();
+			final List<SQLObject> ret = Collections.synchronizedList(new ArrayList<>(pathIDs.size() * (parser.latestFlag ? 1 : 2)));
 
-			try (DBFunctions db = getDB()) {
-				for (final Integer pathId : pathIDs) {
-					final StringBuilder q = new StringBuilder(
-							"SELECT *,extract(epoch from lower(validity))*1000 as validfrom,extract(epoch from upper(validity))*1000 as validuntil FROM ccdb WHERE pathId=?");
-
-					final List<Object> arguments = new ArrayList<>();
-
-					arguments.add(pathId);
-
-					if (parser.uuidConstraint != null) {
-						q.append(" AND id=?");
-
-						arguments.add(parser.uuidConstraint);
-					}
-
-					if (parser.startTimeSet) {
-						q.append(" AND to_timestamp(?) AT TIME ZONE 'UTC' <@ validity");
-
-						arguments.add(Double.valueOf(parser.startTime / 1000.));
-					}
-
-					if (parser.notAfter > 0) {
-						q.append(" AND createTime<=?");
-
-						arguments.add(Long.valueOf(parser.notAfter));
-					}
-
-					if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
-						for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
-							final String key = constraint.getKey();
-
-							final Integer metadataId = getMetadataID(key, false);
-
-							if (metadataId == null)
-								return null;
-
-							final String value = constraint.getValue();
-
-							q.append(" AND metadata -> ? = ?");
-
-							arguments.add(metadataId.toString());
-							arguments.add(value);
-						}
-
-					q.append(" ORDER BY createTime DESC");
-
-					if (parser.latestFlag)
-						q.append(" LIMIT 1");
-
-					db.query(q.toString(), false, arguments.toArray(new Object[0]));
-
-					while (db.moveNext())
-						ret.add(new SQLObject(db));
-				}
-			}
+			pathIDs.parallelStream().forEach((id) -> getMatchingObjects(parser, id, ret));
 
 			return ret;
 		}
