@@ -37,6 +37,7 @@ import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.UUIDTools;
+import lazyj.Utils;
 
 /**
  * Prototype implementation of QC repository. This simple implementation is filesystem-based and targeted to local development and testing of the QC framework
@@ -74,43 +75,45 @@ public class Local extends HttpServlet {
 	private static boolean basePathSupportsMSTimestamps = false;
 
 	static {
-		try {
-			final File testBasePath = new File(basePath);
+		if (Utils.stringToBool(Options.getOption("file.repository.use_timestamps", null), false)) {
+			try {
+				final File testBasePath = new File(basePath);
 
-			if (!testBasePath.exists()) {
-				if (!testBasePath.mkdirs()) {
-					logger.log(Level.SEVERE, "Base directory cannot be created: " + basePath);
-					System.exit(1);
+				if (!testBasePath.exists()) {
+					if (!testBasePath.mkdirs()) {
+						logger.log(Level.SEVERE, "Base directory cannot be created: " + basePath);
+						System.exit(1);
+					}
+					else
+						logger.log(Level.INFO, "Base directory created: " + basePath);
 				}
+
+				if (!testBasePath.isDirectory() || !testBasePath.canWrite()) {
+					logger.log(Level.WARNING, "Base directory is not writable: " + basePath + " . Existing content will be returned but you won't be able to upload new objects.");
+				}
+
+				final File f1 = File.createTempFile("timestampCheck", "tmp", new File(basePath));
+
+				basePathSupportsMSTimestamps = true;
+
+				for (long lTest = 1000001; lTest <= 1000003; lTest++) {
+					f1.setLastModified(lTest);
+
+					if (f1.lastModified() != lTest)
+						basePathSupportsMSTimestamps = false;
+				}
+
+				f1.delete();
+
+				if (basePathSupportsMSTimestamps)
+					logger.log(Level.INFO, "Underlying filesystem of " + basePath + " supports millisecond-level resolution, trusting the last modification time of the blob files");
 				else
-					logger.log(Level.INFO, "Base directory created: " + basePath);
+					logger.log(Level.WARNING,
+							"Underlying filesystem of " + basePath + " doesn't support millisecond-level resolution, falling back to reading the end of validity interval from the *.properties files");
 			}
-
-			if (!testBasePath.isDirectory() || !testBasePath.canWrite()) {
-				logger.log(Level.WARNING, "Base directory is not writable: " + basePath + " . Existing content will be returned but you won't be able to upload new objects.");
+			catch (final IOException e) {
+				logger.log(Level.SEVERE, "Cannot test the underlying filesystem of " + basePath + " for time resolution, assuming it doesn't support millisecond-level modify times", e);
 			}
-
-			final File f1 = File.createTempFile("timestampCheck", "tmp", new File(basePath));
-
-			basePathSupportsMSTimestamps = true;
-
-			for (long lTest = 1000001; lTest <= 1000003; lTest++) {
-				f1.setLastModified(lTest);
-
-				if (f1.lastModified() != lTest)
-					basePathSupportsMSTimestamps = false;
-			}
-
-			f1.delete();
-
-			if (basePathSupportsMSTimestamps)
-				logger.log(Level.INFO, "Underlying filesystem of " + basePath + " supports millisecond-level resolution, trusting the last modification time of the blob files");
-			else
-				logger.log(Level.WARNING,
-						"Underlying filesystem of " + basePath + " doesn't support millisecond-level resolution, falling back to reading the end of validity interval from the *.properties files");
-		}
-		catch (final IOException e) {
-			logger.log(Level.SEVERE, "Cannot test the underlying filesystem of " + basePath + " for time resolution, assuming it doesn't support millisecond-level modify times", e);
 		}
 	}
 
