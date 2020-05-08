@@ -382,10 +382,17 @@ public class SQLObject {
 			config.set("server." + replica + ".urlPattern", pattern);
 		}
 
-		pattern = Format.replace(pattern, "UUID", id.toString());
-		pattern = Format.replace(pattern, "FOLDER", getFolder());
-		pattern = Format.replace(pattern, "PATH", getPath());
-		pattern = Format.replace(pattern, "HASH", SE.generatePath(id.toString()));
+		if (pattern.contains("UUID"))
+			pattern = Format.replace(pattern, "UUID", id.toString());
+
+		if (pattern.contains("FOLDER"))
+			pattern = Format.replace(pattern, "FOLDER", getFolder());
+
+		if (pattern.contains("PATH"))
+			pattern = Format.replace(pattern, "PATH", getPath());
+
+		if (pattern.contains("HASH"))
+			pattern = Format.replace(pattern, "HASH", SE.generatePath(id.toString()));
 
 		if (pattern.startsWith("alien://")) {
 			if (!resolveAliEn)
