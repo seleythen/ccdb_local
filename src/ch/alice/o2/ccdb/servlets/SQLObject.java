@@ -186,9 +186,7 @@ public class SQLObject {
 	 *            database row to load the fields from
 	 */
 	public SQLObject(final DBFunctions db) {
-		final Map<String, Object> columns = db.getValuesMap();
-
-		id = (UUID) columns.get("id");
+		id = (UUID) db.getObject("id");
 
 		createTime = db.getl("createtime");
 		validFrom = db.getl("validfrom");
@@ -202,13 +200,13 @@ public class SQLObject {
 
 		pathId = Integer.valueOf(db.geti("pathId")); // should convert back to the path
 
-		final Map<?, ?> md = (Map<?, ?>) columns.get("metadata");
+		final Map<?, ?> md = (Map<?, ?>) db.getObject("metadata");
 
 		if (md != null && md.size() > 0)
 			for (final Map.Entry<?, ?> entry : md.entrySet())
 				metadata.put(Integer.valueOf(entry.getKey().toString()), entry.getValue().toString());
 
-		final Array replicasObject = (Array) columns.get("replicas");
+		final Array replicasObject = (Array) db.getObject("replicas");
 
 		if (replicasObject != null)
 			try {
@@ -1004,8 +1002,15 @@ public class SQLObject {
 		try (DBFunctions db = getDB()) {
 			db.query(q.toString(), false, arguments.toArray(new Object[0]));
 
-			while (db.moveNext())
-				ret.add(new SQLObject(db));
+			while (db.moveNext()) {
+				try {
+					ret.add(new SQLObject(db));
+				}
+				catch (final Exception e) {
+					System.err.println("Got exception loading object " + db.geti("id") + " from DB: " + e.getMessage());
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 
