@@ -458,8 +458,10 @@ public class UDPReceiver extends Thread {
 
 					if (b != null)
 						currentBlobsForKey.set(i, new WeakReference<>(b));
-					else
+					else {
 						currentBlobsForKey.remove(i);
+						i--;
+					}
 				}
 			}
 
