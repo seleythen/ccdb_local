@@ -2,7 +2,7 @@ package ch.alice.o2.ccdb.servlets;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.ref.SoftReference;
+import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -93,7 +93,7 @@ public class MemoryBrowse extends HttpServlet {
 
 				final Map<String, SubfolderStats> subfolderAggregate = new TreeMap<>();
 
-				for (final Map.Entry<String, List<SoftReference<Blob>>> entry : UDPReceiver.currentCacheContent.entrySet()) {
+				for (final Map.Entry<String, List<Reference<Blob>>> entry : UDPReceiver.currentCacheContent.entrySet()) {
 					final String key = entry.getKey();
 
 					if (parser.path == null || parser.path.length() == 0 || key.startsWith(parser.path + "/")) {
@@ -113,7 +113,7 @@ public class MemoryBrowse extends HttpServlet {
 
 						final SubfolderStats stats = subfolderAggregate.computeIfAbsent(firstLevelFolder, k -> new SubfolderStats());
 
-						for (final SoftReference<Blob> sb : entry.getValue()) {
+						for (final Reference<Blob> sb : entry.getValue()) {
 							final Blob b = sb.get();
 
 							if (b != null)
@@ -182,13 +182,13 @@ public class MemoryBrowse extends HttpServlet {
 				pathFilter = pathFilter.substring(0, pathFilter.length() - 1);
 		}
 
-		for (final Map.Entry<String, List<SoftReference<Blob>>> entry : UDPReceiver.currentCacheContent.entrySet()) {
+		for (final Map.Entry<String, List<Reference<Blob>>> entry : UDPReceiver.currentCacheContent.entrySet()) {
 			final String path = entry.getKey();
 
 			if ((pFilter == null && path.equals(pathFilter)) || (pFilter != null && pFilter.matcher(path).matches())) {
 				Blob bBest = null;
 
-				for (final SoftReference<Blob> sb : entry.getValue()) {
+				for (final Reference<Blob> sb : entry.getValue()) {
 					final Blob b = sb.get();
 
 					if (b == null)

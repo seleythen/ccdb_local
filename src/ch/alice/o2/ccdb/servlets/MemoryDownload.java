@@ -1,7 +1,7 @@
 package ch.alice.o2.ccdb.servlets;
 
 import java.io.IOException;
-import java.lang.ref.SoftReference;
+import java.lang.ref.Reference;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,11 +59,11 @@ public class MemoryDownload extends HttpServlet {
 
 		Blob match = null;
 
-		for (List<SoftReference<Blob>> candidates : UDPReceiver.currentCacheContent.values()) {
+		for (List<Reference<Blob>> candidates : UDPReceiver.currentCacheContent.values()) {
 			if (candidates == null || candidates.size() == 0)
 				continue;
 
-			for (final SoftReference<Blob> sblob : candidates) {
+			for (final Reference<Blob> sblob : candidates) {
 				final Blob blob = sblob.get();
 
 				if (blob == null)
