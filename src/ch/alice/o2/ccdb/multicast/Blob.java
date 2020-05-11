@@ -41,6 +41,11 @@ public class Blob implements Comparable<Blob> {
 	private static final Logger logger = SingletonLogger.getLogger();
 
 	/**
+	 * Whether or not to verify the checksums per packet and per object upon receiving.
+	 */
+	final static boolean VERIFY_CHECKSUMS = lazyj.Utils.stringToBool(Options.getOption("multicast.client.verify_checksums", "true"), true);
+
+	/**
 	 * UDP packet containing only metadata
 	 */
 	public final static byte METADATA_CODE = 0;
@@ -528,15 +533,16 @@ public class Blob implements Comparable<Blob> {
 			return complete;
 		}
 
-		// Verify checksums
-		if (!Arrays.equals(this.payloadChecksum, Utils.calculateChecksum(this.payload))) {
-			// System.err.println("Payload checksum inconsistent");
-			throw new IOException("Payload checksum failed");
-		}
+		if (VERIFY_CHECKSUMS) {
+			if (!Arrays.equals(this.payloadChecksum, Utils.calculateChecksum(this.payload))) {
+				// System.err.println("Payload checksum inconsistent");
+				throw new IOException("Payload checksum failed");
+			}
 
-		if (!Arrays.equals(this.metadataChecksum, Utils.calculateChecksum(this.metadata))) {
-			// System.err.println("Metadata checksum inconsistent");
-			throw new IOException("Metadata checksum failed");
+			if (!Arrays.equals(this.metadataChecksum, Utils.calculateChecksum(this.metadata))) {
+				// System.err.println("Metadata checksum inconsistent");
+				throw new IOException("Metadata checksum failed");
+			}
 		}
 
 		if (startTime <= 0)
@@ -769,7 +775,12 @@ public class Blob implements Comparable<Blob> {
 	 * @param value
 	 */
 	public void setProperty(final String metadataKey, final String value) {
-		getMetadataMap().put(metadataKey, value);
+		final String oldValue = getMetadataMap().put(metadataKey, value);
+
+		if (value != null && value.equals(oldValue)) {
+			// nothing changed
+			return;
+		}
 
 		try {
 			this.metadata = Utils.serializeMetadata(cachedMetadataMap);

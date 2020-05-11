@@ -28,7 +28,7 @@ class FragmentedBlob {
 	private byte[] payloadChecksum;
 	private String key;
 	private byte[] payload;
-	private final byte[] packetChecksum;
+	private byte[] packetChecksum = null;
 
 	/**
 	 * Manual deserialization of a serialisedFragmentedBlob
@@ -41,12 +41,15 @@ class FragmentedBlob {
 	 */
 	public FragmentedBlob(final byte[] serialisedFragmentedBlob, final int packetLength) throws NoSuchAlgorithmException, IOException {
 		// Field 9: Packet Checksum
-		this.packetChecksum = Arrays.copyOfRange(serialisedFragmentedBlob, packetLength - Utils.SIZE_OF_PACKET_CHECKSUM, packetLength);
 
-		// Check packet checksum:
-		if (!Arrays.equals(this.packetChecksum, Utils.calculateChecksum(Arrays.copyOfRange(serialisedFragmentedBlob, 0, packetLength - Utils.SIZE_OF_PACKET_CHECKSUM)))) {
-			logger.log(Level.SEVERE, "Packet checksum failed!");
-			throw new IOException("Packet checksum failed!");
+		if (Blob.VERIFY_CHECKSUMS) {
+			this.packetChecksum = Arrays.copyOfRange(serialisedFragmentedBlob, packetLength - Utils.SIZE_OF_PACKET_CHECKSUM, packetLength);
+
+			// Check packet checksum:
+			if (!Arrays.equals(this.packetChecksum, Utils.calculateChecksum(Arrays.copyOfRange(serialisedFragmentedBlob, 0, packetLength - Utils.SIZE_OF_PACKET_CHECKSUM)))) {
+				logger.log(Level.SEVERE, "Packet checksum failed!");
+				throw new IOException("Packet checksum failed!");
+			}
 		}
 
 		// Field 1: Fragment Offset
@@ -86,7 +89,8 @@ class FragmentedBlob {
 	}
 
 	/**
-	 * @param fragmentOffset new offset value
+	 * @param fragmentOffset
+	 *            new offset value
 	 */
 	void setFragmentOffset(final int fragmentOffset) {
 		this.fragmentOffset = fragmentOffset;
@@ -100,7 +104,8 @@ class FragmentedBlob {
 	}
 
 	/**
-	 * @param key new key value
+	 * @param key
+	 *            new key value
 	 */
 	void setKey(final String key) {
 		this.key = key;
@@ -114,7 +119,8 @@ class FragmentedBlob {
 	}
 
 	/**
-	 * @param uuid new uuid
+	 * @param uuid
+	 *            new uuid
 	 */
 	void setUuid(final UUID uuid) {
 		this.uuid = uuid;
@@ -128,7 +134,8 @@ class FragmentedBlob {
 	}
 
 	/**
-	 * @param payloadChecksum new checksum value
+	 * @param payloadChecksum
+	 *            new checksum value
 	 */
 	void setPayloadChecksum(final byte[] payloadChecksum) {
 		this.payloadChecksum = payloadChecksum;
@@ -142,7 +149,8 @@ class FragmentedBlob {
 	}
 
 	/**
-	 * @param blobDataLength setter
+	 * @param blobDataLength
+	 *            setter
 	 */
 	void setblobDataLength(final int blobDataLength) {
 		this.blobDataLength = blobDataLength;
@@ -156,7 +164,8 @@ class FragmentedBlob {
 	}
 
 	/**
-	 * @param packetType new value
+	 * @param packetType
+	 *            new value
 	 */
 	void setPachetType(final byte packetType) {
 		this.packetType = packetType;
@@ -170,7 +179,8 @@ class FragmentedBlob {
 	}
 
 	/**
-	 * @param payload new content
+	 * @param payload
+	 *            new content
 	 */
 	void setPayload(final byte[] payload) {
 		this.payload = payload;
@@ -181,14 +191,14 @@ class FragmentedBlob {
 		final StringBuilder output = new StringBuilder();
 
 		switch (this.packetType) {
-			case Blob.METADATA_CODE:
-				output.append("Metadata");
-				break;
-			case Blob.DATA_CODE:
-				output.append("Data");
-				break;
-			default:
-				output.append("Small Blob");
+		case Blob.METADATA_CODE:
+			output.append("Metadata");
+			break;
+		case Blob.DATA_CODE:
+			output.append("Data");
+			break;
+		default:
+			output.append("Small Blob");
 		}
 
 		output.append(" fragmentedBlob with \nfragmentOffset = ").append(this.fragmentOffset);
@@ -196,7 +206,9 @@ class FragmentedBlob {
 		output.append("\nuuid = ").append(this.uuid.toString());
 		output.append("\npayloadChecksum = ").append(Utils.humanReadableChecksum(payloadChecksum));
 		output.append("\npayload = ").append(payload.length).append(" bytes");
-		output.append("\npacketChecksum = ").append(Utils.humanReadableChecksum(packetChecksum));
+
+		if (Blob.VERIFY_CHECKSUMS)
+			output.append("\npacketChecksum = ").append(Utils.humanReadableChecksum(packetChecksum));
 
 		return output.toString();
 	}
