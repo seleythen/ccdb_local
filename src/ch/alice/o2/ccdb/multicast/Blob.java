@@ -43,7 +43,7 @@ public class Blob implements Comparable<Blob> {
 	/**
 	 * Whether or not to verify the checksums per packet and per object upon receiving.
 	 */
-	final static boolean VERIFY_CHECKSUMS = lazyj.Utils.stringToBool(Options.getOption("multicast.client.verify_checksums", "true"), true);
+	final static boolean VERIFY_CHECKSUMS = lazyj.Utils.stringToBool(Options.getOption("multicast.client.verify_checksums", "false"), false);
 
 	/**
 	 * UDP packet containing only metadata
