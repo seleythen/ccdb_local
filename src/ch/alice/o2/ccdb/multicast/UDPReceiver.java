@@ -3,7 +3,9 @@ package ch.alice.o2.ccdb.multicast;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
@@ -73,12 +75,14 @@ public class UDPReceiver extends Thread {
 	/**
 	 * Blob-uri complete
 	 */
-	public static final Map<String, List<SoftReference<Blob>>> currentCacheContent = new ConcurrentHashMap<>();
+	public static final Map<String, List<Reference<Blob>>> currentCacheContent = new ConcurrentHashMap<>();
 
 	private static final ReentrantReadWriteLock contentStructureLock = new ReentrantReadWriteLock();
 
 	private static final ReadLock contentStructureReadLock = contentStructureLock.readLock();
 	private static final WriteLock contentStructureWriteLock = contentStructureLock.writeLock();
+
+	private static final boolean SOFT_REFRENCES = lazyj.Utils.stringToBool(Options.getOption("udpreceiver.soft_references", "true"), true);
 
 	/**
 	 * Initialize the configuration
@@ -390,9 +394,9 @@ public class UDPReceiver extends Thread {
 		}
 	}, "IncompleteBlobRecovery");
 
-	private static final Comparator<SoftReference<Blob>> startTimeComparator = new Comparator<>() {
+	private static final Comparator<Reference<Blob>> startTimeComparator = new Comparator<>() {
 		@Override
-		public int compare(final SoftReference<Blob> sb1, final SoftReference<Blob> sb2) {
+		public int compare(final Reference<Blob> sb1, final Reference<Blob> sb2) {
 			final Blob o1 = sb1.get();
 			final Blob o2 = sb2.get();
 
@@ -423,6 +427,13 @@ public class UDPReceiver extends Thread {
 		}
 	};
 
+	private static Reference<Blob> getReference(final Blob blob) {
+		if (SOFT_REFRENCES)
+			return new SoftReference<>(blob);
+
+		return new WeakReference<>(blob);
+	}
+
 	/**
 	 * Add the complete Blob to the cache
 	 *
@@ -433,16 +444,16 @@ public class UDPReceiver extends Thread {
 		contentStructureWriteLock.lock();
 
 		try {
-			final List<SoftReference<Blob>> currentBlobsForKey = currentCacheContent.computeIfAbsent(blob.getKey(), k -> new Vector<>(Arrays.asList(new SoftReference<>(blob))));
+			final List<Reference<Blob>> currentBlobsForKey = currentCacheContent.computeIfAbsent(blob.getKey(), k -> new Vector<>(Arrays.asList(getReference(blob))));
 
-			for (final SoftReference<Blob> sb : currentBlobsForKey) {
+			for (final Reference<Blob> sb : currentBlobsForKey) {
 				final Blob b = sb.get();
 
 				if (b != null && b.getUuid().equals(blob.getUuid()))
 					return b;
 			}
 
-			currentBlobsForKey.add(new SoftReference<>(blob));
+			currentBlobsForKey.add(getReference(blob));
 			currentBlobsForKey.sort(startTimeComparator);
 
 			return blob;
@@ -456,7 +467,7 @@ public class UDPReceiver extends Thread {
 		contentStructureReadLock.lock();
 
 		try {
-			final List<SoftReference<Blob>> currentBlobsForKey = currentCacheContent.get(key);
+			final List<Reference<Blob>> currentBlobsForKey = currentCacheContent.get(key);
 
 			if (currentBlobsForKey != null)
 				currentBlobsForKey.sort(startTimeComparator);
@@ -475,10 +486,10 @@ public class UDPReceiver extends Thread {
 		Blob blob = null;
 
 		try {
-			final List<SoftReference<Blob>> candidates = currentCacheContent.get(fragmentedBlob.getKey());
+			final List<Reference<Blob>> candidates = currentCacheContent.get(fragmentedBlob.getKey());
 
 			if (candidates != null)
-				for (final SoftReference<Blob> sb : candidates) {
+				for (final Reference<Blob> sb : candidates) {
 					final Blob b = sb.get();
 
 					if (b != null && b.getUuid().equals(fragmentedBlob.getUuid())) {
@@ -618,12 +629,12 @@ public class UDPReceiver extends Thread {
 				long sizeOfObjectsInMemory = 0;
 
 				try {
-					final Iterator<Map.Entry<String, List<SoftReference<Blob>>>> cacheContentIterator = currentCacheContent.entrySet().iterator();
+					final Iterator<Map.Entry<String, List<Reference<Blob>>>> cacheContentIterator = currentCacheContent.entrySet().iterator();
 
 					while (cacheContentIterator.hasNext()) {
-						final Map.Entry<String, List<SoftReference<Blob>>> currentEntry = cacheContentIterator.next();
+						final Map.Entry<String, List<Reference<Blob>>> currentEntry = cacheContentIterator.next();
 
-						final List<SoftReference<Blob>> objects = currentEntry.getValue();
+						final List<Reference<Blob>> objects = currentEntry.getValue();
 
 						if (objects.size() == 0) {
 							monitor.incrementCounter("cleaned_empty_lists");
@@ -637,10 +648,10 @@ public class UDPReceiver extends Thread {
 						final long currentTime = System.currentTimeMillis();
 
 						synchronized (objects) {
-							final Iterator<SoftReference<Blob>> objectIterator = objects.iterator();
+							final Iterator<Reference<Blob>> objectIterator = objects.iterator();
 
 							while (objectIterator.hasNext()) {
-								final SoftReference<Blob> sb = objectIterator.next();
+								final Reference<Blob> sb = objectIterator.next();
 
 								final Blob b = sb.get();
 
@@ -688,7 +699,7 @@ public class UDPReceiver extends Thread {
 
 							// the most recent object should stay in any case
 							for (int i = 0; i < objects.size() - 1; i++) {
-								final SoftReference<Blob> sb = objects.get(i);
+								final Reference<Blob> sb = objects.get(i);
 
 								final Blob b = sb.get();
 
@@ -711,7 +722,7 @@ public class UDPReceiver extends Thread {
 								}
 							}
 
-							for (final SoftReference<Blob> activeObject : objects) {
+							for (final Reference<Blob> activeObject : objects) {
 								final Blob b = activeObject.get();
 
 								if (b != null) {
