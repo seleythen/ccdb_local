@@ -82,7 +82,7 @@ public class UDPReceiver extends Thread {
 	private static final ReadLock contentStructureReadLock = contentStructureLock.readLock();
 	private static final WriteLock contentStructureWriteLock = contentStructureLock.writeLock();
 
-	private static final boolean SOFT_REFRENCES = lazyj.Utils.stringToBool(Options.getOption("udpreceiver.soft_references", "true"), true);
+	private static final int SOFT_REFERENCE_THRESHOLD = Options.getIntOption("udpreceiver.soft_references_threshold", 10);
 
 	/**
 	 * Initialize the configuration
@@ -427,13 +427,6 @@ public class UDPReceiver extends Thread {
 		}
 	};
 
-	private static Reference<Blob> getReference(final Blob blob) {
-		if (SOFT_REFRENCES)
-			return new SoftReference<>(blob);
-
-		return new WeakReference<>(blob);
-	}
-
 	/**
 	 * Add the complete Blob to the cache
 	 *
@@ -444,7 +437,7 @@ public class UDPReceiver extends Thread {
 		contentStructureWriteLock.lock();
 
 		try {
-			final List<Reference<Blob>> currentBlobsForKey = currentCacheContent.computeIfAbsent(blob.getKey(), k -> new Vector<>(Arrays.asList(getReference(blob))));
+			final List<Reference<Blob>> currentBlobsForKey = currentCacheContent.computeIfAbsent(blob.getKey(), k -> new Vector<>(Arrays.asList(new SoftReference<>(blob))));
 
 			for (final Reference<Blob> sb : currentBlobsForKey) {
 				final Blob b = sb.get();
@@ -453,8 +446,22 @@ public class UDPReceiver extends Thread {
 					return b;
 			}
 
-			currentBlobsForKey.add(getReference(blob));
+			currentBlobsForKey.add(new SoftReference<>(blob));
 			currentBlobsForKey.sort(startTimeComparator);
+
+			// first entries are the oldest
+			for (int i = 0; i < currentBlobsForKey.size() - SOFT_REFERENCE_THRESHOLD; i++) {
+				final Reference<Blob> existing = currentBlobsForKey.get(i);
+
+				if (existing instanceof SoftReference) {
+					final Blob b = existing.get();
+
+					if (b != null)
+						currentBlobsForKey.set(i, new WeakReference<>(b));
+					else
+						currentBlobsForKey.remove(i);
+				}
+			}
 
 			return blob;
 		}
@@ -674,7 +681,7 @@ public class UDPReceiver extends Thread {
 										}
 									}
 									else
-										if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 60) {
+										if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 10) {
 											if (logger.isLoggable(Level.INFO))
 												logger.log(Level.INFO, "Removing incomplete and not yet recovered object " + b.getKey() + ": " + b.getUuid());
 
