@@ -219,7 +219,8 @@ public class LocalBrowse extends HttpServlet {
 				for (final File f : intervalFileList) {
 					final LocalObjectWithVersion owv = new LocalObjectWithVersion(lValidityStart, f);
 
-					if ((!parser.startTimeSet || owv.covers(parser.startTime)) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter) && owv.matches(parser.flagConstraints)) {
+					if ((!parser.startTimeSet || owv.covers(parser.startTime)) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter)
+							&& (parser.notBefore <= 0 || owv.getCreateTime() >= parser.notBefore) && owv.matches(parser.flagConstraints)) {
 						if (parser.latestFlag) {
 							if (mostRecent == null)
 								mostRecent = owv;

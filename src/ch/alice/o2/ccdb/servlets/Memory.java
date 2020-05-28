@@ -608,6 +608,9 @@ public class Memory extends HttpServlet {
 		if (parser.notAfter > 0 && blob.getCreateTime() > parser.notAfter)
 			return false;
 
+		if (parser.notBefore > 0 && blob.getCreateTime() < parser.notBefore)
+			return false;
+
 		if (!blob.matches(parser.flagConstraints))
 			return false;
 

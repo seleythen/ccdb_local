@@ -928,6 +928,12 @@ public class SQLObject {
 					arguments.add(Long.valueOf(parser.notAfter));
 				}
 
+				if (parser.notBefore > 0) {
+					q.append(" AND createTime>=?");
+
+					arguments.add(Long.valueOf(parser.notBefore));
+				}
+
 				if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)
 					for (final Map.Entry<String, String> constraint : parser.flagConstraints.entrySet()) {
 						final String key = constraint.getKey();
@@ -982,6 +988,12 @@ public class SQLObject {
 			q.append(" AND createTime<=?");
 
 			arguments.add(Long.valueOf(parser.notAfter));
+		}
+
+		if (parser.notBefore > 0) {
+			q.append(" AND createTime>=?");
+
+			arguments.add(Long.valueOf(parser.notBefore));
 		}
 
 		if (parser.flagConstraints != null && parser.flagConstraints.size() > 0)

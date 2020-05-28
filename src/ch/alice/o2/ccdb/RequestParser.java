@@ -65,6 +65,11 @@ public class RequestParser {
 	public long notAfter = 0;
 
 	/**
+	 * Only recent objects, for QC investigations
+	 */
+	public long notBefore = 0;
+
+	/**
 	 * Quality or other metadata constraints that have to match (or be set)
 	 */
 	public final Map<String, String> flagConstraints = new HashMap<>();
@@ -136,6 +141,13 @@ public class RequestParser {
 
 		try {
 			notAfter = Long.parseLong(request.getHeader("If-Not-After"));
+		}
+		catch (@SuppressWarnings("unused") final Throwable t) {
+			// ignore
+		}
+
+		try {
+			notBefore = Long.parseLong(request.getHeader("If-Not-Before"));
 		}
 		catch (@SuppressWarnings("unused") final Throwable t) {
 			// ignore
@@ -247,6 +259,9 @@ public class RequestParser {
 
 		if (notAfter > 0)
 			sb.append("Snapshot time limit: ").append(notAfter).append(" (").append(new Date(notAfter)).append(")\n");
+
+		if (notBefore > 0)
+			sb.append("Newer objects limit: ").append(notBefore).append(" (").append(new Date(notBefore)).append(")\n");
 
 		return sb.toString();
 	}

@@ -604,7 +604,8 @@ public class Local extends HttpServlet {
 				for (final File f : intervalFileList) {
 					final LocalObjectWithVersion owv = new LocalObjectWithVersion(lValidityStart, f);
 
-					if (owv.covers(parser.startTime) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter) && owv.matches(parser.flagConstraints))
+					if (owv.covers(parser.startTime) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter) && (parser.notBefore <= 0 || owv.getCreateTime() >= parser.notBefore)
+							&& owv.matches(parser.flagConstraints))
 						if (mostRecent == null)
 							mostRecent = owv;
 						else
