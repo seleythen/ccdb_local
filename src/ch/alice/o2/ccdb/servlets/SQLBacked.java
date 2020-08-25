@@ -52,7 +52,8 @@ public class SQLBacked extends HttpServlet {
 	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("user.home") + System.getProperty("file.separator") + "QC");
 
 	static {
-		monitor.addMonitoring("stats", new SQLStatsExporter());
+		monitor.addMonitoring("stats", new SQLStatsExporter(null));
+		monitor.addMonitoring("qc_stats", new SQLStatsExporter("qc"));
 
 		if (Options.getIntOption("gridreplication.enabled", 0) == 1) {
 			try {
