@@ -53,7 +53,8 @@ public class SQLBacked extends HttpServlet {
 
 	static {
 		monitor.addMonitoring("stats", new SQLStatsExporter(null));
-		monitor.addMonitoring("qc_stats", new SQLStatsExporter("qc"));
+
+		MonitorFactory.getMonitor("ch.alice.o2.ccdb.servlets.qc_stats").addMonitoring("qc_stats", new SQLStatsExporter("qc"));
 
 		if (Options.getIntOption("gridreplication.enabled", 0) == 1) {
 			try {
