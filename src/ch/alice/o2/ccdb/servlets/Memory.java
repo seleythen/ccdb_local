@@ -462,6 +462,8 @@ public class Memory extends HttpServlet {
 				if (parser.flagConstraints != null)
 					newBlob.setMetadata(Utils.serializeMetadata(parser.flagConstraints));
 
+				System.err.println("Created blob");
+
 				newBlob.setProperty("InitialValidityLimit", String.valueOf(parser.endTime));
 				newBlob.setProperty("OriginalFileName", part.getSubmittedFileName());
 				newBlob.setProperty("Content-Type", part.getContentType());
@@ -470,6 +472,8 @@ public class Memory extends HttpServlet {
 				newBlob.setProperty("Valid-From", String.valueOf(newBlob.startTime));
 				newBlob.setProperty("Valid-Until", String.valueOf(newBlob.getEndTime()));
 				newBlob.setProperty("Uploaded-At", String.valueOf(newObjectTime));
+
+				System.err.println("At time: " + newObjectTime);
 
 				if (newBlob.getProperty("Created") == null)
 					newBlob.setProperty("Created", String.valueOf(GUIDUtils.epochTime(targetUUID)));

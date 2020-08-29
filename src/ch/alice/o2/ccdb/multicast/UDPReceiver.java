@@ -374,6 +374,8 @@ public class UDPReceiver extends Thread {
 
 				final Blob blob = toRecover.blob;
 
+				System.err.println("Recovering blob");
+
 				try {
 					if (blob.isComplete()) {
 						// nothing to do anymore
@@ -574,7 +576,7 @@ public class UDPReceiver extends Thread {
 					// Receive object
 
 					socket.receive(packet);
-
+					System.out.println("Received blob in receiver");
 					final int len = packet.getLength();
 
 					final byte[] activePart = new byte[len];

@@ -566,6 +566,7 @@ public class Blob implements Comparable<Blob> {
 		long sharingTime = currentTime - uploadTime;
 
 		monitor.addMeasurement("Sharing time", sharingTime);
+		System.out.println("Received object. Sharing time: " + sharingTime + " ms");
 
 		complete = true;
 
