@@ -469,6 +469,7 @@ public class Memory extends HttpServlet {
 				newBlob.setProperty("File-Size", String.valueOf(payload.length));
 				newBlob.setProperty("Valid-From", String.valueOf(newBlob.startTime));
 				newBlob.setProperty("Valid-Until", String.valueOf(newBlob.getEndTime()));
+				newBlob.setProperty("Uploaded-At", String.valueOf(newObjectTime));
 
 				if (newBlob.getProperty("Created") == null)
 					newBlob.setProperty("Created", String.valueOf(GUIDUtils.epochTime(targetUUID)));
