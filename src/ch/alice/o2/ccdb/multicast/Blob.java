@@ -23,10 +23,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import alien.catalogue.GUIDUtils;
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
 import alien.test.cassandra.tomcat.Options;
 import ch.alice.o2.ccdb.UUIDTools;
 import ch.alice.o2.ccdb.multicast.Utils.Pair;
 import ch.alice.o2.ccdb.servlets.LocalObjectWithVersion;
+import ch.alice.o2.ccdb.servlets.SQLBacked;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.Format;
 
@@ -44,6 +47,8 @@ public class Blob implements Comparable<Blob> {
 	 * Whether or not to verify the checksums per packet and per object upon receiving.
 	 */
 	final static boolean VERIFY_CHECKSUMS = lazyj.Utils.stringToBool(Options.getOption("multicast.client.verify_checksums", "false"), false);
+
+	private static final Monitor monitor = MonitorFactory.getMonitor(SQLBacked.class.getCanonicalName());
 
 	/**
 	 * UDP packet containing only metadata
@@ -555,6 +560,12 @@ public class Blob implements Comparable<Blob> {
 
 		if(uploadTime <= 0)
 			uploadTime = Long.parseLong(getProperty("Uploaded-At"));
+
+		// good place to save time, when object is finally completed?
+		long currentTime = System.currentTimeMillis();
+		long sharingTime = currentTime - uploadTime;
+
+		monitor.addMeasurement("Sharing time", sharingTime);
 
 		complete = true;
 
