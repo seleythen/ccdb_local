@@ -70,6 +70,8 @@ public class Blob implements Comparable<Blob> {
 	private final List<Pair> metadataByteRanges = new Vector<>();
 	private final List<Pair> payloadByteRanges = new Vector<>();
 
+	private long uploadTime;
+
 	/**
 	 * Start of the validity interval
 	 */
@@ -550,6 +552,9 @@ public class Blob implements Comparable<Blob> {
 
 		if (endTime <= 0)
 			endTime = Long.parseLong(getProperty("Valid-Until"));
+
+		if(uploadTime <= 0)
+			uploadTime = Long.parseLong(getProperty("Uploaded-At"));
 
 		complete = true;
 
@@ -1087,5 +1092,13 @@ public class Blob implements Comparable<Blob> {
 		}
 
 		return null;
+	}
+
+	public long getUploadTime() {
+		return uploadTime;
+	}
+
+	public void setUploadTime(long uploadTime) {
+		this.uploadTime = uploadTime;
 	}
 }
