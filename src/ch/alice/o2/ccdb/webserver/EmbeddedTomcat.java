@@ -320,17 +320,17 @@ public class EmbeddedTomcat extends Tomcat {
 		connector.setPort(tomcatPort);
 		connector.setSecure(true);
 		connector.setScheme("https");
-		connector.setAttribute("keyAlias", "User.cert");
-		connector.setAttribute("keystorePass", keystorePass);
-		connector.setAttribute("keystoreType", "JKS");
-		connector.setAttribute("keystoreFile", keystoreName);
-		connector.setAttribute("truststorePass", keystorePass);
-		connector.setAttribute("truststoreType", "JKS");
-		connector.setAttribute("truststoreFile", truststoreName);
-		connector.setAttribute("clientAuth", "true");
-		connector.setAttribute("sslProtocol", "TLS");
-		connector.setAttribute("SSLEnabled", "true");
-		connector.setAttribute("maxThreads", "200");
+		connector.setProperty("keyAlias", "User.cert");
+		connector.setProperty("keystorePass", keystorePass);
+		connector.setProperty("keystoreType", "JKS");
+		connector.setProperty("keystoreFile", keystoreName);
+		connector.setProperty("truststorePass", keystorePass);
+		connector.setProperty("truststoreType", "JKS");
+		connector.setProperty("truststoreFile", truststoreName);
+		connector.setProperty("clientAuth", "true");
+		connector.setProperty("sslProtocol", "TLS");
+		connector.setProperty("SSLEnabled", "true");
+		connector.setProperty("maxThreads", "200");
 
 		decorateConnector(connector);
 
