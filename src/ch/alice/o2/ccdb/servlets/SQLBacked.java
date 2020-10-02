@@ -215,6 +215,8 @@ public class SQLBacked extends HttpServlet {
 		// if end time is missing then it will be set to the same value as start time
 		// flags are in the form "key=value"
 
+		System.err.println("Serving post request");
+
 		try (Timing t = new Timing(monitor, "POST_ms")) {
 			final RequestParser parser = new RequestParser(request);
 
@@ -310,6 +312,7 @@ public class SQLBacked extends HttpServlet {
 
 	@Override
 	protected void doPut(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+		System.err.println("Serving put request");
 		try (Timing t = new Timing(monitor, "PUT_ms")) {
 			final RequestParser parser = new RequestParser(request);
 
