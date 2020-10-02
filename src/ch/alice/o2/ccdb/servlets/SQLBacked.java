@@ -86,6 +86,8 @@ public class SQLBacked extends HttpServlet {
 
 		if (httpSender != null)
 			notifiers.add(httpSender);
+
+		System.err.println("notifiers added");
 	}
 
 	static boolean isLocalCopyFirst() {
@@ -468,5 +470,9 @@ public class SQLBacked extends HttpServlet {
 			db.query("INSERT INTO ccdb_stats SELECT pathid, count(1), sum(size) FROM ccdb GROUP BY 1;");
 			db.query("INSERT INTO ccdb_stats SELECT 0, sum(object_count), sum(object_size) FROM ccdb_stats WHERE pathid!=0;");
 		}
+	}
+
+	static {
+		System.err.println("Database and servlet initialized");
 	}
 }
