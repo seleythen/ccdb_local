@@ -407,7 +407,9 @@ public class SQLBacked extends HttpServlet {
 
 	static {
 		// make sure the database structures exist when the server is initialized
+		System.err.println("Trying to create database");
 		createDBStructure();
+		System.err.println("Database created");
 	}
 
 	/**
