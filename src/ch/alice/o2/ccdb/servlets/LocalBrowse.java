@@ -193,6 +193,12 @@ public class LocalBrowse extends HttpServlet {
 
 		recursiveMatching(parser, ret, fBaseDir, matchingPattern);
 
+		if (parser.browseLimit > 0 && parser.browseLimit < ret.size()) {
+			// return at most Browse-Limit objects, the most recent ones from any matching path
+			Collections.sort(ret);
+			return ret.subList(0, parser.browseLimit);
+		}
+
 		return ret;
 	}
 
@@ -250,8 +256,5 @@ public class LocalBrowse extends HttpServlet {
 					recursiveMatching(parser, ret, fInterval, matchingPattern);
 				}
 			}
-
-		if (parser.latestFlag && mostRecent != null)
-			ret.add(mostRecent);
 	}
 }

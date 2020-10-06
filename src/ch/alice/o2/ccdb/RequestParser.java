@@ -86,6 +86,12 @@ public class RequestParser {
 	public boolean wildcardMatching = false;
 
 	/**
+	 * If strictly positive, return the most recent L number of objects.
+	 * The <code>/browse/</code> area can use this in particular, and the value is read from the <code>Browse-Limit</code> HTTP header.
+	 */
+	public int browseLimit = -1;
+
+	/**
 	 * @param request
 	 *            request to wrap around
 	 */
@@ -125,6 +131,16 @@ public class RequestParser {
 		final List<String> pathElements = new ArrayList<>();
 
 		ok = true;
+
+		try {
+			String browseLimitHeader = request.getHeader("Browse-Limit");
+
+			if (browseLimitHeader != null && !browseLimitHeader.isBlank())
+				browseLimit = Integer.parseInt(browseLimitHeader);
+		}
+		catch (@SuppressWarnings("unused") final NumberFormatException nfe) {
+			// ignore
+		}
 
 		try {
 			String previousUUID = request.getHeader("If-None-Match");

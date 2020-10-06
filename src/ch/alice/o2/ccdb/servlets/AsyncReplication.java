@@ -111,11 +111,14 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 				return;
 
 			try {
-				IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,disk:5");
+				final LFN result = IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,disk:5");
 
-				try (DBFunctions db = SQLObject.getDB()) {
-					db.query("update ccdb set replicas=replicas || ? where id=? AND NOT ? = ANY(replicas);", false, Integer.valueOf(-1), object.id, Integer.valueOf(-1));
-				}
+				if (result != null)
+					try (DBFunctions db = SQLObject.getDB()) {
+						db.query("update ccdb set replicas=replicas || ? where id=? AND NOT ? = ANY(replicas);", false, Integer.valueOf(-1), object.id, Integer.valueOf(-1));
+					}
+				else
+					System.err.println("Failed to upload " + localFile + " to " + targetObjectPath);
 			}
 			catch (final IOException e) {
 				System.err.println("Could not upload " + localFile.getAbsolutePath() + " to " + targetObjectPath + ", reason was: " + e.getMessage());

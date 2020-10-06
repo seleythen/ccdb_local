@@ -47,7 +47,7 @@ import lazyj.StringFactory;
  * @author costing
  * @since 2017-10-13
  */
-public class SQLObject {
+public class SQLObject implements Comparable<SQLObject> {
 	private static ExtProperties config = new ExtProperties(Options.getOption("config.dir", "."), Options.getOption("config.file", "config"));
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLObject.class.getCanonicalName());
@@ -1017,6 +1017,9 @@ public class SQLObject {
 
 		if (parser.latestFlag)
 			q.append(" LIMIT 1");
+		else
+			if (parser.browseLimit > 0)
+				q.append(" LIMIT " + parser.browseLimit);
 
 		try (DBFunctions db = getDB()) {
 			db.query(q.toString(), false, arguments.toArray(new Object[0]));
@@ -1047,6 +1050,12 @@ public class SQLObject {
 			final List<SQLObject> ret = Collections.synchronizedList(new ArrayList<>(pathIDs.size() * (parser.latestFlag ? 1 : 2)));
 
 			pathIDs.parallelStream().forEach((id) -> getMatchingObjects(parser, id, ret));
+
+			if (parser.browseLimit > 0 && ret.size() > parser.browseLimit) {
+				Collections.sort(ret);
+
+				return ret.subList(0, parser.browseLimit);
+			}
 
 			return ret;
 		}
@@ -1095,5 +1104,34 @@ public class SQLObject {
 		guid.aclId = -1;
 
 		return guid;
+	}
+
+	@Override
+	public int compareTo(final SQLObject o) {
+		final long diff = o.createTime - this.createTime;
+
+		if (diff < 0)
+			return -1;
+
+		if (diff > 0)
+			return 1;
+
+		return o.id.compareTo(this.id);
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+		if (obj == this)
+			return true;
+
+		if (obj == null || !(obj instanceof SQLObject))
+			return false;
+
+		return compareTo((SQLObject) obj) == 0;
+	}
+
+	@Override
+	public int hashCode() {
+		return id.hashCode();
 	}
 }
