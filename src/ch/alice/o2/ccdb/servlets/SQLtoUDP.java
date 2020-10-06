@@ -103,6 +103,7 @@ public class SQLtoUDP implements SQLNotifier {
 	 * @param b object to send to all configured destinations
 	 */
 	public void newObject(final Blob b) {
+		System.err.println("Sending info about new blob!");
 		for (final HostAndPort destination : destinations)
 			try {
 				b.send(destination.host, destination.port);
