@@ -214,7 +214,6 @@ public class MemoryBrowse extends HttpServlet {
 
 		if (parser.browseLimit > 0 && parser.browseLimit < matchingObjects.size()) {
 			// apply the limit to the entire set, which can in principle contain several paths if regex was used
-			// this is a different behavior than the SQL one, where the limit is applied per path
 			
 			Collections.sort(matchingObjects);
 			return matchingObjects.subList(0, parser.browseLimit);
