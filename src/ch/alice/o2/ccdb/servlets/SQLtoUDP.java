@@ -92,7 +92,11 @@ public class SQLtoUDP implements SQLNotifier {
 		try {
 			final Blob b = new Blob(object);
 
-			newObject(b);
+			if(b.isComplete()) {
+				newObject(b);
+			} else {
+				System.err.println("Trying to send incomplete object!");
+			}
 		}
 		catch (NoSuchAlgorithmException | IOException e) {
 			System.err.println("Exception sending Blob on UDP: " + e.getMessage());
