@@ -236,6 +236,7 @@ public class Blob implements Comparable<Blob> {
 		cachedMetadataMap.put("Valid-Until", String.valueOf(this.endTime));
 		cachedMetadataMap.put("Valid-From", String.valueOf(this.startTime));
 		cachedMetadataMap.put("Created", String.valueOf(ref.createTime));
+		cachedMetadataMap.put("Uploaded-At", String.valueOf(ref.createTime));
 
 		if (ref.fileName != null)
 			cachedMetadataMap.put("OriginalFileName", ref.fileName);
