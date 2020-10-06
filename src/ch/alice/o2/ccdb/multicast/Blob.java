@@ -226,6 +226,7 @@ public class Blob implements Comparable<Blob> {
 
 		this.startTime = ref.validFrom;
 		this.endTime = ref.validUntil;
+		this.uploadTime = ref.createTime;
 
 		cachedMetadataMap = new ConcurrentHashMap<>();
 
