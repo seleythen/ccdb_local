@@ -92,6 +92,8 @@ public class SQLtoUDP implements SQLNotifier {
 		try {
 			final Blob b = new Blob(object);
 
+			b.recomputeIsComplete();
+
 			if(b.isComplete()) {
 				newObject(b);
 			} else {
