@@ -619,7 +619,7 @@ public class UDPReceiver extends Thread {
 		try {
 			Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
 			for(NetworkInterface net: Collections.list(nets)) {
-				System.err.println("Checking interface: " + net.getName());
+				System.err.println("Checking interface: " + net.getName() + " vs " + multicastInterface);
 				if(net.getName() == multicastInterface && multicastInterface != "") {
 					return net;
 				}
