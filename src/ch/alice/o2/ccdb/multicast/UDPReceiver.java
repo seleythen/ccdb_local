@@ -577,8 +577,10 @@ public class UDPReceiver extends Thread {
 			final NetworkInterface netInterface = getInterface();
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
 			if(netInterface == null) {
+				System.err.println("Join to default interface");
 				socket.joinGroup(group);
 			} else {
+				System.err.println("Join to custom interface: " + netInterface.getName());
 				final InetSocketAddress addr = new InetSocketAddress(group, 0);
 				socket.joinGroup(addr, netInterface);
 			}
@@ -617,6 +619,7 @@ public class UDPReceiver extends Thread {
 		try {
 			Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
 			for(NetworkInterface net: Collections.list(nets)) {
+				System.err.println("Checking interface: " + net.getName());
 				if(net.getName() == multicastInterface && multicastInterface != "") {
 					return net;
 				}
