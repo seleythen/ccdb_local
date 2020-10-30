@@ -479,7 +479,7 @@ public class SQLObject implements Comparable<SQLObject> {
 		for (final Integer replica : replicas)
 			for (final String addr : getAddress(replica, ipAddress, httpOnly))
 				if (!httpOnly || (!addr.startsWith("alien://") && !addr.startsWith("root://")))
-					ret.addAll(getAddress(replica));
+					ret.add(addr);
 
 		return ret;
 	}
