@@ -87,7 +87,7 @@ class HTMLFormatter implements SQLFormatter {
 		writer.print("</dl></td><td align=left><ul>");
 
 		for (final Integer replica : obj.replicas) {
-			for (final String address : obj.getAddress(replica)) {
+			for (final String address : obj.getAddress(replica, null, false)) {
 				writer.print("<li><a href='");
 				writer.print(Format.escHtml(address));
 				writer.print("'>");
