@@ -31,6 +31,7 @@ import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
 import alien.se.SE;
 import alien.se.SEUtils;
+import alien.shell.commands.JAliEnCOMMander;
 import alien.user.AliEnPrincipal;
 import alien.user.UserFactory;
 import ch.alice.o2.ccdb.Options;
@@ -398,28 +399,26 @@ public class SQLObject implements Comparable<SQLObject> {
 			if (!resolveAliEn)
 				return Arrays.asList(pattern.substring(8));
 
-			final LFN l = LFNUtils.getLFN(pattern.substring(8));
+			final JAliEnCOMMander commander = JAliEnCOMMander.getInstance();
+
+			final LFN l;
+
+			if (commander!=null)
+				l = commander.c_api.getLFN(pattern.substring(8));
+			else
+				l = null;
 
 			if (l != null) {
-				final Set<PFN> pfns = l.whereisReal();
+				final Collection<PFN> pfns = commander.c_api.getPFNsToRead(l, null, null);
+
 				if (pfns != null) {
 					final List<String> ret = new ArrayList<>(pfns.size());
 
 					for (final PFN p : pfns) {
 						String envelope = null;
 
-						String reason;
-
-						if ((reason = AuthorizationFactory.fillAccess(p, AccessType.READ)) == null) {
-							if (p.ticket.envelope != null) {
-								envelope = p.ticket.envelope.getEncryptedEnvelope();
-
-								if (envelope == null)
-									envelope = p.ticket.envelope.getSignedEnvelope();
-							}
-						}
-						else
-							System.err.println("Cannot grant access to " + p.getPFN() + " : " + reason);
+						if (p.ticket!=null && p.ticket.envelope!=null)
+							envelope = p.ticket.envelope.getSignedEnvelope();
 
 						final SE se = p.getSE();
 
