@@ -396,7 +396,7 @@ public class SQLObject implements Comparable<SQLObject> {
 
 		if (pattern.startsWith("alien://")) {
 			if (!resolveAliEn)
-				return Arrays.asList(pattern.substring(8));
+				return Arrays.asList(pattern);
 
 			final JAliEnCOMMander commander = new JAliEnCOMMander(null, null, AsyncResolver.getSite(ipAddress, true), null);
 
