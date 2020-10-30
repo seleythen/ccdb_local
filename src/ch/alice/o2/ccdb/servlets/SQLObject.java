@@ -22,10 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import alien.catalogue.GUID;
 import alien.catalogue.GUIDUtils;
 import alien.catalogue.LFN;
-import alien.catalogue.LFNUtils;
 import alien.catalogue.PFN;
-import alien.catalogue.access.AccessType;
-import alien.catalogue.access.AuthorizationFactory;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
@@ -336,18 +333,20 @@ public class SQLObject implements Comparable<SQLObject> {
 	 * @return full URL
 	 */
 	public List<String> getAddress(final Integer replica) {
-		return getAddress(replica, true);
+		return getAddress(replica, null, true);
 	}
 
 	/**
 	 * Return the full URL(s) to the physical representation on this replica ID
 	 *
 	 * @param replica
+	 * @param ipAddress
+	 *            client's IP address, when known, to better sort the replicas
 	 * @param resolveAliEn
 	 *            whether or not to look up the PFNs for AliEn LFNs
 	 * @return full URL
 	 */
-	public List<String> getAddress(final Integer replica, final boolean resolveAliEn) {
+	public List<String> getAddress(final Integer replica, final String ipAddress, final boolean resolveAliEn) {
 		String pattern = config.gets("server." + replica + ".urlPattern", null);
 
 		if (pattern == null) {
@@ -399,14 +398,9 @@ public class SQLObject implements Comparable<SQLObject> {
 			if (!resolveAliEn)
 				return Arrays.asList(pattern.substring(8));
 
-			final JAliEnCOMMander commander = JAliEnCOMMander.getInstance();
+			final JAliEnCOMMander commander = new JAliEnCOMMander(null, null, AsyncResolver.getSite(ipAddress, true), null);
 
-			final LFN l;
-
-			if (commander!=null)
-				l = commander.c_api.getLFN(pattern.substring(8));
-			else
-				l = null;
+			final LFN l = commander.c_api.getLFN(pattern.substring(8));
 
 			if (l != null) {
 				final Collection<PFN> pfns = commander.c_api.getPFNsToRead(l, null, null);
@@ -417,7 +411,7 @@ public class SQLObject implements Comparable<SQLObject> {
 					for (final PFN p : pfns) {
 						String envelope = null;
 
-						if (p.ticket!=null && p.ticket.envelope!=null)
+						if (p.ticket != null && p.ticket.envelope != null)
 							envelope = p.ticket.envelope.getSignedEnvelope();
 
 						final SE se = p.getSE();
@@ -471,14 +465,21 @@ public class SQLObject implements Comparable<SQLObject> {
 
 	/**
 	 * Get all URLs where replicas of this object can be retrieved from
+	 * 
+	 * @param ipAddress
+	 *            client's IP address, to better sort the replicas function of its location
+	 * @param httpOnly
+	 *            whether or not to return http:// addresses only. Alternatively alien:// and root:// URLs are also returned.
 	 *
 	 * @return the list of URLs where the content of this object can be retrieved from
 	 */
-	public List<String> getAddresses() {
+	public List<String> getAddresses(final String ipAddress, final boolean httpOnly) {
 		final List<String> ret = new ArrayList<>(replicas.size());
 
 		for (final Integer replica : replicas)
-			ret.addAll(getAddress(replica));
+			for (final String addr : getAddress(replica, ipAddress, httpOnly))
+				if (!httpOnly || (!addr.startsWith("alien://") && !addr.startsWith("root://")))
+					ret.addAll(getAddress(replica));
 
 		return ret;
 	}
@@ -1133,4 +1134,5 @@ public class SQLObject implements Comparable<SQLObject> {
 	public int hashCode() {
 		return id.hashCode();
 	}
+
 }

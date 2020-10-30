@@ -140,7 +140,7 @@ public class SQLBacked extends HttpServlet {
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(matchingObject.getAddresses().iterator().next());
+		response.sendRedirect(matchingObject.getAddresses(request.getRemoteAddr(), lazyj.Utils.stringToBool(request.getParameter("HTTPOnly"), false)).iterator().next());
 	}
 
 	private static boolean setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj) {
@@ -328,7 +328,7 @@ public class SQLBacked extends HttpServlet {
 
 			setHeaders(matchingObject, response);
 
-			response.setHeader("Location", matchingObject.getAddresses().iterator().next());
+			response.setHeader("Location", matchingObject.getAddresses(null, false).iterator().next());
 
 			if (changed)
 				response.sendError(HttpServletResponse.SC_NO_CONTENT);
@@ -429,26 +429,16 @@ public class SQLBacked extends HttpServlet {
 				if (db.geti(1) == 0)
 					recomputeStatistics();
 
-				db.query("CREATE OR REPLACE FUNCTION ccdb_increment() RETURNS TRIGGER AS $_$\n" +
-						"    BEGIN\n" +
-						"        INSERT INTO \n" +
-						"            ccdb_stats (pathid, object_count, object_size) VALUES (NEW.pathid, 1, NEW.size)\n" +
-						"        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" +
-						"\n" +
-						"        INSERT INTO\n" +
-						"            ccdb_stats (pathid, object_count, object_size) VALUES (0, 1, NEW.size)\n" +
-						"        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" +
-						"\n" +
-						"        RETURN NEW;\n" +
-						"    END\n" +
-						"$_$ LANGUAGE 'plpgsql';");
+				db.query("CREATE OR REPLACE FUNCTION ccdb_increment() RETURNS TRIGGER AS $_$\n" + "    BEGIN\n" + "        INSERT INTO \n"
+						+ "            ccdb_stats (pathid, object_count, object_size) VALUES (NEW.pathid, 1, NEW.size)\n"
+						+ "        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" + "\n" + "        INSERT INTO\n"
+						+ "            ccdb_stats (pathid, object_count, object_size) VALUES (0, 1, NEW.size)\n"
+						+ "        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" + "\n" + "        RETURN NEW;\n"
+						+ "    END\n" + "$_$ LANGUAGE 'plpgsql';");
 
-				db.query("CREATE OR REPLACE FUNCTION ccdb_decrement() RETURNS TRIGGER AS $_$\n" +
-						"    BEGIN\n" +
-						"        UPDATE ccdb_stats SET object_count=object_count-1, object_size=object_size-OLD.size WHERE pathid IN (0, OLD.pathid);\n" +
-						"        RETURN NEW;\n" +
-						"    END\n" +
-						"$_$ LANGUAGE 'plpgsql';");
+				db.query("CREATE OR REPLACE FUNCTION ccdb_decrement() RETURNS TRIGGER AS $_$\n" + "    BEGIN\n"
+						+ "        UPDATE ccdb_stats SET object_count=object_count-1, object_size=object_size-OLD.size WHERE pathid IN (0, OLD.pathid);\n" + "        RETURN NEW;\n" + "    END\n"
+						+ "$_$ LANGUAGE 'plpgsql';");
 
 				db.query("CREATE TRIGGER ccdb_increment_trigger AFTER INSERT ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_increment();", true);
 				db.query("CREATE TRIGGER ccdb_decrement_trigger AFTER DELETE ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_decrement();", true);

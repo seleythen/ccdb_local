@@ -103,7 +103,7 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 				return;
 			}
 
-			final String targetObjectPath = object.getAddress(Integer.valueOf(-1), false).iterator().next();
+			final String targetObjectPath = object.getAddress(Integer.valueOf(-1), null, false).iterator().next();
 
 			final LFN l = LFNUtils.getLFN(targetObjectPath);
 
@@ -249,7 +249,7 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 			}
 			else
 				if (replica.intValue() < 0) {
-					final LFN l = LFNUtils.getLFN(object.getAddress(Integer.valueOf(-1), false).iterator().next());
+					final LFN l = LFNUtils.getLFN(object.getAddress(Integer.valueOf(-1), null, false).iterator().next());
 
 					if (l != null)
 						l.delete(true, false);
