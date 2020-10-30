@@ -451,8 +451,6 @@ public class SQLObject implements Comparable<SQLObject> {
 						}
 					}
 
-					Collections.sort(ret);
-
 					return ret;
 				}
 
