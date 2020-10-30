@@ -412,7 +412,7 @@ public class SQLObject implements Comparable<SQLObject> {
 						String envelope = null;
 
 						if (p.ticket != null && p.ticket.envelope != null)
-							envelope = p.ticket.envelope.getSignedEnvelope();
+							envelope = p.ticket.envelope.getEncryptedEnvelope();
 
 						final SE se = p.getSE();
 
