@@ -51,6 +51,8 @@ public class SQLBacked extends HttpServlet {
 	 */
 	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("user.home") + System.getProperty("file.separator") + "QC");
 
+	private static final boolean localCopyFirst = Options.getIntOption("local.copy.first", 0) == 1;
+
 	static {
 		monitor.addMonitoring("stats", new SQLStatsExporter(null));
 
@@ -133,29 +135,31 @@ public class SQLBacked extends HttpServlet {
 			return;
 		}
 
-		if (setAltLocationHeaders(response, matchingObject)) {
+		final String clientIPAddress = request.getRemoteAddr();
+
+		final boolean httpOnly = lazyj.Utils.stringToBool(request.getParameter("HTTPOnly"), false);
+
+		if (setAltLocationHeaders(response, matchingObject, clientIPAddress, httpOnly) && localCopyFirst) {
 			SQLDownload.download(head, matchingObject, request, response);
 			return;
 		}
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(matchingObject.getAddresses(request.getRemoteAddr(), lazyj.Utils.stringToBool(request.getParameter("HTTPOnly"), false)).iterator().next());
+		response.sendRedirect(matchingObject.getAddresses(clientIPAddress, httpOnly).iterator().next());
 	}
 
-	private static boolean setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj) {
+	private static boolean setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj, final String clientIPAddress, final boolean httpOnly) {
 		boolean hasLocalReplica = false;
 
 		for (final Integer replica : obj.replicas)
-			if (replica.intValue() == 0) {
-				if (obj.getLocalFile(false) != null) {
-					response.addHeader("Content-Location", "/download/" + obj.id);
-					hasLocalReplica = true;
-				}
+			if (replica.intValue() == 0 && obj.getLocalFile(false) != null) {
+				hasLocalReplica = true;
+				break;
 			}
-			else
-				for (final String address : obj.getAddress(replica))
-					response.addHeader("Content-Location", address.replace('\n', '|'));
+
+		for (final String address : obj.getAddresses(clientIPAddress, httpOnly))
+			response.addHeader("Content-Location", address.replace('\n', '|'));
 
 		return hasLocalReplica;
 	}
