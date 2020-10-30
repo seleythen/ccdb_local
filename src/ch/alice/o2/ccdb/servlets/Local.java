@@ -184,7 +184,7 @@ public class Local extends HttpServlet {
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
+		CCDBUtils.sendRedirect(response, getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
 	}
 
 	private static void setHeaders(final LocalObjectWithVersion obj, final HttpServletResponse response) {

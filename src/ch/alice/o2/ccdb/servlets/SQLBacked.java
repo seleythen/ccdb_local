@@ -146,7 +146,7 @@ public class SQLBacked extends HttpServlet {
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(matchingObject.getAddresses(clientIPAddress, httpOnly).iterator().next());
+		CCDBUtils.sendRedirect(response, matchingObject.getAddresses(clientIPAddress, httpOnly).iterator().next());
 	}
 
 	private static boolean setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj, final String clientIPAddress, final boolean httpOnly) {
