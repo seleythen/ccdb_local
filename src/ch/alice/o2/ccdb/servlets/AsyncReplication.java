@@ -21,6 +21,7 @@ import alien.io.protocols.Factory;
 import alien.io.protocols.Xrootd;
 import alien.se.SE;
 import alien.se.SEUtils;
+import alien.shell.commands.JAliEnCOMMander;
 import alien.user.UserFactory;
 import lazyj.DBFunctions;
 import lazyj.StringFactory;
@@ -249,10 +250,7 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 			}
 			else
 				if (replica.intValue() < 0) {
-					final LFN l = LFNUtils.getLFN(object.getAddress(Integer.valueOf(-1), null, false).iterator().next());
-
-					if (l != null)
-						l.delete(true, false);
+					JAliEnCOMMander.getInstance().c_api.removeLFN(object.getAddress(replica, null, false).iterator().next());
 				}
 				else {
 					final SE se = SEUtils.getSE(replica.intValue());
