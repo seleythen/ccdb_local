@@ -278,13 +278,21 @@ public class SQLObject implements Comparable<SQLObject> {
 				else {
 					initialValidity = validUntil;
 
-					if (db.query(
-							"INSERT INTO ccdb (id, pathid, validity, createTime, replicas, size, md5, initialvalidity, filename, contenttype, uploadedfrom, metadata, lastmodified) VALUES (?, ?, tsrange(to_timestamp(?) AT TIME ZONE 'UTC', to_timestamp(?) AT TIME ZONE 'UTC'), ?, ?::int[], ?, ?::uuid, ?, ?, ?, ?::inet, ?, ?);",
-							false, id, pathId, Double.valueOf(validFrom / 1000.), Double.valueOf(validUntil / 1000.), Long.valueOf(createTime), replicaArray, Long.valueOf(size), md5,
-							Long.valueOf(initialValidity), fileName, getContentTypeID(contentType, true), uploadedFrom, metadata, Long.valueOf(lastModified))) {
-						existing = true;
-						tainted = false;
-						return true;
+					for (int attempt = 0; attempt < 2; attempt++) {
+						if (attempt > 0) {
+							// if another instance has cleaned up this path
+							removePathID(pathId);
+							pathId = getPathID(path, true);
+						}
+
+						if (db.query(
+								"INSERT INTO ccdb (id, pathid, validity, createTime, replicas, size, md5, initialvalidity, filename, contenttype, uploadedfrom, metadata, lastmodified) VALUES (?, ?, tsrange(to_timestamp(?) AT TIME ZONE 'UTC', to_timestamp(?) AT TIME ZONE 'UTC'), ?, ?::int[], ?, ?::uuid, ?, ?, ?, ?::inet, ?, ?);",
+								false, id, pathId, Double.valueOf(validFrom / 1000.), Double.valueOf(validUntil / 1000.), Long.valueOf(createTime), replicaArray, Long.valueOf(size), md5,
+								Long.valueOf(initialValidity), fileName, getContentTypeID(contentType, true), uploadedFrom, metadata, Long.valueOf(lastModified))) {
+							existing = true;
+							tainted = false;
+							return true;
+						}
 					}
 
 					System.err.println("Insert query failed for id=" + id);
@@ -676,17 +684,29 @@ public class SQLObject implements Comparable<SQLObject> {
 				return value;
 			}
 
-			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_paths (path) VALUES (?);", false, path)) {
-					db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
+			if (createIfNotExists) {
+				final Integer hashId = Integer.valueOf(Math.abs(path.hashCode()));
 
-					if (db.moveNext()) {
-						value = Integer.valueOf(db.geti(1));
-						PATHS.put(path, value);
-						PATHS_REVERSE.put(value, path);
-						return value;
-					}
+				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_paths (pathId, path) VALUES (?, ?);", false, hashId, path)) {
+					// could create the hash-based path ID, all good
+					PATHS.put(path, hashId);
+					PATHS_REVERSE.put(hashId, path);
+					return value;
 				}
+
+				// there is conflict on this hash code, take the next available value instead
+				db.query("INSERT INTO ccdb_paths (path) VALUES (?);", false, path);
+
+				// always execute the select, in case another instance has inserted it in the mean time
+				db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
+
+				if (db.moveNext()) {
+					value = Integer.valueOf(db.geti(1));
+					PATHS.put(path, value);
+					PATHS_REVERSE.put(value, path);
+					return value;
+				}
+			}
 		}
 
 		return null;
@@ -763,17 +783,26 @@ public class SQLObject implements Comparable<SQLObject> {
 				return value;
 			}
 
-			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_metadata (metadataKey) VALUES (?);", false, metadataKey)) {
-					db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
+			if (createIfNotExists) {
+				final Integer hashId = Integer.valueOf(Math.abs(metadataKey.hashCode()));
 
-					if (db.moveNext()) {
-						value = Integer.valueOf(db.geti(1));
-						METADATA.put(metadataKey, value);
-						METADATA_REVERSE.put(value, metadataKey);
-						return value;
-					}
+				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_metadata(metadataId, metadataKey) VALUES (?, ?);", false, hashId, metadataKey)) {
+					METADATA.put(metadataKey, hashId);
+					METADATA_REVERSE.put(hashId, metadataKey);
+					return hashId;
 				}
+
+				db.query("INSERT INTO ccdb_metadata (metadataKey) VALUES (?);", false, metadataKey);
+
+				db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
+
+				if (db.moveNext()) {
+					value = Integer.valueOf(db.geti(1));
+					METADATA.put(metadataKey, value);
+					METADATA_REVERSE.put(value, metadataKey);
+					return value;
+				}
+			}
 		}
 
 		return null;
