@@ -104,7 +104,10 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 				return;
 			}
 
-			final String targetObjectPath = object.getAddress(Integer.valueOf(-1), null, false).iterator().next();
+			String targetObjectPath = object.getAddress(Integer.valueOf(-1), null, false).iterator().next();
+
+			if (targetObjectPath.startsWith("alien://"))
+				targetObjectPath = targetObjectPath.substring(8);
 
 			final LFN l = LFNUtils.getLFN(targetObjectPath);
 
@@ -254,7 +257,12 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 			}
 			else
 				if (replica.intValue() < 0) {
-					JAliEnCOMMander.getInstance().c_api.removeLFN(object.getAddress(replica, null, false).iterator().next());
+					String url = object.getAddress(replica, null, false).iterator().next();
+
+					if (url.startsWith("alien://"))
+						url = url.substring(8);
+
+					JAliEnCOMMander.getInstance().c_api.removeLFN(url);
 				}
 				else {
 					final SE se = SEUtils.getSE(replica.intValue());
