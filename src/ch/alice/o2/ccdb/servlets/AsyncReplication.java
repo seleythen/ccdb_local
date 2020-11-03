@@ -139,6 +139,10 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 			}
 			catch (final InterruptedException e) {
 				e.printStackTrace();
+				return;
+			}
+			catch (final Exception e) {
+				e.printStackTrace();
 			}
 		}
 	}
