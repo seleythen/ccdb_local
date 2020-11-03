@@ -52,7 +52,7 @@ import utils.CachedThreadPool;
 public class UDPReceiver extends Thread {
 	private static final Logger logger = SingletonLogger.getLogger();
 
-	private static Monitor monitor = MonitorFactory.getMonitor(UDPReceiver.class.getCanonicalName());
+	private static final Monitor monitor = MonitorFactory.getMonitor(UDPReceiver.class.getCanonicalName());
 
 	/**
 	 * How soon to start the recovery of incomplete objects after the last received fragment
@@ -537,7 +537,8 @@ public class UDPReceiver extends Thread {
 			monitor.incrementCounter("fullyReceivedObjects");
 		}
 		else {
-			synchronized (recoveryQueue) {
+			// pick any static field object to synchronize on, just not the queue itself
+			synchronized (recoveryBaseURL) {
 				// remove the notification
 				recoveryQueue.remove(delayedBlob);
 
