@@ -856,17 +856,26 @@ public class SQLObject implements Comparable<SQLObject> {
 				return value;
 			}
 
-			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_contenttype (contentType) VALUES (?);", false, contentType)) {
-					db.query("SELECT contentTypeId FROM ccdb_contenttype WHERE contentType=?;", false, contentType);
+			if (createIfNotExists) {
+				final Integer hashId = Integer.valueOf(Math.abs(contentType.hashCode()));
 
-					if (db.moveNext()) {
-						value = Integer.valueOf(db.geti(1));
-						CONTENTTYPE.put(contentType, value);
-						CONTENTTYPE_REVERSE.put(value, contentType);
-						return value;
-					}
+				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_contenttype (contentTypeId, ccdb_contenttype) VALUES (?, ?);", false, hashId, contentType)) {
+					CONTENTTYPE.put(contentType, hashId);
+					CONTENTTYPE_REVERSE.put(hashId, contentType);
+					return hashId;
 				}
+
+				db.query("INSERT INTO ccdb_contenttype (contentType) VALUES (?);", false, contentType);
+
+				db.query("SELECT contentTypeId FROM ccdb_contenttype WHERE contentType=?;", false, contentType);
+
+				if (db.moveNext()) {
+					value = Integer.valueOf(db.geti(1));
+					CONTENTTYPE.put(contentType, value);
+					CONTENTTYPE_REVERSE.put(value, contentType);
+					return value;
+				}
+			}
 		}
 
 		return null;
@@ -1161,5 +1170,4 @@ public class SQLObject implements Comparable<SQLObject> {
 	public int hashCode() {
 		return id.hashCode();
 	}
-
 }
