@@ -408,15 +408,17 @@ public class SQLBacked extends HttpServlet {
 		try (DBFunctions db = SQLObject.getDB()) {
 			if (db.isPostgreSQL()) {
 				db.query("CREATE EXTENSION IF NOT EXISTS hstore;", true);
+				
+				db.query("CREATE TABLE IF NOT EXISTS ccdb_paths (pathId SERIAL PRIMARY KEY, path text UNIQUE NOT NULL);");
+				db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
+
 				db.query(
-						"CREATE TABLE IF NOT EXISTS ccdb (id uuid PRIMARY KEY, pathId int NOT NULL, validity tsrange, createTime bigint NOT NULL, replicas integer[], size bigint, md5 uuid, filename text, contenttype int, uploadedfrom inet, initialvalidity bigint, metadata hstore, lastmodified bigint);");
+						"CREATE TABLE IF NOT EXISTS ccdb (id uuid PRIMARY KEY, pathId int NOT NULL REFERENCES ccdb_paths(pathId), validity tsrange, createTime bigint NOT NULL, replicas integer[], size bigint, md5 uuid, filename text, contenttype int REFERENCES ccdb_contenttype(contentTypeId), uploadedfrom inet, initialvalidity bigint, metadata hstore, lastmodified bigint);");
 				db.query("CREATE INDEX IF NOT EXISTS ccdb_pathId2_idx ON ccdb(pathId);");
 				db.query("ALTER TABLE ccdb ALTER validity SET STATISTICS 10000;");
 				db.query("CREATE INDEX IF NOT EXISTS ccdb_validity2_idx on ccdb using gist(validity);");
 
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_paths (pathId SERIAL PRIMARY KEY, path text UNIQUE NOT NULL);");
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_metadata (metadataId SERIAL PRIMARY KEY, metadataKey text UNIQUE NOT NULL);");
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
 				db.query("CREATE TABLE IF NOT EXISTS config(key TEXT PRIMARY KEY, value TEXT);");
 
 				if (!db.query("SELECT * FROM ccdb LIMIT 0")) {
