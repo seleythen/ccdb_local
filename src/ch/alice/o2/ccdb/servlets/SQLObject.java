@@ -426,23 +426,24 @@ public class SQLObject implements Comparable<SQLObject> {
 
 						int httpPort = -1;
 
-						if (se != null)
+						if (se != null && (se.isQosType("http") || se.isQosType("https")))
 							httpPort = se.getHTTPPort();
 
 						String httpUrl = null;
 
 						if (httpPort > 0 && p.getPFN().startsWith("root://")) {
+							final String protocol = (se != null && se.isQosType("https")) ? "https://" : "http://";
+
 							final String url = p.getPFN().substring(7);
 
 							final int idxColumn = url.indexOf(':');
 							final int idxSlash = url.indexOf('/');
 
-							if (idxColumn > 0 && idxSlash > idxColumn) {
-								httpUrl = "http://" + url.substring(0, idxColumn + 1) + httpPort + url.substring(idxSlash);
-							}
+							if (idxColumn > 0 && idxSlash > idxColumn)
+								httpUrl = protocol + url.substring(0, idxColumn + 1) + httpPort + url.substring(idxSlash);
 							else
 								if (idxSlash > 0)
-									httpUrl = "http://" + url.substring(0, idxSlash) + ":" + httpPort + url.substring(idxSlash);
+									httpUrl = protocol + url.substring(0, idxSlash) + ":" + httpPort + url.substring(idxSlash);
 						}
 
 						if (httpUrl != null) {
