@@ -498,7 +498,7 @@ public class SQLObject implements Comparable<SQLObject> {
 				if (SQLBacked.isLocalCopyFirst())
 					ret.addAll(0, toAdd);
 				else
-					ret.addAll(ret);
+					ret.addAll(toAdd);
 		}
 
 		return ret;
