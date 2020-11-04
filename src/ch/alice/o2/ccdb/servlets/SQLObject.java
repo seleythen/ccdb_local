@@ -38,6 +38,7 @@ import lazyj.DBFunctions;
 import lazyj.ExtProperties;
 import lazyj.Format;
 import lazyj.StringFactory;
+import lazyj.Utils;
 
 /**
  * SQL backing for a CCDB/QC object
@@ -49,6 +50,8 @@ public class SQLObject implements Comparable<SQLObject> {
 	private static ExtProperties config = new ExtProperties(Options.getOption("config.dir", "."), Options.getOption("config.file", "config"));
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLObject.class.getCanonicalName());
+
+	private static final boolean LOCAL_COPY_FIRST = Utils.stringToBool(Options.getOption("local.copy.first", null), false);
 
 	/**
 	 * @return the database connection
@@ -481,12 +484,25 @@ public class SQLObject implements Comparable<SQLObject> {
 	 * @return the list of URLs where the content of this object can be retrieved from
 	 */
 	public List<String> getAddresses(final String ipAddress, final boolean httpOnly) {
-		final List<String> ret = new ArrayList<>(replicas.size());
+		final List<String> ret = new ArrayList<>();
 
-		for (final Integer replica : replicas)
+		for (final Integer replica : replicas) {
+			List<String> toAdd = null;
+
 			for (final String addr : getAddress(replica, ipAddress, httpOnly))
-				if (!httpOnly || (!addr.startsWith("alien://") && !addr.startsWith("root://")))
-					ret.add(addr);
+				if (!httpOnly || (!addr.startsWith("alien://") && !addr.startsWith("root://"))) {
+					if (toAdd == null)
+						toAdd = new ArrayList<>();
+
+					toAdd.add(addr);
+				}
+
+			if (toAdd != null)
+				if (LOCAL_COPY_FIRST)
+					ret.addAll(0, toAdd);
+				else
+					ret.addAll(ret);
+		}
 
 		return ret;
 	}
