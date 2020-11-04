@@ -88,6 +88,10 @@ public class SQLBacked extends HttpServlet {
 			notifiers.add(httpSender);
 	}
 
+	static boolean isLocalCopyFirst() {
+		return localCopyFirst;
+	}
+
 	@Override
 	protected void doHead(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		try (Timing t = new Timing(monitor, "HEAD_ms")) {
@@ -408,7 +412,7 @@ public class SQLBacked extends HttpServlet {
 		try (DBFunctions db = SQLObject.getDB()) {
 			if (db.isPostgreSQL()) {
 				db.query("CREATE EXTENSION IF NOT EXISTS hstore;", true);
-				
+
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_paths (pathId SERIAL PRIMARY KEY, path text UNIQUE NOT NULL);");
 				db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
 
