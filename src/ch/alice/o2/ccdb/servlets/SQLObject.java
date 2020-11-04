@@ -38,7 +38,6 @@ import lazyj.DBFunctions;
 import lazyj.ExtProperties;
 import lazyj.Format;
 import lazyj.StringFactory;
-import lazyj.Utils;
 
 /**
  * SQL backing for a CCDB/QC object
@@ -50,8 +49,6 @@ public class SQLObject implements Comparable<SQLObject> {
 	private static ExtProperties config = new ExtProperties(Options.getOption("config.dir", "."), Options.getOption("config.file", "config"));
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLObject.class.getCanonicalName());
-
-	private static final boolean LOCAL_COPY_FIRST = Utils.stringToBool(Options.getOption("local.copy.first", null), false);
 
 	/**
 	 * @return the database connection
@@ -498,7 +495,7 @@ public class SQLObject implements Comparable<SQLObject> {
 				}
 
 			if (toAdd != null)
-				if (LOCAL_COPY_FIRST)
+				if (SQLBacked.isLocalCopyFirst())
 					ret.addAll(0, toAdd);
 				else
 					ret.addAll(ret);
