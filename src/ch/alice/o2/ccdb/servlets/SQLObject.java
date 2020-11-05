@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -484,21 +485,14 @@ public class SQLObject implements Comparable<SQLObject> {
 		final List<String> ret = new ArrayList<>();
 
 		for (final Integer replica : replicas) {
-			List<String> toAdd = null;
+			final List<String> toAdd = (SQLBacked.isLocalCopyFirst() && replica.intValue() == 0) ? new LinkedList<>() : null;
 
 			for (final String addr : getAddress(replica, ipAddress, httpOnly))
-				if (!httpOnly || (!addr.startsWith("alien://") && !addr.startsWith("root://"))) {
-					if (toAdd == null)
-						toAdd = new ArrayList<>();
-
-					toAdd.add(addr);
-				}
+				if (!httpOnly || (!addr.startsWith("alien://") && !addr.startsWith("root://")))
+					(toAdd != null ? toAdd : ret).add(addr);
 
 			if (toAdd != null)
-				if (SQLBacked.isLocalCopyFirst())
-					ret.addAll(0, toAdd);
-				else
-					ret.addAll(toAdd);
+				ret.addAll(0, toAdd);
 		}
 
 		return ret;
