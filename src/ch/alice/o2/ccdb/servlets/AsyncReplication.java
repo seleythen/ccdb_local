@@ -115,7 +115,7 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 				return;
 
 			try {
-				final LFN result = IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,disk:5");
+				final LFN result = IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,http:5,disk:2");
 
 				if (result != null)
 					try (DBFunctions db = SQLObject.getDB()) {
