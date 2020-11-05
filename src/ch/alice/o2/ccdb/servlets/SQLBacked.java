@@ -51,7 +51,7 @@ public class SQLBacked extends HttpServlet {
 	 */
 	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("user.home") + System.getProperty("file.separator") + "QC");
 
-	private static final boolean localCopyFirst = Options.getIntOption("local.copy.first", 0) == 1;
+	private static final boolean localCopyFirst = lazyj.Utils.stringToBool(Options.getOption("local.copy.first", null), false);
 
 	static {
 		monitor.addMonitoring("stats", new SQLStatsExporter(null));
