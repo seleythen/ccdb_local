@@ -449,7 +449,7 @@ public class SQLObject implements Comparable<SQLObject> {
 
 						if (httpUrl != null) {
 							if (envelope != null)
-								ret.add(httpUrl + "?authz=" + Format.encode(envelope));
+								ret.add(httpUrl + "?authz=" + Format.replace(Format.encode(envelope), "+", "%20"));
 							else
 								ret.add(httpUrl);
 						}
