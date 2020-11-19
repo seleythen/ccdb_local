@@ -24,6 +24,7 @@ import alien.catalogue.GUID;
 import alien.catalogue.GUIDUtils;
 import alien.catalogue.LFN;
 import alien.catalogue.PFN;
+import alien.catalogue.access.XrootDEnvelope;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
@@ -423,33 +424,11 @@ public class SQLObject implements Comparable<SQLObject> {
 						if (p.ticket != null && p.ticket.envelope != null)
 							envelope = p.ticket.envelope.getEncryptedEnvelope();
 
-						final SE se = p.getSE();
-
-						int httpPort = -1;
-
-						if (se != null && (se.isQosType("http") || se.isQosType("https")))
-							httpPort = se.getHTTPPort();
-
-						String httpUrl = null;
-
-						if (httpPort > 0 && p.getPFN().startsWith("root://")) {
-							final String protocol = (se != null && se.isQosType("https")) ? "https://" : "http://";
-
-							final String url = p.getPFN().substring(7);
-
-							final int idxColumn = url.indexOf(':');
-							final int idxSlash = url.indexOf('/');
-
-							if (idxColumn > 0 && idxSlash > idxColumn)
-								httpUrl = protocol + url.substring(0, idxColumn + 1) + httpPort + url.substring(idxSlash);
-							else
-								if (idxSlash > 0)
-									httpUrl = protocol + url.substring(0, idxSlash) + ":" + httpPort + url.substring(idxSlash);
-						}
+						final String httpUrl = p.getHttpURL();
 
 						if (httpUrl != null) {
 							if (envelope != null)
-								ret.add(httpUrl + "?authz=" + Format.replace(Format.encode(envelope), "+", "%20"));
+								ret.add(httpUrl + "?authz=" + XrootDEnvelope.urlEncodeEnvelope(envelope));
 							else
 								ret.add(httpUrl);
 						}
