@@ -98,7 +98,7 @@ public class SQLtoHTTP implements SQLNotifier {
 			if (localFile == null)
 				throw new IOException("Local file doesn't exist");
 
-			final URL url = new URL(target, object.getPath() + "/" + object.validFrom + "/" + object.validUntil);
+			final URL url = new URL(target, object.getPath() + "/" + object.validFrom + "/" + object.validUntil + "/" + object.id);
 
 			System.err.println("Making connection to " + url);
 
@@ -122,10 +122,8 @@ public class SQLtoHTTP implements SQLNotifier {
 
 				final String partName = object.getProperty("partName", "blob");
 
-				final String mpHeader = "Content-Disposition: form-data; name=\"" + Format.encode(partName) + "\"; filename=\"" + Format.encode(object.fileName) + "\"\r\n" +
-						"Content-Length: " + object.size + "\r\n" +
-						"Content-Type: " + object.contentType + "\r\n" +
-						"\r\n";
+				final String mpHeader = "Content-Disposition: form-data; name=\"" + Format.encode(partName) + "\"; filename=\"" + Format.encode(object.fileName) + "\"\r\n" + "Content-Length: "
+						+ object.size + "\r\n" + "Content-Type: " + object.contentType + "\r\n" + "\r\n";
 
 				out.write(mpHeader.getBytes(StandardCharsets.UTF_8));
 
