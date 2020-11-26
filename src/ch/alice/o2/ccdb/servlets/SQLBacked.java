@@ -237,7 +237,7 @@ public class SQLBacked extends HttpServlet {
 
 			final Part part = parts.iterator().next();
 
-			final SQLObject newObject = new SQLObject(request, parser.path);
+			final SQLObject newObject = new SQLObject(request, parser.path, parser.uuidConstraint);
 
 			final File targetFile = newObject.getLocalFile(true);
 
