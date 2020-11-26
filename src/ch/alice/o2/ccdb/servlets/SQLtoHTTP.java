@@ -65,7 +65,7 @@ public class SQLtoHTTP implements SQLNotifier {
 	/**
 	 * @return singleton
 	 */
-	static synchronized SQLtoHTTP getInstance() {
+	public static synchronized SQLtoHTTP getInstance() {
 		if (instance == null) {
 			final SQLtoHTTP attempt = new SQLtoHTTP();
 
