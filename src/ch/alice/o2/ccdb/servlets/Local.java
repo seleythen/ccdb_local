@@ -466,7 +466,7 @@ public class Local extends HttpServlet {
 				// ignore
 			}
 
-			final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
+			final UUID targetUUID = parser.uuidConstraint != null ? parser.uuidConstraint : UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
 
 			final Part part = parts.iterator().next();
 
