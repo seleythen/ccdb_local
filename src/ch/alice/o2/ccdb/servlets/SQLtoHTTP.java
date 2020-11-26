@@ -13,6 +13,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -91,18 +92,29 @@ public class SQLtoHTTP implements SQLNotifier {
 			asyncUploaders.submit(() -> upload(object, destination));
 	}
 
-	private static void upload(final SQLObject object, final URL target) {
+	/**
+	 * Upload an SQLObject to a target repository
+	 * 
+	 * @param object
+	 *            what to upload
+	 * @param target
+	 *            base URL of the target repository
+	 */
+	public static void upload(final SQLObject object, final URL target) {
 		try {
 			final File localFile = object.getLocalFile(false);
 
 			if (localFile == null)
 				throw new IOException("Local file doesn't exist");
 
-			final URL url = new URL(target, object.getPath() + "/" + object.validFrom + "/" + object.validUntil + "/" + object.id);
+			String objectPath = object.getPath() + "/" + object.validFrom + "/" + object.validUntil + "/" + object.id;
 
-			System.err.println("Making connection to " + url);
+			for (final Map.Entry<Integer, String> entry : object.metadata.entrySet())
+				objectPath += "/" + Format.encode(SQLObject.getMetadataString(entry.getKey())) + "=" + Format.encode(entry.getValue());
 
-			// TODO: add metadata keys
+			final URL url = new URL(target, objectPath);
+
+			// System.err.println("Making connection to " + url);
 
 			final HttpURLConnection http = (HttpURLConnection) url.openConnection();
 			http.setRequestMethod("POST"); // PUT is another valid option
@@ -122,8 +134,8 @@ public class SQLtoHTTP implements SQLNotifier {
 
 				final String partName = object.getProperty("partName", "blob");
 
-				final String mpHeader = "Content-Disposition: form-data; name=\"" + Format.encode(partName) + "\"; filename=\"" + Format.encode(object.fileName) + "\"\r\n" + "Content-Length: "
-						+ object.size + "\r\n" + "Content-Type: " + object.contentType + "\r\n" + "\r\n";
+				final String mpHeader = "Content-Disposition: form-data; name=\"" + partName + "\"; filename=\"" + object.fileName + "\"\r\n" + "Content-Length: " + object.size + "\r\n"
+						+ "Content-Type: " + object.contentType + "\r\n" + "\r\n";
 
 				out.write(mpHeader.getBytes(StandardCharsets.UTF_8));
 
