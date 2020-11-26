@@ -88,6 +88,44 @@ class XMLFormatter implements SQLFormatter {
 
 	@Override
 	public void start(final PrintWriter writer) {
+		writer.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+		writer.println("<!DOCTYPE document [");
+		writer.println("<!ELEMENT document (objects?, folders?)>");
+		writer.println("<!ELEMENT objects (object*)>");
+		writer.println("<!ELEMENT object (metadata*, replica*)>");
+
+		writer.println("<!ATTLIST object");
+		writer.println("  id ID #REQUIRED");
+		writer.println("  validFrom CDATA #REQUIRED");
+		writer.println("  validUntil CDATA #REQUIRED");
+		writer.println("  initialValidity CDATA #IMPLIED");
+		writer.println("  created CDATA #IMPLIED");
+		writer.println("  lastModified CDATA #IMPLIED");
+		writer.println("  md5 CDATA #IMPLIED");
+		writer.println("  fileName CDATA #IMPLIED");
+		writer.println("  contentType CDATA #IMPLIED");
+		writer.println("  size CDATA #REQUIRED");
+		writer.println("  path CDATA #REQUIRED");
+		writer.println(">");
+
+		writer.println("<!ELEMENT metadata EMPTY>");
+		writer.println("<!ATTLIST metadata");
+		writer.println("  key CDATA #REQUIRED");
+		writer.println("  value CDATA #REQUIRED");
+		writer.println(">");
+
+		writer.println("<!ELEMENT replica EMPTY>");
+		writer.println("<!ATTLIST replica");
+		writer.println("  id CDATA #REQUIRED");
+		writer.println("  addr CDATA #REQUIRED");
+		writer.println(">");
+
+		writer.println("<!ELEMENT folders (path*)>");
+
+		writer.println("<!ELEMENT path EMPTY>");
+		writer.println("<!ATTLIST path name CDATA #REQUIRED>");
+
+		writer.println("]>");
 		writer.println("<document>");
 	}
 
