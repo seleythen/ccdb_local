@@ -56,7 +56,10 @@ public class SQLObject implements Comparable<SQLObject> {
 	 * @return the database connection
 	 */
 	public static final DBFunctions getDB() {
-		return new DBFunctions(config);
+		if (config.gets("driver", null) != null)
+			return new DBFunctions(config);
+
+		return null;
 	}
 
 	/**
@@ -768,6 +771,13 @@ public class SQLObject implements Comparable<SQLObject> {
 			return value;
 
 		try (DBFunctions db = getDB()) {
+			if (db == null) {
+				value = Integer.valueOf(METADATA.size() + 1);
+				METADATA.put(metadataKey, value);
+				METADATA_REVERSE.put(value, metadataKey);
+				return value;
+			}
+
 			db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
 
 			if (db.moveNext()) {
