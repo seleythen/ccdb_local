@@ -173,7 +173,7 @@ class XMLFormatter implements SQLFormatter {
 	 */
 	@Override
 	public void format(final PrintWriter writer, final LocalObjectWithVersion obj) {
-		writer.print("<object id='");
+		writer.print("<object id='uuid");
 		writer.print(Format.escHtml(obj.getID()));
 
 		writer.print("' validFrom='");
