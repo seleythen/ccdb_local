@@ -158,23 +158,30 @@ public class SQLObject implements Comparable<SQLObject> {
 	 * @param request
 	 * @param path
 	 *            object path
+	 * @param uuid
+	 *            unique identifier to force on the new object. Can be <code>null</code> to automatically generate one.
 	 */
-	public SQLObject(final HttpServletRequest request, final String path) {
+	public SQLObject(final HttpServletRequest request, final String path, final UUID uuid) {
 		createTime = System.currentTimeMillis();
 
-		byte[] remoteAddress = null;
+		if (uuid != null) {
+			id = uuid;
+		}
+		else {
+			byte[] remoteAddress = null;
 
-		if (request != null)
-			try {
-				final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
+			if (request != null)
+				try {
+					final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
 
-				remoteAddress = ia.getAddress();
-			}
-			catch (@SuppressWarnings("unused") final Throwable t) {
-				// ignore
-			}
+					remoteAddress = ia.getAddress();
+				}
+				catch (@SuppressWarnings("unused") final Throwable t) {
+					// ignore
+				}
 
-		id = UUIDTools.generateTimeUUID(createTime, remoteAddress);
+			id = UUIDTools.generateTimeUUID(createTime, remoteAddress);
+		}
 
 		assert path != null && path.length() > 0;
 
