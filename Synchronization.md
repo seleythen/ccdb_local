@@ -23,7 +23,7 @@ java -classpath local.jar ch.alice.o2.ccdb.tools.Synchronization http://ccdb-tes
 
 As result of the execution all new objects found under that path are pushed to the target. So it can be run repeatedly and only the extra content will be imported.
 
-Careful though about how many objects are in each namespace, it might take a while to run. Check by accessing something like `http://ccdb-test.cern.ch/browse/qc/ITS?report=true` to see how many objects and what is the total volume to be synchronized.
+Careful though about how many objects are in each namespace, it might take a while to run. Check by accessing something like [http://ccdb-test.cern.ch/browse/qc/ITS?report=true](http://ccdb-test.cern.ch/browse/qc/ITS?report=true) to see how many objects and what is the total volume to be synchronized.
 
 The tool will also report how many objects are found on each side, and a end of the run statistics. Here is an example run with the above parameters:
 ```
