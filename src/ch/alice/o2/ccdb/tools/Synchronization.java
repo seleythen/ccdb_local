@@ -5,6 +5,7 @@ package ch.alice.o2.ccdb.tools;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.UUID;
@@ -31,11 +32,8 @@ import lazyj.Utils;
 public class Synchronization {
 	/**
 	 * @param args
-	 * @throws IOException
-	 * @throws ParserConfigurationException
-	 * @throws SAXException
 	 */
-	public static void main(final String[] args) throws IOException, ParserConfigurationException, SAXException {
+	public static void main(final String[] args) {
 		if (args.length != 3) {
 			System.out.println("CCDB instances synchronization tool");
 			System.out.println("Usage: ch.alice.o2.ccdb.Synchronization [source repository] [target repository] [path]\n");
@@ -53,14 +51,43 @@ public class Synchronization {
 
 		path = path.replaceAll("/+$", "");
 
+		URL targetRepository;
+		try {
+			targetRepository = new URL(targetRepo);
+		}
+		catch (MalformedURLException e1) {
+			System.err.println("Invalid target URL(" + targetRepo + "): " + e1.getMessage());
+			return;
+		}
+
 		System.out.println("Synchronizing " + sourceRepo + path + " to " + targetRepo + path);
 
 		final DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 		// dbf.setValidating(true);
 
-		final DocumentBuilder dbTarget = dbf.newDocumentBuilder();
+		DocumentBuilder dbTarget;
+		try {
+			dbTarget = dbf.newDocumentBuilder();
+		}
+		catch (@SuppressWarnings("unused") ParserConfigurationException e) {
+			return;
+		}
 
-		final Document docTarget = dbTarget.parse(targetRepo + "/browse" + path + "*?Accept=text/xml");
+		final Document docTarget;
+
+		final String targetXmlPath = targetRepo + "/browse" + path + "*?Accept=text/xml";
+
+		try {
+			docTarget = dbTarget.parse(targetXmlPath);
+		}
+		catch (final IOException ioe) {
+			System.err.println("Could not connect to " + targetRepo + " due to : " + ioe.getMessage());
+			return;
+		}
+		catch (SAXException e) {
+			System.err.println("Cannot parse the reply from " + targetXmlPath + " due to : " + e.getMessage());
+			return;
+		}
 
 		final HashSet<String> existingIDs = new HashSet<>();
 
@@ -76,16 +103,34 @@ public class Synchronization {
 
 		System.out.println("Target reports " + existingIDs.size() + " objects under " + path);
 
-		final DocumentBuilder dbSource = dbf.newDocumentBuilder();
-		final Document docSource = dbSource.parse(sourceRepo + "/browse" + path + "*?Accept=text/xml");
+		DocumentBuilder dbSource;
+		try {
+			dbSource = dbf.newDocumentBuilder();
+		}
+		catch (@SuppressWarnings("unused") ParserConfigurationException e) {
+			return;
+		}
+
+		final String sourceXmlPath = sourceRepo + "/browse" + path + "*?Accept=text/xml";
+
+		Document docSource;
+		try {
+			docSource = dbSource.parse(sourceXmlPath);
+		}
+		catch (SAXException e) {
+			System.err.println("Cannot parse the reply from " + targetXmlPath + " due to : " + e.getMessage());
+			return;
+		}
+		catch (IOException ioe) {
+			System.err.println("Could not connect to " + sourceRepo + " due to : " + ioe.getMessage());
+			return;
+		}
 
 		final NodeList sourceObjects = docSource.getElementsByTagName("object");
 
 		System.out.println("Source reports " + sourceObjects.getLength() + " objects under " + path);
 
 		// docTarget.normalizeDocument();
-
-		final URL targetRepository = new URL(targetRepo);
 
 		System.setProperty("http.targets", targetRepo);
 		System.setProperty("file.repository.location", System.getProperty("user.dir") + "/temp");
