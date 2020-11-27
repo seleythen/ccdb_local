@@ -255,5 +255,8 @@ public class LocalBrowse extends HttpServlet {
 					recursiveMatching(parser, ret, fInterval, matchingPattern);
 				}
 			}
+
+		if (mostRecent != null)
+			ret.add(mostRecent);
 	}
 }
