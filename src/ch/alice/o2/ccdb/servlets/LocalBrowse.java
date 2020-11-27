@@ -1,7 +1,5 @@
 package ch.alice.o2.ccdb.servlets;
 
-import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -51,10 +49,11 @@ public class LocalBrowse extends HttpServlet {
 
 			final RequestParser parser = new RequestParser(request, true);
 
-			if (!parser.ok) {
-				printUsage(request, response);
-				return;
-			}
+			// The "ok" check restricts browsing of root directory, which is needed by QCG (as per O2-1859)
+			// if (!parser.ok) {
+			// printUsage(request, response);
+			// return;
+			// }
 
 			final List<LocalObjectWithVersion> matchingObjects = getAllMatchingObjects(parser);
 
