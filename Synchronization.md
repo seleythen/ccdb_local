@@ -2,7 +2,7 @@
 
 ## Description
 A simple tool to import part of the CCDB namespace in a local repository.
-The *ch.alice.o2.ccdb.tools.Synchronization* class is included in all CCDB jars, in particular the [local](http://alimonitor.cern.ch/download/local.jar) version.
+The `ch.alice.o2.ccdb.tools.Synchronization` class is included in all CCDB jars, in particular the [local](http://alimonitor.cern.ch/download/local.jar) version.
 
 ## Execution
 Target use case is retrieving part of the object tree in a local instance.
