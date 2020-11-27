@@ -101,7 +101,7 @@ public class Synchronization {
 			existingIDs.add(id);
 		}
 
-		System.out.println("Target reports " + existingIDs.size() + " objects under " + path);
+		System.out.println("Target found " + existingIDs.size() + " objects under " + path);
 
 		DocumentBuilder dbSource;
 		try {
@@ -149,14 +149,14 @@ public class Synchronization {
 			if (id.startsWith("uuid"))
 				id = id.substring(4);
 
-			System.out.print((i + 1) + "/" + sourceObjects.getLength() + ": " + id);
+			final String sourcePath = attr.getNamedItem("path").getNodeValue();
+
+			System.out.print((i + 1) + "/" + sourceObjects.getLength() + ": " + sourcePath + "/" + id);
 
 			if (!existingIDs.contains(id)) {
 				System.out.print(" is missing");
 
 				final String fileName = attr.getNamedItem("fileName").getNodeValue();
-
-				final String sourcePath = attr.getNamedItem("path").getNodeValue();
 
 				final String validFrom = attr.getNamedItem("validFrom").getNodeValue();
 
@@ -213,7 +213,7 @@ public class Synchronization {
 				}
 			}
 			else {
-				System.out.println("already exists");
+				System.out.println(" already exists");
 				iSkipped++;
 			}
 		}
