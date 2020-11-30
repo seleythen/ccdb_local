@@ -9,6 +9,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,6 +26,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import alien.test.cassandra.tomcat.Options;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import ch.alice.o2.ccdb.servlets.SQLtoHTTP;
 import lazyj.Format;
@@ -30,10 +37,27 @@ import lazyj.Utils;
  * @since Nov 26, 2020
  */
 public class Synchronization {
+	private static final AtomicInteger aiSynchronized = new AtomicInteger();
+	private static final AtomicInteger aiSkipped = new AtomicInteger();
+	private static final AtomicInteger aiError = new AtomicInteger();
+	private static final AtomicInteger counter = new AtomicInteger();
+
+	private static final AtomicLong alTotalSize = new AtomicLong();
+
+	private static URL targetRepository;
+
+	private static final HashSet<String> existingIDs = new HashSet<>();
+
+	private static NodeList sourceObjects;
+
+	private static String sourceRepo;
+	private static String targetRepo;
+
 	/**
 	 * @param args
+	 * @throws InterruptedException
 	 */
-	public static void main(final String[] args) {
+	public static void main(final String[] args) throws InterruptedException {
 		if (args.length != 3) {
 			System.out.println("CCDB instances synchronization tool");
 			System.out.println("Usage: ch.alice.o2.ccdb.Synchronization [source repository] [target repository] [path]\n");
@@ -42,8 +66,8 @@ public class Synchronization {
 			return;
 		}
 
-		final String sourceRepo = args[0].replaceAll("/+$", "");
-		final String targetRepo = args[1].replaceAll("/+$", "");
+		sourceRepo = args[0].replaceAll("/+$", "");
+		targetRepo = args[1].replaceAll("/+$", "");
 		String path = args[2];
 
 		if (!path.startsWith("/"))
@@ -51,7 +75,6 @@ public class Synchronization {
 
 		path = path.replaceAll("/+$", "");
 
-		URL targetRepository;
 		try {
 			targetRepository = new URL(targetRepo);
 		}
@@ -89,8 +112,6 @@ public class Synchronization {
 			return;
 		}
 
-		final HashSet<String> existingIDs = new HashSet<>();
-
 		final NodeList targetObjects = docTarget.getElementsByTagName("object");
 		for (int i = 0; i < targetObjects.getLength(); i++) {
 			String id = targetObjects.item(i).getAttributes().getNamedItem("id").getNodeValue();
@@ -126,7 +147,7 @@ public class Synchronization {
 			return;
 		}
 
-		final NodeList sourceObjects = docSource.getElementsByTagName("object");
+		sourceObjects = docSource.getElementsByTagName("object");
 
 		System.out.println("Source reports " + sourceObjects.getLength() + " objects under " + path);
 
@@ -135,26 +156,52 @@ public class Synchronization {
 		System.setProperty("http.targets", targetRepo);
 		System.setProperty("file.repository.location", System.getProperty("user.dir") + "/temp");
 
-		int iSynchronized = 0;
-		int iSkipped = 0;
-		int iError = 0;
-		long lSynchronizedSize = 0;
+		final int threads = Options.getIntOption("synchronization.threads", 8);
+
+		System.out.println("Using SYNCHRONIZATION_THREADS=" + threads + " to perform the synchronization");
+
+		final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
+
+		final ThreadPoolExecutor executor = new ThreadPoolExecutor(threads, threads, 1, TimeUnit.SECONDS, queue);
+
+		final long lStart = System.currentTimeMillis();
 
 		for (int i = 0; i < sourceObjects.getLength(); i++) {
 			final Node n = sourceObjects.item(i);
 
-			final NamedNodeMap attr = n.getAttributes();
+			executor.submit(() -> checkEntity(n));
+		}
 
-			String id = attr.getNamedItem("id").getNodeValue();
-			if (id.startsWith("uuid"))
-				id = id.substring(4);
+		executor.shutdown();
 
-			final String sourcePath = attr.getNamedItem("path").getNodeValue();
+		while (!executor.awaitTermination(1, TimeUnit.MINUTES)) {
+			System.err.println("Awaiting all threads to exit, queue length is " + queue.size() + ", active threads: " + executor.getActiveCount());
+		}
 
-			System.out.print((i + 1) + "/" + sourceObjects.getLength() + ": " + sourcePath + "/" + id);
+		final long deltaSeconds = (System.currentTimeMillis() - lStart) / 1000;
 
+		System.out.println("Skipped: " + aiSkipped + " files, failed to get: " + aiError + " files, synchronized: " + aiSynchronized + " files (" + Format.size(alTotalSize.get())
+				+ (deltaSeconds > 0 ? ", " + Format.size(alTotalSize.get() / deltaSeconds) + "/s" : "") + ")");
+	}
+
+	/**
+	 * @param i
+	 * @param attributes
+	 */
+	private static void checkEntity(final Node n) {
+		final NamedNodeMap attr = n.getAttributes();
+
+		String id = attr.getNamedItem("id").getNodeValue();
+		if (id.startsWith("uuid"))
+			id = id.substring(4);
+
+		final String sourcePath = attr.getNamedItem("path").getNodeValue();
+
+		String message = "/" + sourceObjects.getLength() + ": " + sourcePath + "/" + id;
+
+		try {
 			if (!existingIDs.contains(id)) {
-				System.out.print(" is missing");
+				message += " is missing";
 
 				final String fileName = attr.getNamedItem("fileName").getNodeValue();
 
@@ -169,14 +216,14 @@ public class Synchronization {
 				try {
 					toUpload.size = Long.parseLong(attr.getNamedItem("size").getNodeValue());
 
-					System.out.print(", downloading (" + Format.size(toUpload.size) + ") ... ");
+					message += ", downloading (" + Format.size(toUpload.size) + ") ... ";
 
 					final String downloadedIn = Utils.download(sourceURL, localFile.getAbsolutePath());
 
 					if (downloadedIn == null) {
 						System.err.println("Could not save to " + localFile.getAbsolutePath());
-						iError++;
-						continue;
+						aiError.incrementAndGet();
+						return;
 					}
 
 					toUpload.fileName = fileName;
@@ -195,29 +242,30 @@ public class Synchronization {
 							toUpload.setProperty(m.getAttributes().getNamedItem("key").getNodeValue(), m.getAttributes().getNamedItem("value").getNodeValue());
 					}
 
-					System.out.print("uploading ... ");
+					message += "uploading ... ";
 
 					SQLtoHTTP.upload(toUpload, targetRepository);
 
-					iSynchronized++;
-					lSynchronizedSize += toUpload.size;
+					aiSynchronized.incrementAndGet();
+					alTotalSize.addAndGet(toUpload.size);
 
-					System.out.println("done");
+					message += "done";
 				}
 				catch (@SuppressWarnings("unused") final IOException ioe) {
-					System.out.println("\nCould not download " + sourceURL + " to " + fileName);
-					iError++;
+					message += "\nCould not download " + sourceURL + " to " + fileName;
+					aiError.incrementAndGet();
 				}
 				finally {
 					localFile.delete();
 				}
 			}
 			else {
-				System.out.println(" already exists");
-				iSkipped++;
+				message += " already exists";
+				aiSkipped.incrementAndGet();
 			}
 		}
-
-		System.out.println("Skipped: " + iSkipped + " files, failed to get: " + iError + " files, synchronized: " + iSynchronized + " files (" + Format.size(lSynchronizedSize) + ")");
+		finally {
+			System.out.println(counter.incrementAndGet() + message);
+		}
 	}
 }
