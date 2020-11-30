@@ -65,6 +65,8 @@ public class Local extends HttpServlet {
 		while (location.endsWith("/"))
 			location = location.substring(0, location.length() - 1);
 
+		location = location.replaceAll("//", "/");
+
 		basePath = location;
 	}
 
