@@ -34,7 +34,7 @@ Source reports 259300 objects under /qc/ITS
 ...
 258630/259432: qc/ITS/MO/ITSFHR/Occupancy/Layer1/Stave5/Layer1Stave5HITMAP/7fccce70-308e-11eb-8bac-808d5c295566 is missing, downloading (9 KB) ... uploading ... done
 ...
-Skipped: 258625 files, failed to get: 0 files, synchronized: 807 files (5.764 MB)
+Skipped: 258625 files, failed to get: 0 files, synchronized: 807 files (5.764 MB, 1.56 MB/s)
 ```
 
 For transferring the data an intermediate staging area is used, the tool creating a `./temp/` subdirectory to the current working directory from where the command line is started.
