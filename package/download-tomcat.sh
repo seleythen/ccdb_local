@@ -10,7 +10,7 @@ T="apache-tomcat-$VER"
 if [ ! -d "$T" ]; then
     echo "Downloading Tomcat $VER"
 
-    wget -nv "https://www-eu.apache.org/dist/tomcat/tomcat-9/v$VER/bin/apache-tomcat-$VER.tar.gz" -O apache-tomcat.tar.gz || exit 1
+    curl -L "https://www-eu.apache.org/dist/tomcat/tomcat-9/v$VER/bin/apache-tomcat-$VER.tar.gz" -o apache-tomcat.tar.gz || exit 1
 
     tar -xf apache-tomcat.tar.gz || exit 2
     rm apache-tomcat.tar.gz
@@ -23,10 +23,10 @@ ln -s "$T" apache-tomcat
 
 if [ ! -f ../lib/lazyj.jar ]; then
     echo "Downloading lazyj"
-    wget -nv "http://lazyj.sf.net/download/lazyj.jar" -O ../lib/lazyj.jar
+    curl -L "http://lazyj.sf.net/download/lazyj.jar" -o ../lib/lazyj.jar
 fi
 
 if [ ! -f ../lib/postgresql.jar ]; then
     echo "Downloading PostgreSQL JDBC driver"
-    wget -nv "https://jdbc.postgresql.org/download/postgresql-42.2.16.jar" -O ../lib/postgresql.jar
+    curl -L "https://jdbc.postgresql.org/download/postgresql-42.2.16.jar" -o ../lib/postgresql.jar
 fi
