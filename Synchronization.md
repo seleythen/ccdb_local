@@ -30,6 +30,7 @@ The tool will also report how many objects are found on each side, and a end of 
 Synchronizing http://ccdb-test.cern.ch:8080/qc/ITS to http://localhost:8080/qc/ITS
 Target found 288590 objects under /qc/ITS
 Source reports 259300 objects under /qc/ITS
+Using SYNCHRONIZATION_THREADS=8 to perform the synchronization
 1/259300: qc/ITS/MO/ItsClusterOnline/Layer2/Stave5/CHIP1/ClusterTopology/8e09f760-1eaf-11eb-9067-808d5c385566 already exists
 ...
 258630/259432: qc/ITS/MO/ITSFHR/Occupancy/Layer1/Stave5/Layer1Stave5HITMAP/7fccce70-308e-11eb-8bac-808d5c295566 is missing, downloading (9 KB) ... uploading ... done
