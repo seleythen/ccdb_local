@@ -39,3 +39,16 @@ Skipped: 258625 files, failed to get: 0 files, synchronized: 807 files (5.764 MB
 
 For transferring the data an intermediate staging area is used, the tool creating a `./temp/` subdirectory to the current working directory from where the command line is started.
 Intermediate files are normally deleted immediately after the upload, so the disk space requirements are only as large as the largest file to transfer. At the end of the execution this directory can/should be removed.
+
+## Concurrency
+To speed up the process a thread pool is used to parallelize the actual transfer. The default number of threads is 8. This can be tuned with the `synchronization.threads` configuration key, with either
+```
+java -Dsynchronization.threads=4 -classpath...
+```
+or exporting it as an environment variable:
+```
+export SYNCHRONIZATION_THREADS=4
+java -classpath...
+```
+
+Careful when changing this value. A too low value might not fully use the available bandwidth while a too high value might cause overloads of the source or the target CCDB repositories.
