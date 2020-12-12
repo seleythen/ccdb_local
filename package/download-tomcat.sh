@@ -10,7 +10,7 @@ T="apache-tomcat-$VER"
 if [ ! -d "$T" ]; then
     echo "Downloading Tomcat $VER"
 
-    curl -L "https://www-eu.apache.org/dist/tomcat/tomcat-9/v$VER/bin/apache-tomcat-$VER.tar.gz" -o apache-tomcat.tar.gz || exit 1
+    curl -L "https://archive.apache.org/dist/tomcat/tomcat-9/v$VER/bin/apache-tomcat-$VER.tar.gz" -o apache-tomcat.tar.gz || exit 1
 
     tar -xf apache-tomcat.tar.gz || exit 2
     rm apache-tomcat.tar.gz
