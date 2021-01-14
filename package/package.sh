@@ -69,6 +69,11 @@ jar -cfe sql-insert-bulk.jar \
     ch javax org lazyj lia apmon com org utils jline joptsimple \
     alien config trusted_authorities.jks
 
+jar -cfe sql-insert-bulk.jar \
+    ch.alice.o2.ccdb.testing.SQLInsertNewPath ch/alice/o2/ccdb/testing/SQLInsertNewPath.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
 jar -cfe sql.jar \
     ch.alice.o2.ccdb.webserver.SQLBackedTomcat ch/alice/o2/ccdb/webserver/SQLBackedTomcat.class \
     ch javax org lazyj lia apmon com org utils jline joptsimple \
