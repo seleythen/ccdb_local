@@ -666,6 +666,7 @@ public class SQLObject implements Comparable<SQLObject> {
 	}
 
 	private static synchronized Integer getPathID(final String path, final boolean createIfNotExists) {
+		System.out.println("Search for path: " + path);
 		Integer value = PATHS.get(path);
 
 		if (value != null)
@@ -696,7 +697,7 @@ public class SQLObject implements Comparable<SQLObject> {
 
 				// always execute the select, in case another instance has inserted it in the mean time
 				db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
-				System.err.println("After insert and here is select from db for path");
+				System.out.println("After insert and here is select from db for path");
 				if (db.moveNext()) {
 					value = Integer.valueOf(db.geti(1));
 					PATHS.put(path, value);
