@@ -695,7 +695,7 @@ public class SQLObject implements Comparable<SQLObject> {
 					// could create the hash-based path ID, all good
 					PATHS.put(path, hashId);
 					PATHS_REVERSE.put(hashId, path);
-					return value;
+					return hashId;
 				}
 
 				// there is conflict on this hash code, take the next available value instead
