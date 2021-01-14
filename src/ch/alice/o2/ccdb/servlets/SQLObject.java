@@ -666,15 +666,11 @@ public class SQLObject implements Comparable<SQLObject> {
 	}
 
 	private static synchronized Integer getPathID(final String path, final boolean createIfNotExists) {
-		System.out.println("Search for path: " + path);
 		Integer value = PATHS.get(path);
 
 		if (value != null) {
-			System.out.println("In cache: " + path);
 			return value;
 		}
-
-		System.out.println("Not in cache, search: " + path);
 
 		try (DBFunctions db = getDB()) {
 			db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
@@ -683,12 +679,10 @@ public class SQLObject implements Comparable<SQLObject> {
 				value = Integer.valueOf(db.geti(1));
 				PATHS.put(path, value);
 				PATHS_REVERSE.put(value, path);
-				System.out.println("In db, search: " + path);
 				return value;
 			}
 
 			if (createIfNotExists) {
-				System.out.println("Create: " + path);
 				final Integer hashId = Integer.valueOf(Math.abs(path.hashCode()));
 
 				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_paths (pathId, path) VALUES (?, ?);", false, hashId, path)) {
@@ -703,7 +697,6 @@ public class SQLObject implements Comparable<SQLObject> {
 
 				// always execute the select, in case another instance has inserted it in the mean time
 				db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
-				System.out.println("After insert and here is select from db for path");
 				if (db.moveNext()) {
 					value = Integer.valueOf(db.geti(1));
 					PATHS.put(path, value);
@@ -712,7 +705,6 @@ public class SQLObject implements Comparable<SQLObject> {
 				}
 			}
 		}
-		System.err.println("Return null, sth go wrong");
 		return null;
 	}
 
