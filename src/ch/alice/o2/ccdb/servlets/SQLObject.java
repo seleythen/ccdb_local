@@ -696,7 +696,7 @@ public class SQLObject implements Comparable<SQLObject> {
 
 				// always execute the select, in case another instance has inserted it in the mean time
 				db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
-
+				System.err.println("After insert and here is select from db for path");
 				if (db.moveNext()) {
 					value = Integer.valueOf(db.geti(1));
 					PATHS.put(path, value);
@@ -705,7 +705,7 @@ public class SQLObject implements Comparable<SQLObject> {
 				}
 			}
 		}
-
+		System.err.println("Return null, sth go wrong");
 		return null;
 	}
 
