@@ -669,8 +669,12 @@ public class SQLObject implements Comparable<SQLObject> {
 		System.out.println("Search for path: " + path);
 		Integer value = PATHS.get(path);
 
-		if (value != null)
+		if (value != null) {
+			System.out.println("In cache: " + path);
 			return value;
+		}
+
+		System.out.println("Not in cache, search: " + path);
 
 		try (DBFunctions db = getDB()) {
 			db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
@@ -679,10 +683,12 @@ public class SQLObject implements Comparable<SQLObject> {
 				value = Integer.valueOf(db.geti(1));
 				PATHS.put(path, value);
 				PATHS_REVERSE.put(value, path);
+				System.out.println("In db, search: " + path);
 				return value;
 			}
 
 			if (createIfNotExists) {
+				System.out.println("Create: " + path);
 				final Integer hashId = Integer.valueOf(Math.abs(path.hashCode()));
 
 				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_paths (pathId, path) VALUES (?, ?);", false, hashId, path)) {
