@@ -3,9 +3,6 @@ package ch.alice.o2.ccdb.testing;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.DBFunctions;
 import lazyj.Format;
