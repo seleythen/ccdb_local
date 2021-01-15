@@ -3,18 +3,22 @@ package ch.alice.o2.ccdb.testing;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import ch.alice.o2.ccdb.RequestParser;
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 import lazyj.DBFunctions;
-import lazyj.Format;
 
 public class SQLInsertContinuously {
 	/**
 	 * @param args
 	 * @throws InterruptedException
 	 */
+	private static final Monitor monitor = MonitorFactory.getMonitor(SQLInsertContinuously.class.getCanonicalName());
+
 	public static void main(final String[] args) throws InterruptedException {
 		final long targetNoOfObjects = args.length >= 1 ? Long.parseLong(args[0]) : 100000;
 
@@ -40,15 +44,16 @@ public class SQLInsertContinuously {
 
 		final long base = startingCount;
 
-		final long noOfObjects = (targetNoOfObjects > startingCount && noThreads > 0) ? ((targetNoOfObjects - startingCount) / noThreads) : 0;
+		final long noOfObjects = (targetNoOfObjects > startingCount && noThreads > 0)
+				? ((targetNoOfObjects - startingCount) / noThreads)
+				: 0;
 
 		final List<Thread> threads = new ArrayList<>();
 
-		System.err.println(
-				"Inserting " + (noOfObjects * noThreads) + " new objects in the database on " + noThreads + " threads, starting from " + base + " (target = " + targetNoOfObjects + " objects)");
+		System.err.println("Inserting " + (noOfObjects * noThreads) + " new objects in the database on " + noThreads
+				+ " threads, starting from " + base + " (target = " + targetNoOfObjects + " objects)");
 
-        final long startTime = System.currentTimeMillis();
-        final Random r = new Random(System.currentTimeMillis());
+		AtomicInteger insertedObjects = new AtomicInteger(0);
 
 		for (long thread = 0; thread < noThreads; thread++) {
 			final long localThread = thread;
@@ -71,6 +76,8 @@ public class SQLInsertContinuously {
 						obj.replicas.add(Integer.valueOf(1));
 
 						obj.save(null);
+
+						insertedObjects.incrementAndGet();
 					}
 				}
 			};
@@ -78,7 +85,26 @@ public class SQLInsertContinuously {
 			t.start();
 
 			threads.add(t);
-        }
-		
+		}
+
+		Timer timer = new Timer();
+		int interval = 1000;
+		timer.schedule(new TimerTask() {
+			int previouslyInserted = 0;
+
+			@Override
+			public void run() {
+				// call the method
+				int nowInserted = insertedObjects.get();
+				monitor.addMeasurement("Inserted objects", nowInserted - previouslyInserted);
+				previouslyInserted = nowInserted;
+			}
+		}, interval, interval);
+
+		for(Thread thread : threads) {
+			thread.join();
+		}
+
+		timer.cancel();
 	}
 }
