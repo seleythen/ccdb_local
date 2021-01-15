@@ -74,6 +74,11 @@ jar -cfe sql-insert-bulk-new-paths.jar \
     ch javax org lazyj lia apmon com org utils jline joptsimple \
     alien config trusted_authorities.jks
 
+jar -cfe sql-insert-monalisa.jar \
+    ch.alice.o2.ccdb.testing.SQLInsertContinuously ch/alice/o2/ccdb/testing/SQLInsertContinuously.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
 jar -cfe sql.jar \
     ch.alice.o2.ccdb.webserver.SQLBackedTomcat ch/alice/o2/ccdb/webserver/SQLBackedTomcat.class \
     ch javax org lazyj lia apmon com org utils jline joptsimple \
