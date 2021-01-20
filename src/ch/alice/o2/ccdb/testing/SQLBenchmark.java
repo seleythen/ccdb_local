@@ -32,10 +32,16 @@ public class SQLBenchmark {
 			try (DBFunctions db = SQLObject.getDB()) {
 				db.query("SELECT count(1) FROM ccdb;");
 
-				if (db.moveNext())
+				if (db.moveNext()) {
 					startingCount = db.getl(1);
-				else
+
+					System.err.println("Database contains " + startingCount + " entries");
+				}
+				else {
+					System.err.println("Database doesn't have the CCDB structures");
+
 					startingCount = 0;
+				}
 			}
 
 		System.err.println("Executing vacuum");
