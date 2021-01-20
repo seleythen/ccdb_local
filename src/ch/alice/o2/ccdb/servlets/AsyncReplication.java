@@ -21,6 +21,7 @@ import alien.io.protocols.Factory;
 import alien.io.protocols.Xrootd;
 import alien.se.SE;
 import alien.se.SEUtils;
+import alien.shell.commands.JAliEnCOMMander;
 import alien.user.UserFactory;
 import lazyj.DBFunctions;
 import lazyj.StringFactory;
@@ -103,7 +104,10 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 				return;
 			}
 
-			final String targetObjectPath = object.getAddress(Integer.valueOf(-1), false).iterator().next();
+			String targetObjectPath = object.getAddress(Integer.valueOf(-1), null, false).iterator().next();
+
+			if (targetObjectPath.startsWith("alien://"))
+				targetObjectPath = targetObjectPath.substring(8);
 
 			final LFN l = LFNUtils.getLFN(targetObjectPath);
 
@@ -111,11 +115,14 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 				return;
 
 			try {
-				IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,disk:5");
+				final LFN result = IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,http:5,disk:2");
 
-				try (DBFunctions db = SQLObject.getDB()) {
-					db.query("update ccdb set replicas=replicas || ? where id=? AND NOT ? = ANY(replicas);", false, Integer.valueOf(-1), object.id, Integer.valueOf(-1));
-				}
+				if (result != null)
+					try (DBFunctions db = SQLObject.getDB()) {
+						db.query("update ccdb set replicas=replicas || ? where id=? AND NOT ? = ANY(replicas);", false, Integer.valueOf(-1), object.id, Integer.valueOf(-1));
+					}
+				else
+					System.err.println("Failed to upload " + localFile + " to " + targetObjectPath);
 			}
 			catch (final IOException e) {
 				System.err.println("Could not upload " + localFile.getAbsolutePath() + " to " + targetObjectPath + ", reason was: " + e.getMessage());
@@ -134,6 +141,10 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 					target.run();
 			}
 			catch (final InterruptedException e) {
+				e.printStackTrace();
+				return;
+			}
+			catch (final Exception e) {
 				e.printStackTrace();
 			}
 		}
@@ -246,10 +257,12 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 			}
 			else
 				if (replica.intValue() < 0) {
-					final LFN l = LFNUtils.getLFN(object.getAddress(Integer.valueOf(-1), false).iterator().next());
+					String url = object.getAddress(replica, null, false).iterator().next();
 
-					if (l != null)
-						l.delete(true, false);
+					if (url.startsWith("alien://"))
+						url = url.substring(8);
+
+					JAliEnCOMMander.getInstance().c_api.removeLFN(url);
 				}
 				else {
 					final SE se = SEUtils.getSE(replica.intValue());

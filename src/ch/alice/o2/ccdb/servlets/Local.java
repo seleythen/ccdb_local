@@ -65,6 +65,8 @@ public class Local extends HttpServlet {
 		while (location.endsWith("/"))
 			location = location.substring(0, location.length() - 1);
 
+		location = location.replaceAll("//", "/");
+
 		basePath = location;
 	}
 
@@ -184,7 +186,7 @@ public class Local extends HttpServlet {
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
+		CCDBUtils.sendRedirect(response, getURLPrefix(request) + matchingObject.referenceFile.getPath().substring(basePath.length()));
 	}
 
 	private static void setHeaders(final LocalObjectWithVersion obj, final HttpServletResponse response) {
@@ -466,7 +468,7 @@ public class Local extends HttpServlet {
 				// ignore
 			}
 
-			final UUID targetUUID = UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
+			final UUID targetUUID = parser.uuidConstraint != null ? parser.uuidConstraint : UUIDTools.generateTimeUUID(newObjectTime, remoteAddress);
 
 			final Part part = parts.iterator().next();
 

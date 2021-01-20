@@ -1,7 +1,5 @@
 package ch.alice.o2.ccdb.servlets;
 
-import static ch.alice.o2.ccdb.servlets.ServletHelper.printUsage;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -51,10 +49,11 @@ public class LocalBrowse extends HttpServlet {
 
 			final RequestParser parser = new RequestParser(request, true);
 
-			if (!parser.ok) {
-				printUsage(request, response);
-				return;
-			}
+			// The "ok" check restricts browsing of root directory, which is needed by QCG (as per O2-1859)
+			// if (!parser.ok) {
+			// printUsage(request, response);
+			// return;
+			// }
 
 			final List<LocalObjectWithVersion> matchingObjects = getAllMatchingObjects(parser);
 
@@ -193,6 +192,12 @@ public class LocalBrowse extends HttpServlet {
 
 		recursiveMatching(parser, ret, fBaseDir, matchingPattern);
 
+		if (parser.browseLimit > 0 && parser.browseLimit < ret.size()) {
+			// return at most Browse-Limit objects, the most recent ones from any matching path
+			Collections.sort(ret);
+			return ret.subList(0, parser.browseLimit);
+		}
+
 		return ret;
 	}
 
@@ -251,7 +256,7 @@ public class LocalBrowse extends HttpServlet {
 				}
 			}
 
-		if (parser.latestFlag && mostRecent != null)
+		if (mostRecent != null)
 			ret.add(mostRecent);
 	}
 }

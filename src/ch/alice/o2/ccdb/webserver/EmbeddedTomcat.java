@@ -1,13 +1,19 @@
 package ch.alice.o2.ccdb.webserver;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.Globals;
@@ -22,6 +28,8 @@ import org.apache.catalina.core.StandardContext;
 import org.apache.catalina.core.StandardHost;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.catalina.valves.ErrorReportValve;
+import org.apache.tomcat.util.descriptor.web.FilterDef;
+import org.apache.tomcat.util.descriptor.web.FilterMap;
 import org.apache.tomcat.util.descriptor.web.LoginConfig;
 import org.apache.tomcat.util.descriptor.web.SecurityCollection;
 import org.apache.tomcat.util.descriptor.web.SecurityConstraint;
@@ -113,6 +121,49 @@ public class EmbeddedTomcat extends Tomcat {
 			initializeSSLEndpoint();
 		else
 			getConnector().setRedirectPort(0);
+
+		addCORSHeaderFilter();
+	}
+
+	/**
+	 * Set the `Access-Control-Allow-Origin: *` header to all answers
+	 *
+	 * @author costing
+	 * @since Nov 19, 2020
+	 */
+	public static final class CORSFilter implements Filter {
+		@Override
+		public void destroy() {
+			// nothing yet
+		}
+
+		@Override
+		public void init(final FilterConfig arg0) throws ServletException {
+			// nothing yet
+		}
+
+		@Override
+		public void doFilter(final ServletRequest req, final ServletResponse resp, final FilterChain chain) throws IOException, ServletException {
+			final HttpServletResponse response = (HttpServletResponse) resp;
+			response.setHeader("Access-Control-Allow-Origin", "*");
+
+			chain.doFilter(req, resp);
+		}
+	}
+
+	/**
+	 *
+	 */
+	private void addCORSHeaderFilter() {
+		final FilterDef filter1definition = new FilterDef();
+		filter1definition.setFilterName(CORSFilter.class.getSimpleName());
+		filter1definition.setFilterClass(CORSFilter.class.getName());
+		ctx.addFilterDef(filter1definition);
+
+		final FilterMap filter1mapping = new FilterMap();
+		filter1mapping.setFilterName(CORSFilter.class.getSimpleName());
+		filter1mapping.addURLPattern("/*");
+		ctx.addFilterMap(filter1mapping);
 	}
 
 	private void decorateConnector(final Connector connector) {
@@ -320,17 +371,17 @@ public class EmbeddedTomcat extends Tomcat {
 		connector.setPort(tomcatPort);
 		connector.setSecure(true);
 		connector.setScheme("https");
-		connector.setAttribute("keyAlias", "User.cert");
-		connector.setAttribute("keystorePass", keystorePass);
-		connector.setAttribute("keystoreType", "JKS");
-		connector.setAttribute("keystoreFile", keystoreName);
-		connector.setAttribute("truststorePass", keystorePass);
-		connector.setAttribute("truststoreType", "JKS");
-		connector.setAttribute("truststoreFile", truststoreName);
-		connector.setAttribute("clientAuth", "true");
-		connector.setAttribute("sslProtocol", "TLS");
-		connector.setAttribute("SSLEnabled", "true");
-		connector.setAttribute("maxThreads", "200");
+		connector.setProperty("keyAlias", "User.cert");
+		connector.setProperty("keystorePass", keystorePass);
+		connector.setProperty("keystoreType", "JKS");
+		connector.setProperty("keystoreFile", keystoreName);
+		connector.setProperty("truststorePass", keystorePass);
+		connector.setProperty("truststoreType", "JKS");
+		connector.setProperty("truststoreFile", truststoreName);
+		connector.setProperty("clientAuth", "true");
+		connector.setProperty("sslProtocol", "TLS");
+		connector.setProperty("SSLEnabled", "true");
+		connector.setProperty("maxThreads", "200");
 
 		decorateConnector(connector);
 

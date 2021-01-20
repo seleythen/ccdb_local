@@ -153,7 +153,7 @@ public class Memory extends HttpServlet {
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(getURLPrefix(request) + matchingObject.getStartTime() + "/" + matchingObject.getUuid().toString());
+		CCDBUtils.sendRedirect(response, getURLPrefix(request) + matchingObject.getStartTime() + "/" + matchingObject.getUuid().toString());
 	}
 
 	/**

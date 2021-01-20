@@ -51,6 +51,8 @@ public class SQLBacked extends HttpServlet {
 	 */
 	public static final String basePath = Options.getOption("file.repository.location", System.getProperty("user.home") + System.getProperty("file.separator") + "QC");
 
+	private static final boolean localCopyFirst = lazyj.Utils.stringToBool(Options.getOption("local.copy.first", null), false);
+
 	static {
 		monitor.addMonitoring("stats", new SQLStatsExporter(null));
 
@@ -84,6 +86,10 @@ public class SQLBacked extends HttpServlet {
 
 		if (httpSender != null)
 			notifiers.add(httpSender);
+	}
+
+	static boolean isLocalCopyFirst() {
+		return localCopyFirst;
 	}
 
 	@Override
@@ -133,29 +139,31 @@ public class SQLBacked extends HttpServlet {
 			return;
 		}
 
-		if (setAltLocationHeaders(response, matchingObject)) {
+		final String clientIPAddress = request.getRemoteAddr();
+
+		final boolean httpOnly = lazyj.Utils.stringToBool(request.getParameter("HTTPOnly"), false);
+
+		if (setAltLocationHeaders(response, matchingObject, clientIPAddress, httpOnly) && localCopyFirst) {
 			SQLDownload.download(head, matchingObject, request, response);
 			return;
 		}
 
 		setHeaders(matchingObject, response);
 
-		response.sendRedirect(matchingObject.getAddresses().iterator().next());
+		CCDBUtils.sendRedirect(response, matchingObject.getAddresses(clientIPAddress, httpOnly).iterator().next());
 	}
 
-	private static boolean setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj) {
+	private static boolean setAltLocationHeaders(final HttpServletResponse response, final SQLObject obj, final String clientIPAddress, final boolean httpOnly) {
 		boolean hasLocalReplica = false;
 
 		for (final Integer replica : obj.replicas)
-			if (replica.intValue() == 0) {
-				if (obj.getLocalFile(false) != null) {
-					response.addHeader("Content-Location", "/download/" + obj.id);
-					hasLocalReplica = true;
-				}
+			if (replica.intValue() == 0 && obj.getLocalFile(false) != null) {
+				hasLocalReplica = true;
+				break;
 			}
-			else
-				for (final String address : obj.getAddress(replica))
-					response.addHeader("Content-Location", address.replace('\n', '|'));
+
+		for (final String address : obj.getAddresses(clientIPAddress, httpOnly))
+			response.addHeader("Content-Location", address.replace('\n', '|'));
 
 		return hasLocalReplica;
 	}
@@ -229,7 +237,7 @@ public class SQLBacked extends HttpServlet {
 
 			final Part part = parts.iterator().next();
 
-			final SQLObject newObject = new SQLObject(request, parser.path);
+			final SQLObject newObject = new SQLObject(request, parser.path, parser.uuidConstraint);
 
 			final File targetFile = newObject.getLocalFile(true);
 
@@ -328,7 +336,7 @@ public class SQLBacked extends HttpServlet {
 
 			setHeaders(matchingObject, response);
 
-			response.setHeader("Location", matchingObject.getAddresses().iterator().next());
+			response.setHeader("Location", matchingObject.getAddresses(null, false).iterator().next());
 
 			if (changed)
 				response.sendError(HttpServletResponse.SC_NO_CONTENT);
@@ -402,59 +410,52 @@ public class SQLBacked extends HttpServlet {
 	 */
 	public static void createDBStructure() {
 		try (DBFunctions db = SQLObject.getDB()) {
-			if (db.isPostgreSQL()) {
-				db.query("CREATE EXTENSION IF NOT EXISTS hstore;", true);
-				db.query(
-						"CREATE TABLE IF NOT EXISTS ccdb (id uuid PRIMARY KEY, pathId int NOT NULL, validity tsrange, createTime bigint NOT NULL, replicas integer[], size bigint, md5 uuid, filename text, contenttype int, uploadedfrom inet, initialvalidity bigint, metadata hstore, lastmodified bigint);");
-				db.query("CREATE INDEX IF NOT EXISTS ccdb_pathId2_idx ON ccdb(pathId);");
-				db.query("ALTER TABLE ccdb ALTER validity SET STATISTICS 10000;");
-				db.query("CREATE INDEX IF NOT EXISTS ccdb_validity2_idx on ccdb using gist(validity);");
+			if (db != null)
+				if (db.isPostgreSQL()) {
+					db.query("CREATE EXTENSION IF NOT EXISTS hstore;", true);
 
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_paths (pathId SERIAL PRIMARY KEY, path text UNIQUE NOT NULL);");
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_metadata (metadataId SERIAL PRIMARY KEY, metadataKey text UNIQUE NOT NULL);");
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
-				db.query("CREATE TABLE IF NOT EXISTS config(key TEXT PRIMARY KEY, value TEXT);");
+					db.query("CREATE TABLE IF NOT EXISTS ccdb_paths (pathId SERIAL PRIMARY KEY, path text UNIQUE NOT NULL);");
+					db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
 
-				if (!db.query("SELECT * FROM ccdb LIMIT 0")) {
-					System.err.println("Database communication cannot be established, please fix config.properties and/or the PostgreSQL server and try again");
-					System.exit(1);
+					db.query(
+							"CREATE TABLE IF NOT EXISTS ccdb (id uuid PRIMARY KEY, pathId int NOT NULL REFERENCES ccdb_paths(pathId), validity tsrange, createTime bigint NOT NULL, replicas integer[], size bigint, md5 uuid, filename text, contenttype int REFERENCES ccdb_contenttype(contentTypeId), uploadedfrom inet, initialvalidity bigint, metadata hstore, lastmodified bigint);");
+					db.query("CREATE INDEX IF NOT EXISTS ccdb_pathId2_idx ON ccdb(pathId);");
+					db.query("ALTER TABLE ccdb ALTER validity SET STATISTICS 10000;");
+					db.query("CREATE INDEX IF NOT EXISTS ccdb_validity2_idx on ccdb using gist(validity);");
+
+					db.query("CREATE TABLE IF NOT EXISTS ccdb_metadata (metadataId SERIAL PRIMARY KEY, metadataKey text UNIQUE NOT NULL);");
+					db.query("CREATE TABLE IF NOT EXISTS config(key TEXT PRIMARY KEY, value TEXT);");
+
+					if (!db.query("SELECT * FROM ccdb LIMIT 0")) {
+						System.err.println("Database communication cannot be established, please fix config.properties and/or the PostgreSQL server and try again");
+						System.exit(1);
+					}
+
+					System.err.println("Database connection is verified to work");
+
+					db.query("CREATE TABLE IF NOT EXISTS ccdb_stats (pathid int primary key, object_count bigint default 0, object_size bigint default 0);");
+
+					db.query("SELECT count(1) FROM ccdb_stats;");
+
+					if (db.geti(1) == 0)
+						recomputeStatistics();
+
+					db.query("CREATE OR REPLACE FUNCTION ccdb_increment() RETURNS TRIGGER AS $_$\n" + "    BEGIN\n" + "        INSERT INTO \n"
+							+ "            ccdb_stats (pathid, object_count, object_size) VALUES (NEW.pathid, 1, NEW.size)\n"
+							+ "        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" + "\n" + "        INSERT INTO\n"
+							+ "            ccdb_stats (pathid, object_count, object_size) VALUES (0, 1, NEW.size)\n"
+							+ "        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" + "\n" + "        RETURN NEW;\n"
+							+ "    END\n" + "$_$ LANGUAGE 'plpgsql';");
+
+					db.query("CREATE OR REPLACE FUNCTION ccdb_decrement() RETURNS TRIGGER AS $_$\n" + "    BEGIN\n"
+							+ "        UPDATE ccdb_stats SET object_count=object_count-1, object_size=object_size-OLD.size WHERE pathid IN (0, OLD.pathid);\n" + "        RETURN NEW;\n" + "    END\n"
+							+ "$_$ LANGUAGE 'plpgsql';");
+
+					db.query("CREATE TRIGGER ccdb_increment_trigger AFTER INSERT ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_increment();", true);
+					db.query("CREATE TRIGGER ccdb_decrement_trigger AFTER DELETE ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_decrement();", true);
 				}
-
-				System.err.println("Database connection is verified to work");
-
-				db.query("CREATE TABLE IF NOT EXISTS ccdb_stats (pathid int primary key, object_count bigint default 0, object_size bigint default 0);");
-
-				db.query("SELECT count(1) FROM ccdb_stats;");
-
-				if (db.geti(1) == 0)
-					recomputeStatistics();
-
-				db.query("CREATE OR REPLACE FUNCTION ccdb_increment() RETURNS TRIGGER AS $_$\n" +
-						"    BEGIN\n" +
-						"        INSERT INTO \n" +
-						"            ccdb_stats (pathid, object_count, object_size) VALUES (NEW.pathid, 1, NEW.size)\n" +
-						"        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" +
-						"\n" +
-						"        INSERT INTO\n" +
-						"            ccdb_stats (pathid, object_count, object_size) VALUES (0, 1, NEW.size)\n" +
-						"        ON CONFLICT (pathid) DO UPDATE SET object_count=ccdb_stats.object_count+1, object_size=ccdb_stats.object_size+NEW.size;\n" +
-						"\n" +
-						"        RETURN NEW;\n" +
-						"    END\n" +
-						"$_$ LANGUAGE 'plpgsql';");
-
-				db.query("CREATE OR REPLACE FUNCTION ccdb_decrement() RETURNS TRIGGER AS $_$\n" +
-						"    BEGIN\n" +
-						"        UPDATE ccdb_stats SET object_count=object_count-1, object_size=object_size-OLD.size WHERE pathid IN (0, OLD.pathid);\n" +
-						"        RETURN NEW;\n" +
-						"    END\n" +
-						"$_$ LANGUAGE 'plpgsql';");
-
-				db.query("CREATE TRIGGER ccdb_increment_trigger AFTER INSERT ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_increment();", true);
-				db.query("CREATE TRIGGER ccdb_decrement_trigger AFTER DELETE ON ccdb FOR EACH ROW EXECUTE PROCEDURE ccdb_decrement();", true);
-			}
-			else
-				throw new IllegalArgumentException("Only PostgreSQL support is implemented at the moment");
+				else
+					throw new IllegalArgumentException("Only PostgreSQL support is implemented at the moment");
 		}
 	}
 

@@ -109,7 +109,7 @@ class JSONFormatter implements SQLFormatter {
 			final ArrayList<String> replicas = new ArrayList<>();
 
 			for (final Integer replica : obj.replicas)
-				for (final String address : obj.getAddress(replica))
+				for (final String address : obj.getAddress(replica, null, false))
 					replicas.add(address);
 
 			jsonContent.put("replicas", replicas);

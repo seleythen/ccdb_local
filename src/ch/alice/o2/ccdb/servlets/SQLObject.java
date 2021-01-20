@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,15 +23,14 @@ import javax.servlet.http.HttpServletRequest;
 import alien.catalogue.GUID;
 import alien.catalogue.GUIDUtils;
 import alien.catalogue.LFN;
-import alien.catalogue.LFNUtils;
 import alien.catalogue.PFN;
-import alien.catalogue.access.AccessType;
-import alien.catalogue.access.AuthorizationFactory;
+import alien.catalogue.access.XrootDEnvelope;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import alien.monitoring.Timing;
 import alien.se.SE;
 import alien.se.SEUtils;
+import alien.shell.commands.JAliEnCOMMander;
 import alien.user.AliEnPrincipal;
 import alien.user.UserFactory;
 import ch.alice.o2.ccdb.Options;
@@ -47,7 +47,7 @@ import lazyj.StringFactory;
  * @author costing
  * @since 2017-10-13
  */
-public class SQLObject {
+public class SQLObject implements Comparable<SQLObject> {
 	private static ExtProperties config = new ExtProperties(Options.getOption("config.dir", "."), Options.getOption("config.file", "config"));
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLObject.class.getCanonicalName());
@@ -56,7 +56,10 @@ public class SQLObject {
 	 * @return the database connection
 	 */
 	public static final DBFunctions getDB() {
-		return new DBFunctions(config);
+		if (config.gets("driver", null) != null)
+			return new DBFunctions(config);
+
+		return null;
 	}
 
 	/**
@@ -158,23 +161,30 @@ public class SQLObject {
 	 * @param request
 	 * @param path
 	 *            object path
+	 * @param uuid
+	 *            unique identifier to force on the new object. Can be <code>null</code> to automatically generate one.
 	 */
-	public SQLObject(final HttpServletRequest request, final String path) {
+	public SQLObject(final HttpServletRequest request, final String path, final UUID uuid) {
 		createTime = System.currentTimeMillis();
 
-		byte[] remoteAddress = null;
+		if (uuid != null) {
+			id = uuid;
+		}
+		else {
+			byte[] remoteAddress = null;
 
-		if (request != null)
-			try {
-				final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
+			if (request != null)
+				try {
+					final InetAddress ia = InetAddress.getByName(request.getRemoteAddr());
 
-				remoteAddress = ia.getAddress();
-			}
-			catch (@SuppressWarnings("unused") final Throwable t) {
-				// ignore
-			}
+					remoteAddress = ia.getAddress();
+				}
+				catch (@SuppressWarnings("unused") final Throwable t) {
+					// ignore
+				}
 
-		id = UUIDTools.generateTimeUUID(createTime, remoteAddress);
+			id = UUIDTools.generateTimeUUID(createTime, remoteAddress);
+		}
 
 		assert path != null && path.length() > 0;
 
@@ -280,13 +290,21 @@ public class SQLObject {
 				else {
 					initialValidity = validUntil;
 
-					if (db.query(
-							"INSERT INTO ccdb (id, pathid, validity, createTime, replicas, size, md5, initialvalidity, filename, contenttype, uploadedfrom, metadata, lastmodified) VALUES (?, ?, tsrange(to_timestamp(?) AT TIME ZONE 'UTC', to_timestamp(?) AT TIME ZONE 'UTC'), ?, ?::int[], ?, ?::uuid, ?, ?, ?, ?::inet, ?, ?);",
-							false, id, pathId, Double.valueOf(validFrom / 1000.), Double.valueOf(validUntil / 1000.), Long.valueOf(createTime), replicaArray, Long.valueOf(size), md5,
-							Long.valueOf(initialValidity), fileName, getContentTypeID(contentType, true), uploadedFrom, metadata, Long.valueOf(lastModified))) {
-						existing = true;
-						tainted = false;
-						return true;
+					for (int attempt = 0; attempt < 2; attempt++) {
+						if (attempt > 0) {
+							// if another instance has cleaned up this path
+							removePathID(pathId);
+							pathId = getPathID(path, true);
+						}
+
+						if (db.query(
+								"INSERT INTO ccdb (id, pathid, validity, createTime, replicas, size, md5, initialvalidity, filename, contenttype, uploadedfrom, metadata, lastmodified) VALUES (?, ?, tsrange(to_timestamp(?) AT TIME ZONE 'UTC', to_timestamp(?) AT TIME ZONE 'UTC'), ?, ?::int[], ?, ?::uuid, ?, ?, ?, ?::inet, ?, ?);",
+								false, id, pathId, Double.valueOf(validFrom / 1000.), Double.valueOf(validUntil / 1000.), Long.valueOf(createTime), replicaArray, Long.valueOf(size), md5,
+								Long.valueOf(initialValidity), fileName, getContentTypeID(contentType, true), uploadedFrom, metadata, Long.valueOf(lastModified))) {
+							existing = true;
+							tainted = false;
+							return true;
+						}
 					}
 
 					System.err.println("Insert query failed for id=" + id);
@@ -335,18 +353,20 @@ public class SQLObject {
 	 * @return full URL
 	 */
 	public List<String> getAddress(final Integer replica) {
-		return getAddress(replica, true);
+		return getAddress(replica, null, true);
 	}
 
 	/**
 	 * Return the full URL(s) to the physical representation on this replica ID
 	 *
 	 * @param replica
+	 * @param ipAddress
+	 *            client's IP address, when known, to better sort the replicas
 	 * @param resolveAliEn
 	 *            whether or not to look up the PFNs for AliEn LFNs
 	 * @return full URL
 	 */
-	public List<String> getAddress(final Integer replica, final boolean resolveAliEn) {
+	public List<String> getAddress(final Integer replica, final String ipAddress, final boolean resolveAliEn) {
 		String pattern = config.gets("server." + replica + ".urlPattern", null);
 
 		if (pattern == null) {
@@ -396,57 +416,29 @@ public class SQLObject {
 
 		if (pattern.startsWith("alien://")) {
 			if (!resolveAliEn)
-				return Arrays.asList(pattern.substring(8));
+				return Arrays.asList(pattern);
 
-			final LFN l = LFNUtils.getLFN(pattern.substring(8));
+			final JAliEnCOMMander commander = new JAliEnCOMMander(null, null, AsyncResolver.getSite(ipAddress, true), null);
+
+			final LFN l = commander.c_api.getLFN(pattern.substring(8));
 
 			if (l != null) {
-				final Set<PFN> pfns = l.whereisReal();
+				final Collection<PFN> pfns = commander.c_api.getPFNsToRead(l, null, null);
+
 				if (pfns != null) {
 					final List<String> ret = new ArrayList<>(pfns.size());
 
 					for (final PFN p : pfns) {
 						String envelope = null;
 
-						String reason;
+						if (p.ticket != null && p.ticket.envelope != null)
+							envelope = p.ticket.envelope.getEncryptedEnvelope();
 
-						if ((reason = AuthorizationFactory.fillAccess(p, AccessType.READ)) == null) {
-							if (p.ticket.envelope != null) {
-								envelope = p.ticket.envelope.getEncryptedEnvelope();
-
-								if (envelope == null)
-									envelope = p.ticket.envelope.getSignedEnvelope();
-							}
-						}
-						else
-							System.err.println("Cannot grant access to " + p.getPFN() + " : " + reason);
-
-						final SE se = p.getSE();
-
-						int httpPort = -1;
-
-						if (se != null)
-							httpPort = se.getHTTPPort();
-
-						String httpUrl = null;
-
-						if (httpPort > 0 && p.getPFN().startsWith("root://")) {
-							final String url = p.getPFN().substring(7);
-
-							final int idxColumn = url.indexOf(':');
-							final int idxSlash = url.indexOf('/');
-
-							if (idxColumn > 0 && idxSlash > idxColumn) {
-								httpUrl = "http://" + url.substring(0, idxColumn + 1) + httpPort + url.substring(idxSlash);
-							}
-							else
-								if (idxSlash > 0)
-									httpUrl = "http://" + url.substring(0, idxSlash) + ":" + httpPort + url.substring(idxSlash);
-						}
+						final String httpUrl = p.getHttpURL();
 
 						if (httpUrl != null) {
 							if (envelope != null)
-								ret.add(httpUrl + "?authz=" + Format.encode(envelope));
+								ret.add(httpUrl + "?authz=" + XrootDEnvelope.urlEncodeEnvelope(envelope));
 							else
 								ret.add(httpUrl);
 						}
@@ -457,8 +449,6 @@ public class SQLObject {
 								ret.add(p.getPFN());
 						}
 					}
-
-					Collections.sort(ret);
 
 					return ret;
 				}
@@ -472,14 +462,27 @@ public class SQLObject {
 
 	/**
 	 * Get all URLs where replicas of this object can be retrieved from
+	 * 
+	 * @param ipAddress
+	 *            client's IP address, to better sort the replicas function of its location
+	 * @param httpOnly
+	 *            whether or not to return http:// addresses only. Alternatively alien:// and root:// URLs are also returned.
 	 *
 	 * @return the list of URLs where the content of this object can be retrieved from
 	 */
-	public List<String> getAddresses() {
-		final List<String> ret = new ArrayList<>(replicas.size());
+	public List<String> getAddresses(final String ipAddress, final boolean httpOnly) {
+		final List<String> ret = new ArrayList<>();
 
-		for (final Integer replica : replicas)
-			ret.addAll(getAddress(replica));
+		for (final Integer replica : replicas) {
+			final List<String> toAdd = (SQLBacked.isLocalCopyFirst() && replica.intValue() == 0) ? new LinkedList<>() : null;
+
+			for (final String addr : getAddress(replica, ipAddress, httpOnly))
+				if (!httpOnly || (!addr.startsWith("alien://") && !addr.startsWith("root://")))
+					(toAdd != null ? toAdd : ret).add(addr);
+
+			if (toAdd != null)
+				ret.addAll(0, toAdd);
+		}
 
 		return ret;
 	}
@@ -678,17 +681,29 @@ public class SQLObject {
 				return value;
 			}
 
-			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_paths (path) VALUES (?);", false, path)) {
-					db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
+			if (createIfNotExists) {
+				final Integer hashId = Integer.valueOf(Math.abs(path.hashCode()));
 
-					if (db.moveNext()) {
-						value = Integer.valueOf(db.geti(1));
-						PATHS.put(path, value);
-						PATHS_REVERSE.put(value, path);
-						return value;
-					}
+				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_paths (pathId, path) VALUES (?, ?);", false, hashId, path)) {
+					// could create the hash-based path ID, all good
+					PATHS.put(path, hashId);
+					PATHS_REVERSE.put(hashId, path);
+					return value;
 				}
+
+				// there is conflict on this hash code, take the next available value instead
+				db.query("INSERT INTO ccdb_paths (path) VALUES (?);", false, path);
+
+				// always execute the select, in case another instance has inserted it in the mean time
+				db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
+
+				if (db.moveNext()) {
+					value = Integer.valueOf(db.geti(1));
+					PATHS.put(path, value);
+					PATHS_REVERSE.put(value, path);
+					return value;
+				}
+			}
 		}
 
 		return null;
@@ -756,6 +771,13 @@ public class SQLObject {
 			return value;
 
 		try (DBFunctions db = getDB()) {
+			if (db == null) {
+				value = Integer.valueOf(METADATA.size() + 1);
+				METADATA.put(metadataKey, value);
+				METADATA_REVERSE.put(value, metadataKey);
+				return value;
+			}
+
 			db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
 
 			if (db.moveNext()) {
@@ -765,17 +787,26 @@ public class SQLObject {
 				return value;
 			}
 
-			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_metadata (metadataKey) VALUES (?);", false, metadataKey)) {
-					db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
+			if (createIfNotExists) {
+				final Integer hashId = Integer.valueOf(Math.abs(metadataKey.hashCode()));
 
-					if (db.moveNext()) {
-						value = Integer.valueOf(db.geti(1));
-						METADATA.put(metadataKey, value);
-						METADATA_REVERSE.put(value, metadataKey);
-						return value;
-					}
+				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_metadata(metadataId, metadataKey) VALUES (?, ?);", false, hashId, metadataKey)) {
+					METADATA.put(metadataKey, hashId);
+					METADATA_REVERSE.put(hashId, metadataKey);
+					return hashId;
 				}
+
+				db.query("INSERT INTO ccdb_metadata (metadataKey) VALUES (?);", false, metadataKey);
+
+				db.query("SELECT metadataId FROM ccdb_metadata WHERE metadataKey=?;", false, metadataKey);
+
+				if (db.moveNext()) {
+					value = Integer.valueOf(db.geti(1));
+					METADATA.put(metadataKey, value);
+					METADATA_REVERSE.put(value, metadataKey);
+					return value;
+				}
+			}
 		}
 
 		return null;
@@ -829,17 +860,26 @@ public class SQLObject {
 				return value;
 			}
 
-			if (createIfNotExists)
-				if (db.query("INSERT INTO ccdb_contenttype (contentType) VALUES (?);", false, contentType)) {
-					db.query("SELECT contentTypeId FROM ccdb_contenttype WHERE contentType=?;", false, contentType);
+			if (createIfNotExists) {
+				final Integer hashId = Integer.valueOf(Math.abs(contentType.hashCode()));
 
-					if (db.moveNext()) {
-						value = Integer.valueOf(db.geti(1));
-						CONTENTTYPE.put(contentType, value);
-						CONTENTTYPE_REVERSE.put(value, contentType);
-						return value;
-					}
+				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_contenttype (contentTypeId, ccdb_contenttype) VALUES (?, ?);", false, hashId, contentType)) {
+					CONTENTTYPE.put(contentType, hashId);
+					CONTENTTYPE_REVERSE.put(hashId, contentType);
+					return hashId;
 				}
+
+				db.query("INSERT INTO ccdb_contenttype (contentType) VALUES (?);", false, contentType);
+
+				db.query("SELECT contentTypeId FROM ccdb_contenttype WHERE contentType=?;", false, contentType);
+
+				if (db.moveNext()) {
+					value = Integer.valueOf(db.geti(1));
+					CONTENTTYPE.put(contentType, value);
+					CONTENTTYPE_REVERSE.put(value, contentType);
+					return value;
+				}
+			}
 		}
 
 		return null;
@@ -1017,6 +1057,9 @@ public class SQLObject {
 
 		if (parser.latestFlag)
 			q.append(" LIMIT 1");
+		else
+			if (parser.browseLimit > 0)
+				q.append(" LIMIT " + parser.browseLimit);
 
 		try (DBFunctions db = getDB()) {
 			db.query(q.toString(), false, arguments.toArray(new Object[0]));
@@ -1047,6 +1090,12 @@ public class SQLObject {
 			final List<SQLObject> ret = Collections.synchronizedList(new ArrayList<>(pathIDs.size() * (parser.latestFlag ? 1 : 2)));
 
 			pathIDs.parallelStream().forEach((id) -> getMatchingObjects(parser, id, ret));
+
+			if (parser.browseLimit > 0 && ret.size() > parser.browseLimit) {
+				Collections.sort(ret);
+
+				return ret.subList(0, parser.browseLimit);
+			}
 
 			return ret;
 		}
@@ -1095,5 +1144,34 @@ public class SQLObject {
 		guid.aclId = -1;
 
 		return guid;
+	}
+
+	@Override
+	public int compareTo(final SQLObject o) {
+		final long diff = o.createTime - this.createTime;
+
+		if (diff < 0)
+			return -1;
+
+		if (diff > 0)
+			return 1;
+
+		return o.id.compareTo(this.id);
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+		if (obj == this)
+			return true;
+
+		if (obj == null || !(obj instanceof SQLObject))
+			return false;
+
+		return compareTo((SQLObject) obj) == 0;
+	}
+
+	@Override
+	public int hashCode() {
+		return id.hashCode();
 	}
 }

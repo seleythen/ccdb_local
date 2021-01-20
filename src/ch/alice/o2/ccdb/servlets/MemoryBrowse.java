@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -209,6 +210,13 @@ public class MemoryBrowse extends HttpServlet {
 				if (bBest != null)
 					matchingObjects.add(bBest);
 			}
+		}
+
+		if (parser.browseLimit > 0 && parser.browseLimit < matchingObjects.size()) {
+			// apply the limit to the entire set, which can in principle contain several paths if regex was used
+			
+			Collections.sort(matchingObjects);
+			return matchingObjects.subList(0, parser.browseLimit);
 		}
 
 		return matchingObjects;
