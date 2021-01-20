@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 
 import alien.catalogue.GUID;
+import alien.catalogue.GUIDUtils;
 import alien.monitoring.MonitorFactory;
 
 /**
@@ -20,7 +21,7 @@ public class UUIDTools {
 
 	private static long lastTimestamp2 = System.nanoTime() / 100 + 122192928000000000L;
 
-	private static final byte[] macAddress = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66 };
+	private static byte[] macAddress = null;
 
 	/**
 	 * @param referenceTime
@@ -53,8 +54,13 @@ public class UUIDTools {
 				contents[10 + i] = address[i];
 		}
 
-		for (int i = addressBytes; i < 6; i++)
-			contents[10 + i] = macAddress[i];
+		if (addressBytes < 6) {
+			if (macAddress == null)
+				macAddress = GUIDUtils.getMac();
+
+			for (int i = addressBytes; i < 6; i++)
+				contents[10 + i] = macAddress[i];
+		}
 
 		final int timeHi = (int) (time >>> 32);
 		final int timeLo = (int) time;
@@ -84,7 +90,8 @@ public class UUIDTools {
 	/**
 	 * Converts an uuid into byte[]
 	 *
-	 * @param uuid - An UUID
+	 * @param uuid
+	 *            - An UUID
 	 * @return byte[] - the serialized uuid
 	 */
 	public static byte[] getBytes(final UUID uuid) {
