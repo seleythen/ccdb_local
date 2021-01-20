@@ -56,13 +56,13 @@ public class SQLInsertWithGivenRate {
             public void run() {
                 final SQLObject obj = new SQLObject("dummy");
 
-                obj.validFrom = (base + i + noOfObjects) * 160;
+                obj.validFrom = (base + noOfObjects) * 160;
                 obj.validUntil = obj.validFrom + 600000;
 
                 obj.fileName = "some_new_detector_object.root";
                 obj.contentType = "application/octet-stream";
                 obj.uploadedFrom = "127.0.0.1";
-                obj.size = base + noOfObjects + i;
+                obj.size = base + noOfObjects;
                 obj.md5 = "7e8fbee4f76f7079ec87bdc83d7d5538";
 
                 obj.replicas.add(Integer.valueOf(1));
