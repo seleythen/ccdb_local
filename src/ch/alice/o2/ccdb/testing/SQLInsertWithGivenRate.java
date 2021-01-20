@@ -54,24 +54,22 @@ public class SQLInsertWithGivenRate {
         final Runnable insertTask = new Runnable() {
             @Override
             public void run() {
-                for (long i = 0; i < noOfObjects; i++) {
-                    final SQLObject obj = new SQLObject("dummy");
+                final SQLObject obj = new SQLObject("dummy");
 
-                    obj.validFrom = (base + i + noOfObjects) * 160;
-                    obj.validUntil = obj.validFrom + 600000;
+                obj.validFrom = (base + i + noOfObjects) * 160;
+                obj.validUntil = obj.validFrom + 600000;
 
-                    obj.fileName = "some_new_detector_object.root";
-                    obj.contentType = "application/octet-stream";
-                    obj.uploadedFrom = "127.0.0.1";
-                    obj.size = base + noOfObjects + i;
-                    obj.md5 = "7e8fbee4f76f7079ec87bdc83d7d5538";
+                obj.fileName = "some_new_detector_object.root";
+                obj.contentType = "application/octet-stream";
+                obj.uploadedFrom = "127.0.0.1";
+                obj.size = base + noOfObjects + i;
+                obj.md5 = "7e8fbee4f76f7079ec87bdc83d7d5538";
 
-                    obj.replicas.add(Integer.valueOf(1));
+                obj.replicas.add(Integer.valueOf(1));
 
-                    obj.save(null);
+                obj.save(null);
 
-                    insertedObjects.incrementAndGet();
-                }
+                insertedObjects.incrementAndGet();
             }
         };
 
@@ -89,13 +87,13 @@ public class SQLInsertWithGivenRate {
                 monitor.addMeasurement("Inserted objects", nowInserted - previouslyInserted);
                 previouslyInserted = nowInserted;
 
-                if(nowInserted == targetNoOfObjects) {
+                if (nowInserted == targetNoOfObjects) {
                     timer.cancel();
                     insertHandle.cancel(false);
                 }
             }
         }, interval, interval);
-        while(insertedObjects.get() < targetNoOfObjects) {
+        while (insertedObjects.get() < targetNoOfObjects) {
             Thread.sleep(10000);
         }
     }
