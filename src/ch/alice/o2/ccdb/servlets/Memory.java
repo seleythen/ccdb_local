@@ -158,7 +158,7 @@ public class Memory extends HttpServlet {
 
 	/**
 	 * Set the HTTP headers common for both GET and HEAD requests, for a given object
-	 * 
+	 *
 	 * @param obj
 	 * @param response
 	 */
@@ -188,7 +188,7 @@ public class Memory extends HttpServlet {
 
 	/**
 	 * Set the MD5 checksum header only. For HEAD requests the assumption is that the entire content would be served and this is the checksum
-	 * 
+	 *
 	 * @param obj
 	 * @param response
 	 */
@@ -201,7 +201,7 @@ public class Memory extends HttpServlet {
 
 	/**
 	 * Download the content of an object from memory
-	 * 
+	 *
 	 * @param obj
 	 * @param request
 	 * @param response
@@ -210,7 +210,7 @@ public class Memory extends HttpServlet {
 	static void download(final Blob obj, final HttpServletRequest request, final HttpServletResponse response) throws IOException {
 		final String range = request.getHeader("Range");
 
-		System.err.println("Client " + request.getRemoteAddr() + " requested to download " + obj.getUuid() + ", range: " + range);
+		// System.err.println("Client " + request.getRemoteAddr() + " requested to download " + obj.getUuid() + ", range: " + range);
 
 		if (range == null || range.trim().isEmpty()) {
 			response.setHeader("Accept-Ranges", "bytes");
@@ -354,9 +354,9 @@ public class Memory extends HttpServlet {
 
 			final StringBuilder subHeader = new StringBuilder();
 
-			subHeader.append("\n--").append(boundaryString);
-			subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
-			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(payloadSize).append("\n\n");
+			subHeader.append("\r\n--").append(boundaryString);
+			subHeader.append("\r\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append("\r\n");
+			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(payloadSize).append("\r\n\r\n");
 
 			final String sh = subHeader.toString();
 
@@ -365,7 +365,7 @@ public class Memory extends HttpServlet {
 			contentLength += toCopy + sh.length();
 		}
 
-		final String documentFooter = "\n--" + boundaryString + "--\n";
+		final String documentFooter = "\r\n--" + boundaryString + "--";
 
 		contentLength += documentFooter.length();
 
