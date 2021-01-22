@@ -110,7 +110,17 @@ class HTMLFormatter implements SQLFormatter {
 					else
 						writer.print("SE #" + replica);
 
-				writer.print("</a></li>\n");
+				writer.print("</a>");
+
+				if (replica.intValue() == 0 && obj.fileName.toLowerCase().endsWith(".root")) {
+					writer.print(" <a target=_blank href='/JSRoot?f=");
+					writer.print(Format.encode(address));
+					writer.print("&n=");
+					writer.print(Format.encode(obj.fileName));
+					writer.print("'>ROOT browser</a>");
+				}
+
+				writer.println("</li>");
 			}
 		}
 
@@ -181,7 +191,17 @@ class HTMLFormatter implements SQLFormatter {
 		writer.print("<li><a href='");
 		writer.print(Format.escHtml(obj.getPath()));
 		writer.print("'>0");
-		writer.print("</a></li>\n");
+		writer.print("</a>");
+
+		if (obj.getOriginalName().toLowerCase().endsWith(".root")) {
+			writer.print(" <a target=_blank href='/JSRoot?f=");
+			writer.print(Format.encode(obj.getPath()));
+			writer.print("&n=");
+			writer.print(Format.encode(obj.getOriginalName()));
+			writer.print("'>ROOT browser</a>");
+		}
+
+		writer.print("</li>\n");
 
 		writer.print("</ul></td></tr>\n");
 	}
@@ -347,7 +367,17 @@ class HTMLFormatter implements SQLFormatter {
 			if (obj.isComplete()) {
 				isComplete = true;
 
-				writer.print("<li><a href='/download/" + obj.getUuid() + "'>0</a></li>\n");
+				writer.print("<li><a href='/download/" + obj.getUuid() + "'>0</a>");
+
+				if (obj.getOriginalName().toLowerCase().endsWith(".root")) {
+					writer.print(" <a target=_blank href='/JSRoot?f=");
+					writer.print(Format.encode("/download/" + obj.getUuid()));
+					writer.print("&n=");
+					writer.print(Format.encode(obj.getOriginalName()));
+					writer.print("'>ROOT browser</a>");
+				}
+
+				writer.println("</li>");
 			}
 		}
 		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {

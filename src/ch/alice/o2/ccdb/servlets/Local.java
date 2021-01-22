@@ -174,6 +174,7 @@ public class Local extends HttpServlet {
 			if (!head)
 				download(matchingObject, request, response);
 			else {
+				// JSRoot doesn't work when the length is returned in the HEAD request
 				response.setContentLengthLong(matchingObject.referenceFile.length());
 				response.setHeader("Content-Disposition", "inline;filename=\"" + matchingObject.getOriginalName() + "\"");
 				response.setHeader("Content-Type", matchingObject.getProperty("Content-Type", "application/octet-stream"));
@@ -366,9 +367,9 @@ public class Local extends HttpServlet {
 
 			final StringBuilder subHeader = new StringBuilder();
 
-			subHeader.append("\n--").append(boundaryString);
-			subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
-			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(fileSize).append("\n\n");
+			subHeader.append("\r\n--").append(boundaryString);
+			subHeader.append("\r\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append("\r\n");
+			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(fileSize).append("\r\n\r\n");
 
 			final String sh = subHeader.toString();
 
@@ -377,7 +378,7 @@ public class Local extends HttpServlet {
 			contentLength += toCopy + sh.length();
 		}
 
-		final String documentFooter = "\n--" + boundaryString + "--\n";
+		final String documentFooter = "\r\n--" + boundaryString + "--";
 
 		contentLength += documentFooter.length();
 

@@ -5,6 +5,7 @@ import javax.servlet.ServletException;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.Wrapper;
 
+import ch.alice.o2.ccdb.servlets.JSRoot;
 import ch.alice.o2.ccdb.servlets.MonitorServlet;
 import ch.alice.o2.ccdb.servlets.SQLBacked;
 import ch.alice.o2.ccdb.servlets.SQLBrowse;
@@ -41,6 +42,7 @@ public class SQLBackedTomcat {
 		tomcat.addServlet(SQLBacked.class.getName(), "/*");
 		tomcat.addServlet(SQLTruncate.class.getName(), "/truncate/*");
 		tomcat.addServlet(MonitorServlet.class.getName(), "/monitor/*");
+		tomcat.addServlet(JSRoot.class.getName(), "/JSRoot");
 
 		// Start the server
 		try {
