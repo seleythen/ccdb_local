@@ -702,11 +702,6 @@ public class UDPReceiver extends Thread {
 								}
 							}
 
-							if (objects.size() <= 1) {
-								// if empty, the list will stay around one more iteration, will be collected by the above conditions then
-								continue;
-							}
-
 							// the most recent object should stay in any case
 							for (int i = 0; i < objects.size() - 1; i++) {
 								final Reference<Blob> sb = objects.get(i);
