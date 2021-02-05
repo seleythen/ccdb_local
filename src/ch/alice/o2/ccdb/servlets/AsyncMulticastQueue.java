@@ -1,5 +1,8 @@
 /**
- *
+ * Cache warming tool. For existing objects it implements fetching the binary content from AliEn (in case the local file is missing) and
+ * sending the content via multicast to the configured targets.
+ * 
+ * Currently only the SQL-backed implementation can make use of it (as is the only one aware of AliEn)
  */
 package ch.alice.o2.ccdb.servlets;
 
