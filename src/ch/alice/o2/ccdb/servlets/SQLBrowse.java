@@ -58,6 +58,8 @@ public class SQLBrowse extends HttpServlet {
 			response.setContentType(formatter.getContentType());
 
 			final boolean sizeReport = Utils.stringToBool(request.getParameter("report"), false);
+			
+			final boolean prepare = lazyj.Utils.stringToBool(request.getParameter("prepare"), false);
 
 			formatter.setExtendedReport(sizeReport);
 
@@ -76,6 +78,9 @@ public class SQLBrowse extends HttpServlet {
 							formatter.middle(pw);
 
 						formatter.format(pw, object);
+						
+						if (prepare)
+							AsyncMulticastQueue.queueObject(object);
 					}
 
 				formatter.footer(pw);

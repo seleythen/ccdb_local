@@ -53,6 +53,10 @@ public class SQLBacked extends HttpServlet {
 
 	private static final boolean localCopyFirst = lazyj.Utils.stringToBool(Options.getOption("local.copy.first", null), false);
 
+	private static boolean hasGridBacking = false;
+
+	private static boolean hasUDPSender = false;
+
 	static {
 		monitor.addMonitoring("stats", new SQLStatsExporter(null));
 
@@ -65,6 +69,8 @@ public class SQLBacked extends HttpServlet {
 				System.err.println("Grid replication enabled, central services connection tested OK");
 
 				notifiers.add(AsyncReplication.getInstance());
+
+				hasGridBacking = true;
 			}
 			catch (@SuppressWarnings("unused") final Throwable t) {
 				System.err.println("Grid replication is enabled but upstream connection to JCentral doesn't work, disabling replication at this point");
@@ -79,8 +85,10 @@ public class SQLBacked extends HttpServlet {
 
 		final SQLtoUDP udpSender = SQLtoUDP.getInstance();
 
-		if (udpSender != null)
+		if (udpSender != null) {
 			notifiers.add(udpSender);
+			hasUDPSender = true;
+		}
 
 		final SQLtoHTTP httpSender = SQLtoHTTP.getInstance();
 
@@ -90,6 +98,20 @@ public class SQLBacked extends HttpServlet {
 
 	static boolean isLocalCopyFirst() {
 		return localCopyFirst;
+	}
+
+	/**
+	 * @return <code>true</code> if the instance has Grid backing and can upload / download files from SEs
+	 */
+	public static boolean gridBacking() {
+		return hasGridBacking;
+	}
+
+	/**
+	 * @return <code>true</code> if any unicast or multicast UDP sending is to be done by this instance
+	 */
+	public static boolean udpSender() {
+		return hasUDPSender;
 	}
 
 	@Override
@@ -133,6 +155,11 @@ public class SQLBacked extends HttpServlet {
 			response.sendError(HttpServletResponse.SC_NOT_FOUND, "No matching objects found");
 			return;
 		}
+
+		final boolean prepare = lazyj.Utils.stringToBool(request.getParameter("prepare"), false);
+
+		if (prepare)
+			AsyncMulticastQueue.queueObject(matchingObject);
 
 		if (parser.cachedValue != null && matchingObject.id.equals(parser.cachedValue)) {
 			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
