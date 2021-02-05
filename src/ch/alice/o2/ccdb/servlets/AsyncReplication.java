@@ -12,13 +12,15 @@ import java.util.concurrent.LinkedBlockingQueue;
 import alien.catalogue.GUID;
 import alien.catalogue.GUIDUtils;
 import alien.catalogue.LFN;
-import alien.catalogue.LFNUtils;
 import alien.catalogue.PFN;
 import alien.catalogue.access.AccessType;
 import alien.catalogue.access.AuthorizationFactory;
 import alien.io.IOUtils;
 import alien.io.protocols.Factory;
 import alien.io.protocols.Xrootd;
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import alien.se.SE;
 import alien.se.SEUtils;
 import alien.shell.commands.JAliEnCOMMander;
@@ -33,6 +35,10 @@ import lazyj.StringFactory;
  * @since 2018-06-08
  */
 public class AsyncReplication extends Thread implements SQLNotifier {
+	private static final Monitor monitor = MonitorFactory.getMonitor(AsyncReplication.class.getCanonicalName());
+
+	private static JAliEnCOMMander commander = null;
+
 	private AsyncReplication() {
 		// singleton
 	}
@@ -109,12 +115,15 @@ public class AsyncReplication extends Thread implements SQLNotifier {
 			if (targetObjectPath.startsWith("alien://"))
 				targetObjectPath = targetObjectPath.substring(8);
 
-			final LFN l = LFNUtils.getLFN(targetObjectPath);
+			if (commander == null)
+				commander = new JAliEnCOMMander(null, null, "CERN", null);
+
+			final LFN l = commander.c_api.getLFN(targetObjectPath);
 
 			if (l != null)
 				return;
 
-			try {
+			try (Timing t = new Timing(monitor, "grid_upload_ms")) {
 				final LFN result = IOUtils.upload(localFile, targetObjectPath, UserFactory.getByUsername("alidaq"), null, "-S", "ocdb:1,http:5,disk:2");
 
 				if (result != null)
