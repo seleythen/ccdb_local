@@ -6,6 +6,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.StringTokenizer;
 
+import alien.monitoring.Monitor;
+import alien.monitoring.MonitorFactory;
+import alien.monitoring.Timing;
 import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.multicast.Blob;
 
@@ -16,6 +19,8 @@ import ch.alice.o2.ccdb.multicast.Blob;
  * @since 2019-10-31
  */
 public class SQLtoUDP implements SQLNotifier {
+	private static final Monitor monitor = MonitorFactory.getMonitor(SQLtoUDP.class.getCanonicalName());
+
 	private static class HostAndPort {
 		final String host;
 		final int port;
@@ -64,19 +69,24 @@ public class SQLtoUDP implements SQLNotifier {
 
 	private static SQLtoUDP instance = null;
 
+	private static boolean triedToCreateInstance = false;
+
 	/**
 	 * @return singleton
 	 */
 	static synchronized SQLtoUDP getInstance() {
-		if (instance == null) {
-			final SQLtoUDP attempt = new SQLtoUDP();
+		if (triedToCreateInstance)
+			return instance;
 
-			if (attempt.destinations.size() > 0) {
-				instance = attempt;
+		final SQLtoUDP attempt = new SQLtoUDP();
 
-				System.err.println("Will send new objects to " + instance.destinations);
-			}
+		if (attempt.destinations.size() > 0) {
+			instance = attempt;
+
+			System.err.println("Will send new objects to " + instance.destinations);
 		}
+
+		triedToCreateInstance = true;
 
 		return instance;
 	}
@@ -89,10 +99,12 @@ public class SQLtoUDP implements SQLNotifier {
 	@Override
 	public void newObject(final SQLObject object) {
 		// notify all UDP receivers of the new object
-		try {
+		try (Timing t = new Timing(monitor, "UDP_object_send_ms")) {
 			final Blob b = new Blob(object);
 
 			newObject(b);
+
+			monitor.addMeasurement("UDP_send_data", object.size);
 		}
 		catch (NoSuchAlgorithmException | IOException e) {
 			System.err.println("Exception sending Blob on UDP: " + e.getMessage());
@@ -100,7 +112,8 @@ public class SQLtoUDP implements SQLNotifier {
 	}
 
 	/**
-	 * @param b object to send to all configured destinations
+	 * @param b
+	 *            object to send to all configured destinations
 	 */
 	public void newObject(final Blob b) {
 		for (final HostAndPort destination : destinations)
