@@ -87,7 +87,7 @@ public class SQLInsertWithGivenRate {
                 monitor.addMeasurement("Inserted objects", nowInserted - previouslyInserted);
                 previouslyInserted = nowInserted;
 
-                if (nowInserted == targetNoOfObjects) {
+                if (nowInserted >= targetNoOfObjects) {
                     timer.cancel();
                     insertHandle.cancel(false);
                 }
