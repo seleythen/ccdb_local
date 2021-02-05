@@ -73,7 +73,7 @@ public class SQLInsertWithGivenRate {
             }
         };
 
-        final ScheduledFuture<?> insertHandle = scheduler.scheduleAtFixedRate(insertTask, 0, sleepTime, MILLISECONDS);
+        final ScheduledFuture<?> insertHandle = scheduler.scheduleAtFixedRate(insertTask, 0, sleepTime, MICROSECONDS);
 
         Timer timer = new Timer();
         int interval = 1000;
