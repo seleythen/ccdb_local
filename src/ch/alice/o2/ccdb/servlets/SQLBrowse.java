@@ -79,7 +79,7 @@ public class SQLBrowse extends HttpServlet {
 
 						formatter.format(pw, object);
 
-						if (prepare)
+						if (prepare && parser.latestFlag)
 							AsyncMulticastQueue.queueObject(object);
 					}
 
