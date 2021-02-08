@@ -158,13 +158,13 @@ public class SQLBacked extends HttpServlet {
 
 		final boolean prepare = lazyj.Utils.stringToBool(request.getParameter("prepare"), false);
 
-		if (prepare)
-			AsyncMulticastQueue.queueObject(matchingObject);
-
 		if (parser.cachedValue != null && matchingObject.id.equals(parser.cachedValue)) {
 			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 			return;
 		}
+		
+		if (prepare)
+			AsyncMulticastQueue.queueObject(matchingObject);
 
 		final String clientIPAddress = request.getRemoteAddr();
 
