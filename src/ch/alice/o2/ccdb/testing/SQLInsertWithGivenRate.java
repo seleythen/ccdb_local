@@ -30,12 +30,16 @@ public class SQLInsertWithGivenRate {
 
         long sleepTime = args.length >= 3 ? Long.parseLong(args[2]) : 10;
 
+        boolean vacuum = args.length >= 4;
+
         long startingCount = 0;
 
         System.err.println("Executing vacuum");
 
-        try (DBFunctions db = SQLObject.getDB()) {
-            db.query("VACUUM FULL ANALYZE ccdb;");
+        if (vacuum) {
+            try (DBFunctions db = SQLObject.getDB()) {
+                db.query("VACUUM FULL ANALYZE ccdb;");
+            }
         }
 
         final long base = startingCount;
