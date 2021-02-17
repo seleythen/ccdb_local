@@ -13,6 +13,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -30,6 +31,7 @@ import ch.alice.o2.ccdb.Options;
 import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.multicast.Utils;
 import lazyj.DBFunctions;
+import utils.CachedThreadPool;
 
 /**
  * SQL-backed implementation of CCDB. Files reside on this server and/or a separate storage and clients are served directly or redirected to one of the other replicas for the actual file access.
@@ -56,6 +58,8 @@ public class SQLBacked extends HttpServlet {
 	private static boolean hasGridBacking = false;
 
 	private static boolean hasUDPSender = false;
+
+	private static CachedThreadPool asyncOperations = new CachedThreadPool(16, 1, TimeUnit.SECONDS);
 
 	static {
 		monitor.addMonitoring("stats", new SQLStatsExporter(null));
@@ -330,10 +334,18 @@ public class SQLBacked extends HttpServlet {
 			response.setHeader("Content-Location", location);
 			response.sendError(HttpServletResponse.SC_CREATED);
 
-			for (final SQLNotifier notifier : notifiers)
-				notifier.newObject(newObject);
-			
-			if (monitor!=null)
+			asyncOperations.execute(() -> {
+				for (final SQLNotifier notifier : notifiers) {
+					if (notifier instanceof SQLtoUDP) {
+						if (lazyj.Utils.stringToBool(newObject.getProperty("forSyncReco"), true))
+							AsyncMulticastQueue.queueObject(newObject);
+					}
+					else
+						notifier.newObject(newObject);
+				}
+			});
+
+			if (monitor != null)
 				monitor.addMeasurement("POST_data", newObject.size);
 		}
 	}
@@ -373,8 +385,10 @@ public class SQLBacked extends HttpServlet {
 			else
 				response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 
-			for (final SQLNotifier notifier : notifiers)
-				notifier.updatedObject(matchingObject);
+			asyncOperations.execute(() -> {
+				for (final SQLNotifier notifier : notifiers)
+					notifier.updatedObject(matchingObject);
+			});
 		}
 	}
 
@@ -404,8 +418,10 @@ public class SQLBacked extends HttpServlet {
 
 			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 
-			for (final SQLNotifier notifier : notifiers)
-				notifier.deletedObject(matchingObject);
+			asyncOperations.execute(() -> {
+				for (final SQLNotifier notifier : notifiers)
+					notifier.deletedObject(matchingObject);
+			});
 		}
 	}
 
