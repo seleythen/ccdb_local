@@ -119,6 +119,9 @@ public class SQLDownload extends HttpServlet {
 				IOUtils.copy(is, os);
 			}
 
+			if (monitor != null)
+				monitor.addMeasurement("GET_data", localFile.length());
+
 			return;
 		}
 
@@ -225,6 +228,9 @@ public class SQLDownload extends HttpServlet {
 			try (RandomAccessFile input = new RandomAccessFile(localFile, "r"); OutputStream output = response.getOutputStream()) {
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			return;
@@ -281,6 +287,9 @@ public class SQLDownload extends HttpServlet {
 
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			output.write(documentFooter.getBytes());

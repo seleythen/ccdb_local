@@ -162,7 +162,7 @@ public class SQLBacked extends HttpServlet {
 			response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
 			return;
 		}
-		
+
 		if (prepare)
 			AsyncMulticastQueue.queueObject(matchingObject);
 
@@ -332,6 +332,9 @@ public class SQLBacked extends HttpServlet {
 
 			for (final SQLNotifier notifier : notifiers)
 				notifier.newObject(newObject);
+			
+			if (monitor!=null)
+				monitor.addMeasurement("POST_data", newObject.size);
 		}
 	}
 

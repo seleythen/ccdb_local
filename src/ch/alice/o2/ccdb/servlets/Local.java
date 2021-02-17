@@ -237,6 +237,9 @@ public class Local extends HttpServlet {
 				IOUtils.copy(is, os);
 			}
 
+			if (monitor != null)
+				monitor.addMeasurement("GET_data", obj.referenceFile.length());
+
 			return;
 		}
 
@@ -345,6 +348,9 @@ public class Local extends HttpServlet {
 			try (RandomAccessFile input = new RandomAccessFile(obj.referenceFile, "r"); OutputStream output = response.getOutputStream()) {
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			return;
@@ -401,6 +407,9 @@ public class Local extends HttpServlet {
 
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			output.write(documentFooter.getBytes());
