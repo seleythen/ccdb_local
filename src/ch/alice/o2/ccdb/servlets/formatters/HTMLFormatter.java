@@ -117,6 +117,7 @@ class HTMLFormatter implements SQLFormatter {
 					writer.print(Format.encode(address));
 					writer.print("&n=");
 					writer.print(Format.encode(obj.fileName));
+					writer.print(getJSRootOptions(obj.getProperty("drawOptions"), obj.getProperty("displayHints"), obj.getProperty("ObjectType"), obj.getProperty("item"), obj.getPath()));
 					writer.print("'>ROOT browser</a>");
 				}
 
@@ -125,6 +126,33 @@ class HTMLFormatter implements SQLFormatter {
 		}
 
 		writer.print("</ul></td></tr>\n");
+	}
+
+	private static String getJSRootOptions(final String displayHints, final String drawOptions, final String objectType, final String itemName, final String path) {
+		String ret = "";
+
+		if (displayHints != null)
+			ret = "&opt=" + Format.encode(displayHints);
+
+		if (drawOptions != null)
+			ret += (ret.length() > 0 ? "," : "&opt=") + Format.encode(drawOptions);
+
+		String item = itemName;
+
+		if (item == null) {
+			if (path.startsWith("qc/")) {
+				item = "ccdb_object";
+
+				// default display options for TH2D objects in the /qc/ namespace
+				if (ret.length() == 0 && "TH2D".equals(objectType))
+					ret = "&opt=colz,logz";
+			}
+		}
+
+		if (item != null)
+			ret += "&item=" + Format.encode(item);
+
+		return ret;
 	}
 
 	@Override
@@ -198,6 +226,7 @@ class HTMLFormatter implements SQLFormatter {
 			writer.print(Format.encode(obj.getPath()));
 			writer.print("&n=");
 			writer.print(Format.encode(obj.getOriginalName()));
+			writer.print(getJSRootOptions(obj.getProperty("drawOptions"), obj.getProperty("displayHints"), obj.getProperty("ObjectType"), obj.getProperty("item"), obj.getFolder()));
 			writer.print("'>ROOT browser</a>");
 		}
 
@@ -374,6 +403,7 @@ class HTMLFormatter implements SQLFormatter {
 					writer.print(Format.encode("/download/" + obj.getUuid()));
 					writer.print("&n=");
 					writer.print(Format.encode(obj.getOriginalName()));
+					writer.print(getJSRootOptions(obj.getProperty("drawOptions"), obj.getProperty("displayHints"), obj.getProperty("ObjectType"), obj.getProperty("item"), obj.getKey()));
 					writer.print("'>ROOT browser</a>");
 				}
 
