@@ -510,6 +510,9 @@ public class Local extends HttpServlet {
 			setHeaders(newObject, response);
 			response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
 			response.sendError(HttpServletResponse.SC_CREATED);
+			
+			if (monitor != null)
+				monitor.addMeasurement("POST_data", targetFile.length());
 		}
 	}
 

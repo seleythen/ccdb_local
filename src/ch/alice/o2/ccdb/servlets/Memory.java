@@ -407,7 +407,7 @@ public class Memory extends HttpServlet {
 				if (monitor != null)
 					monitor.addMeasurement("GET_data", toCopy);
 			}
-			
+
 			os.write(documentFooter.getBytes());
 		}
 
@@ -512,6 +512,9 @@ public class Memory extends HttpServlet {
 
 			if (udpSender != null)
 				udpSender.newObject(newBlob);
+
+			if (monitor != null)
+				monitor.addMeasurement("POST_data", payload.length);
 		}
 	}
 
