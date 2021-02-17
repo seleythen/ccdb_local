@@ -50,9 +50,9 @@ public class Memory extends HttpServlet {
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(Memory.class.getCanonicalName());
 
-	private static final boolean REDIRECT_TO_UPSTREAM;
+	static final boolean REDIRECT_TO_UPSTREAM;
 
-	private static final String UPSTREAM_URL;
+	static final String UPSTREAM_URL;
 
 	static {
 		final String recoveryURL = Options.getOption("udp_receiver.recovery_url", "http://alice-ccdb.cern.ch:8080/");
@@ -94,6 +94,15 @@ public class Memory extends HttpServlet {
 	}
 
 	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head) throws IOException {
+		final boolean prepare = lazyj.Utils.stringToBool(request.getParameter("prepare"), false);
+
+		if (prepare && REDIRECT_TO_UPSTREAM) {
+			// go to the authoritative source to make sure the correct object version is distributed to everybody
+			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+			return;
+		}
+
 		// list of objects matching the request
 		// URL parameters are:
 		// task name / detector name [ / time [ / UUID ] | [ / query string]* ]
@@ -223,6 +232,9 @@ public class Memory extends HttpServlet {
 				os.write(obj.getPayload(), 0, obj.getPayload().length);
 			}
 
+			if (monitor != null)
+				monitor.addMeasurement("GET_data", obj.getPayload().length);
+
 			return;
 		}
 
@@ -331,6 +343,9 @@ public class Memory extends HttpServlet {
 			try (OutputStream os = response.getOutputStream()) {
 				// TODO: Check if cast from long to int would be a problem
 				os.write(obj.getPayload(), (int) first, (int) toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			return;
@@ -388,7 +403,11 @@ public class Memory extends HttpServlet {
 
 				// TODO: Check if cast from long to int would be a problem
 				os.write(obj.getPayload(), (int) first, (int) toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
+			
 			os.write(documentFooter.getBytes());
 		}
 

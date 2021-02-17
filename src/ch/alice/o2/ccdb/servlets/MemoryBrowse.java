@@ -38,6 +38,8 @@ public class MemoryBrowse extends HttpServlet {
 
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+		final boolean prepare = lazyj.Utils.stringToBool(request.getParameter("prepare"), false);
+
 		// list of objects matching the request
 		// URL parameters are:
 		// task name / detector name [ / time [ / UUID ] | [ / query string]* ]
@@ -45,6 +47,12 @@ public class MemoryBrowse extends HttpServlet {
 		// query string example: "quality=2"
 
 		final RequestParser parser = new RequestParser(request, true);
+
+		if (prepare && parser.latestFlag && Memory.REDIRECT_TO_UPSTREAM) {
+			// go to the authoritative source to make sure the correct object version is distributed to everybody
+			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+			response.setHeader("Location", Memory.UPSTREAM_URL + request.getPathInfo());
+		}
 
 		final Collection<Blob> matchingObjects = getAllMatchingObjects(parser);
 
@@ -214,7 +222,7 @@ public class MemoryBrowse extends HttpServlet {
 
 		if (parser.browseLimit > 0 && parser.browseLimit < matchingObjects.size()) {
 			// apply the limit to the entire set, which can in principle contain several paths if regex was used
-			
+
 			Collections.sort(matchingObjects);
 			return matchingObjects.subList(0, parser.browseLimit);
 		}
