@@ -100,5 +100,6 @@ public class SQLInsertWithGivenRate {
         while (insertedObjects.get() < targetNoOfObjects) {
             Thread.sleep(10000);
         }
+        System.exit(0);
     }
 }
