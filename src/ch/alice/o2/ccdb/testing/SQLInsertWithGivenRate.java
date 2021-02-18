@@ -94,11 +94,12 @@ public class SQLInsertWithGivenRate {
                 if (nowInserted >= targetNoOfObjects) {
                     timer.cancel();
                     insertHandle.cancel(false);
+                    System.exit(0);
                 }
             }
         }, interval, interval);
         while (insertedObjects.get() < targetNoOfObjects) {
-            Thread.sleep(10000);
+            Thread.sleep(1000);
         }
         System.exit(0);
     }
