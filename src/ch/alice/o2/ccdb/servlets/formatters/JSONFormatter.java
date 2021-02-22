@@ -44,7 +44,7 @@ class JSONFormatter implements SQLFormatter {
 	/**
 	 * New style keys, the same ones as the equivalent HTTP headers
 	 */
-	private final boolean NEW_KEYS = Utils.stringToBool(Options.getOption("json.old.keys", "true"), true) || !OLD_KEYS;
+	private final boolean NEW_KEYS = Utils.stringToBool(Options.getOption("json.new.keys", "true"), true) || !OLD_KEYS;
 
 	/**
 	 * Restrict the returned fields to the ones in this set. Can be <code>null</code> or empty to mean "all".
