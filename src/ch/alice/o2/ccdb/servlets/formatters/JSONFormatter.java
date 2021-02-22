@@ -37,8 +37,18 @@ class JSONFormatter implements SQLFormatter {
 	private final boolean NEW_LINES = Utils.stringToBool(Options.getOption("json.expanded", "false"), false);
 
 	/**
+	 * Old style keys, in short format. Turned on by default for now, they should be switched off after QCG adopts the new format. TODO
+	 */
+	private final boolean OLD_KEYS = Utils.stringToBool(Options.getOption("json.old.keys", "true"), true);
+
+	/**
+	 * New style keys, the same ones as the equivalent HTTP headers
+	 */
+	private final boolean NEW_KEYS = Utils.stringToBool(Options.getOption("json.old.keys", "true"), true) || !OLD_KEYS;
+
+	/**
 	 * Restrict the returned fields to the ones in this set. Can be <code>null</code> or empty to mean "all".
-	 * 
+	 *
 	 * @param fieldFilter
 	 */
 	JSONFormatter(final Set<String> fieldFilter) {
@@ -81,8 +91,16 @@ class JSONFormatter implements SQLFormatter {
 		final Map<String, Object> jsonContent = new LinkedHashMap<>();
 
 		jsonContent.put("path", obj.getPath());
-		jsonContent.put("createTime", Long.valueOf(obj.createTime));
-		jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
+
+		if (OLD_KEYS) {
+			jsonContent.put("createTime", Long.valueOf(obj.createTime));
+			jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
+		}
+
+		if (NEW_KEYS) {
+			jsonContent.put("Created", Long.valueOf(obj.createTime));
+			jsonContent.put("Last-Modified", Long.valueOf(obj.getLastModified()));
+		}
 
 		if (isQCShortcut) {
 			// quick exit if these are all the fields needed by QC
@@ -90,14 +108,27 @@ class JSONFormatter implements SQLFormatter {
 			return;
 		}
 
-		jsonContent.put("id", obj.id.toString());
-		jsonContent.put("validFrom", Long.valueOf(obj.validFrom));
-		jsonContent.put("validUntil", Long.valueOf(obj.validUntil));
-		jsonContent.put("initialValidity", Long.valueOf(obj.initialValidity));
-		jsonContent.put("MD5", obj.md5);
-		jsonContent.put("fileName", obj.fileName);
-		jsonContent.put("contentType", obj.contentType);
-		jsonContent.put("size", Long.valueOf(obj.size));
+		if (OLD_KEYS) {
+			jsonContent.put("id", obj.id.toString());
+			jsonContent.put("validFrom", Long.valueOf(obj.validFrom));
+			jsonContent.put("validUntil", Long.valueOf(obj.validUntil));
+			jsonContent.put("initialValidity", Long.valueOf(obj.initialValidity));
+			jsonContent.put("MD5", obj.md5);
+			jsonContent.put("fileName", obj.fileName);
+			jsonContent.put("contentType", obj.contentType);
+			jsonContent.put("size", Long.valueOf(obj.size));
+		}
+
+		if (NEW_KEYS) {
+			jsonContent.put("ETag", "\"" + obj.id.toString() + "\"");
+			jsonContent.put("Valid-From", Long.valueOf(obj.validFrom));
+			jsonContent.put("Valid-Until", Long.valueOf(obj.validUntil));
+			jsonContent.put("InitialValidityLimit", Long.valueOf(obj.initialValidity));
+			jsonContent.put("Content-MD5", obj.md5);
+			jsonContent.put("Content-Disposition", "inline;filename=\"" + obj.fileName + "\"");
+			jsonContent.put("Content-Type", obj.contentType);
+			jsonContent.put("Content-Length", Long.valueOf(obj.size));
+		}
 
 		if (obj.uploadedFrom != null)
 			jsonContent.put("UploadedFrom", obj.uploadedFrom);
@@ -180,8 +211,16 @@ class JSONFormatter implements SQLFormatter {
 		final Map<String, Object> jsonContent = new LinkedHashMap<>();
 
 		jsonContent.put("path", obj.getFolder());
-		jsonContent.put("createTime", Long.valueOf(obj.getCreateTime()));
-		jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
+
+		if (OLD_KEYS) {
+			jsonContent.put("createTime", Long.valueOf(obj.getCreateTime()));
+			jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
+		}
+
+		if (NEW_KEYS || !OLD_KEYS) {
+			jsonContent.put("Created", Long.valueOf(obj.getCreateTime()));
+			jsonContent.put("Last-Modified", Long.valueOf(obj.getLastModified()));
+		}
 
 		if (isQCShortcut) {
 			// quick exit if these are all the fields needed by QC
@@ -189,14 +228,27 @@ class JSONFormatter implements SQLFormatter {
 			return;
 		}
 
-		jsonContent.put("id", obj.getID());
-		jsonContent.put("validFrom", Long.valueOf(obj.getStartTime()));
-		jsonContent.put("validUntil", Long.valueOf(obj.getEndTime()));
-		jsonContent.put("initialValidity", Long.valueOf(obj.getInitialValidity()));
-		jsonContent.put("MD5", obj.getProperty("Content-MD5"));
-		jsonContent.put("fileName", obj.getOriginalName());
-		jsonContent.put("contentType", obj.getProperty("Content-Type", "application/octet-stream"));
-		jsonContent.put("size", Long.valueOf(obj.getSize()));
+		if (OLD_KEYS) {
+			jsonContent.put("id", obj.getID());
+			jsonContent.put("validFrom", Long.valueOf(obj.getStartTime()));
+			jsonContent.put("validUntil", Long.valueOf(obj.getEndTime()));
+			jsonContent.put("initialValidity", Long.valueOf(obj.getInitialValidity()));
+			jsonContent.put("MD5", obj.getProperty("Content-MD5"));
+			jsonContent.put("fileName", obj.getOriginalName());
+			jsonContent.put("contentType", obj.getProperty("Content-Type", "application/octet-stream"));
+			jsonContent.put("size", Long.valueOf(obj.getSize()));
+		}
+
+		if (NEW_KEYS) {
+			jsonContent.put("ETag", "\"" + obj.getID() + "\"");
+			jsonContent.put("Valid-From", Long.valueOf(obj.getStartTime()));
+			jsonContent.put("Valid-Until", Long.valueOf(obj.getEndTime()));
+			jsonContent.put("InitialValidityLimit", Long.valueOf(obj.getInitialValidity()));
+			jsonContent.put("Content-MD5", obj.getProperty("Content-MD5"));
+			jsonContent.put("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
+			jsonContent.put("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
+			jsonContent.put("Content-Length", Long.valueOf(obj.getSize()));
+		}
 
 		if (!hasFilter || !jsonContent.keySet().containsAll(fieldFilter)) {
 			for (final Object key : obj.getUserPropertiesKeys())
@@ -220,8 +272,16 @@ class JSONFormatter implements SQLFormatter {
 		final Map<String, Object> jsonContent = new LinkedHashMap<>();
 
 		jsonContent.put("path", obj.getKey());
-		jsonContent.put("createTime", Long.valueOf(obj.getCreateTime()));
-		jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
+
+		if (OLD_KEYS) {
+			jsonContent.put("createTime", Long.valueOf(obj.getCreateTime()));
+			jsonContent.put("lastModified", Long.valueOf(obj.getLastModified()));
+		}
+
+		if (NEW_KEYS) {
+			jsonContent.put("Created", Long.valueOf(obj.getCreateTime()));
+			jsonContent.put("Last-Modified", Long.valueOf(obj.getLastModified()));
+		}
 
 		if (isQCShortcut) {
 			// quick exit if these are all the fields needed by QC
@@ -229,14 +289,27 @@ class JSONFormatter implements SQLFormatter {
 			return;
 		}
 
-		jsonContent.put("id", obj.getUuid().toString());
-		jsonContent.put("validFrom", Long.valueOf(obj.getStartTime()));
-		jsonContent.put("validUntil", Long.valueOf(obj.getEndTime()));
-		jsonContent.put("initialValidity", Long.valueOf(obj.getInitialValidity()));
-		jsonContent.put("MD5", obj.getProperty("Content-MD5"));
-		jsonContent.put("fileName", obj.getOriginalName());
-		jsonContent.put("contentType", obj.getProperty("Content-Type", "application/octet-stream"));
-		jsonContent.put("size", Long.valueOf(obj.getSize()));
+		if (OLD_KEYS) {
+			jsonContent.put("id", obj.getUuid().toString());
+			jsonContent.put("validFrom", Long.valueOf(obj.getStartTime()));
+			jsonContent.put("validUntil", Long.valueOf(obj.getEndTime()));
+			jsonContent.put("initialValidity", Long.valueOf(obj.getInitialValidity()));
+			jsonContent.put("MD5", obj.getProperty("Content-MD5"));
+			jsonContent.put("fileName", obj.getOriginalName());
+			jsonContent.put("contentType", obj.getProperty("Content-Type", "application/octet-stream"));
+			jsonContent.put("size", Long.valueOf(obj.getSize()));
+		}
+
+		if (NEW_KEYS) {
+			jsonContent.put("ETag", "\"" + obj.getUuid().toString() + "\"");
+			jsonContent.put("Valid-From", Long.valueOf(obj.getStartTime()));
+			jsonContent.put("Valid-Until", Long.valueOf(obj.getEndTime()));
+			jsonContent.put("InitialValidityLimit", Long.valueOf(obj.getInitialValidity()));
+			jsonContent.put("Content-MD5", obj.getProperty("Content-MD5"));
+			jsonContent.put("Content-Disposition", "inline;filename=\"" + obj.getOriginalName() + "\"");
+			jsonContent.put("Content-Type", obj.getProperty("Content-Type", "application/octet-stream"));
+			jsonContent.put("Content-Length", Long.valueOf(obj.getSize()));
+		}
 
 		if (!hasFilter || !jsonContent.keySet().containsAll(fieldFilter)) {
 			for (final String key : obj.getMetadataMap().keySet())
