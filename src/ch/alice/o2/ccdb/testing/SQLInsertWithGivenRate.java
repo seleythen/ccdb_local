@@ -47,8 +47,8 @@ public class SQLInsertWithGivenRate {
             public void run() {
                 final SQLObject obj = new SQLObject("dummy");
 
-                obj.validFrom = (base + noOfObjects) * 160;
-                obj.validUntil = obj.validFrom + 600000;
+                obj.validFrom = System.currentTimeMillis();
+                obj.validUntil = obj.validFrom + 6000;
 
                 obj.fileName = "some_new_detector_object.root";
                 obj.contentType = "application/octet-stream";
