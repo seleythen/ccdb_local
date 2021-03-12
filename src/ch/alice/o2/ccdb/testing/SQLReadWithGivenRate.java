@@ -15,7 +15,7 @@ import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.servlets.SQLObject;
 
 public class SQLReadWithGivenRate {
-    private static final Monitor monitor = MonitorFactory.getMonitor(SQLInsertWithGivenRate.class.getCanonicalName());
+    private static final Monitor monitor = MonitorFactory.getMonitor(SQLReadWithGivenRate.class.getCanonicalName());
 
     public static void main(final String[] args) throws InterruptedException {
         final int noThreads = args.length >= 1 ? Integer.parseInt(args[0]) : 10;
