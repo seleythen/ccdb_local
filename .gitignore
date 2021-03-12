@@ -2,3 +2,4 @@
 *.jar
 build
 package/apache-tomcat*
+.DS_STORE

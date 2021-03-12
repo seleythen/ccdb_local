@@ -89,6 +89,11 @@ jar -cfe sql.jar \
     ch javax org lazyj lia apmon com org utils jline joptsimple \
     alien config trusted_authorities.jks
 
+jar -cfe sql-read-with-rate-monalisa.jar \
+    ch.alice.o2.ccdb.webserver.SQLReadWithGivenRate ch/alice/o2/ccdb/webserver/SQLReadWithGivenRate.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
 # further compression and remove debugging information
 #pack200 --repack -G -O local.jar
 #pack200 --repack -G -O sql.jar

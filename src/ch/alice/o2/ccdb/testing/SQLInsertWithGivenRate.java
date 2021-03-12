@@ -1,7 +1,7 @@
 package ch.alice.o2.ccdb.testing;
 
-import java.util.ArrayList;
-import java.util.List;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
@@ -12,9 +12,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import alien.monitoring.Monitor;
 import alien.monitoring.MonitorFactory;
 import ch.alice.o2.ccdb.servlets.SQLObject;
-import lazyj.DBFunctions;
-
-import static java.util.concurrent.TimeUnit.*;
 
 public class SQLInsertWithGivenRate {
     /**
@@ -30,17 +27,7 @@ public class SQLInsertWithGivenRate {
 
         long sleepTime = args.length >= 3 ? Long.parseLong(args[2]) : 10;
 
-        boolean vacuum = args.length >= 4;
-
         long startingCount = 0;
-
-        System.err.println("Executing vacuum");
-
-        if (vacuum) {
-            try (DBFunctions db = SQLObject.getDB()) {
-                db.query("VACUUM FULL ANALYZE ccdb;");
-            }
-        }
 
         final long base = startingCount;
 
@@ -94,7 +81,14 @@ public class SQLInsertWithGivenRate {
                 if (nowInserted >= targetNoOfObjects) {
                     timer.cancel();
                     insertHandle.cancel(false);
-                    System.exit(0);
+                    try {
+                        Thread.sleep(10000);
+                    } catch (InterruptedException e) {
+
+                    } finally {
+                        System.exit(0);
+                    }
+
                 }
             }
         }, interval, interval);

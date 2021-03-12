@@ -10,7 +10,7 @@ import lazyj.DBFunctions;
 import lazyj.Format;
 
 public class SQLInsertNewPath {
-    /**
+	/**
 	 * @param args
 	 * @throws InterruptedException
 	 */
@@ -44,7 +44,7 @@ public class SQLInsertNewPath {
 					for (long i = 0; i < noOfObjects; i++) {
 						final SQLObject obj = new SQLObject(UUID.randomUUID().toString());
 
-						obj.validFrom = ( i + localThread * noOfObjects) * 160;
+						obj.validFrom = (i + localThread * noOfObjects) * 160;
 						obj.validUntil = obj.validFrom + 600000;
 
 						obj.fileName = "some_new_detector_object.root";
