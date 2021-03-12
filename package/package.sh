@@ -90,7 +90,7 @@ jar -cfe sql.jar \
     alien config trusted_authorities.jks
 
 jar -cfe sql-read-with-rate-monalisa.jar \
-    ch.alice.o2.ccdb.webserver.SQLReadWithGivenRate ch/alice/o2/ccdb/testing/SQLReadWithGivenRate.class \
+    ch.alice.o2.ccdb.testing.SQLReadWithGivenRate ch/alice/o2/ccdb/testing/SQLReadWithGivenRate.class \
     ch javax org lazyj lia apmon com org utils jline joptsimple \
     alien config trusted_authorities.jks
 
