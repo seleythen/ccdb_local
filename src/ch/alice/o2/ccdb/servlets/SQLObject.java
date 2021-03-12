@@ -371,16 +371,22 @@ public class SQLObject implements Comparable<SQLObject> {
 
 		if (pattern == null) {
 			if (replica.intValue() == 0) {
-				String hostname;
-
-				try {
-					hostname = InetAddress.getLocalHost().getCanonicalHostName();
+				if (config.getb("server.0.relativeURL", false)) {
+					// It's easier for CcdbApi to follow redirects if this is disabled, having the full URL in the Location header
+					pattern = "/download/UUID";
 				}
-				catch (@SuppressWarnings("unused") final Throwable t) {
-					hostname = "localhost";
-				}
+				else {
+					String hostname;
 
-				pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
+					try {
+						hostname = InetAddress.getLocalHost().getCanonicalHostName();
+					}
+					catch (@SuppressWarnings("unused") final Throwable t) {
+						hostname = "localhost";
+					}
+
+					pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
+				}
 			}
 			else {
 				if (replica.intValue() > 0) {
