@@ -26,6 +26,11 @@ public class SQLReadWithGivenRate {
 
         AtomicInteger[] readObjectsArr = new AtomicInteger[noSchedulers];
         AtomicInteger[] nullObjectsArr = new AtomicInteger[noSchedulers];
+        for(int i = 0;i < noSchedulers;i++) {
+            readObjectsArr[i] = new AtomicInteger(0);
+            nullObjectsArr[i] = new AtomicInteger(0);
+        }
+       
 
         final Random r = new Random(System.currentTimeMillis());
 
