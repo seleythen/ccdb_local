@@ -48,8 +48,10 @@ public class SQLReadWithGivenRate {
             }
         };
         for (int i = 0; i < noSchedulers; i++) {
-            final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(noThreads);
-            scheduler.scheduleAtFixedRate(insertTask, 0, sleepTime, MICROSECONDS);
+            new Thread(() -> {
+                final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(noThreads);
+                scheduler.scheduleAtFixedRate(insertTask, 0, sleepTime, MICROSECONDS);
+            }).start();
         }
 
         Timer timer = new Timer();
