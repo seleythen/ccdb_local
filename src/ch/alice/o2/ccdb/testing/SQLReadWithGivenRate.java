@@ -24,33 +24,33 @@ public class SQLReadWithGivenRate {
 
         long sleepTime = args.length >= 2 ? Long.parseLong(args[2]) : 10;
 
-        AtomicInteger readObjects = new AtomicInteger(0);
-        AtomicInteger nullObjects = new AtomicInteger(0);
+        AtomicInteger[] readObjectsArr = new AtomicInteger[noSchedulers];
+        AtomicInteger[] nullObjectsArr = new AtomicInteger[noSchedulers];
 
         final Random r = new Random(System.currentTimeMillis());
 
-        final Runnable insertTask = new Runnable() {
-            @Override
-            public void run() {
-                final RequestParser parser = new RequestParser(null);
-
-                parser.path = "dummy";
-                // parser.startTime = i * rangeWidth + r.nextLong() % rangeWidth;
-                parser.startTime = System.currentTimeMillis() - 10 - Math.abs(r.nextLong() % 1000000);
-                parser.startTimeSet = true;
-
-                final SQLObject result = SQLObject.getMatchingObject(parser);
-
-                if (result == null)
-                    nullObjects.incrementAndGet();
-                else
-                    readObjects.incrementAndGet();
-            }
-        };
         for (int i = 0; i < noSchedulers; i++) {
+            AtomicInteger readObjects = readObjectsArr[i];
+            AtomicInteger nullObjects = nullObjectsArr[i];
+            readObjects.set(0);
+            nullObjects.set(0);
             new Thread(() -> {
                 final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(noThreads);
-                scheduler.scheduleAtFixedRate(insertTask, 0, sleepTime, MICROSECONDS);
+                scheduler.scheduleAtFixedRate(() -> {
+                    final RequestParser parser = new RequestParser(null);
+
+                    parser.path = "dummy";
+                    // parser.startTime = i * rangeWidth + r.nextLong() % rangeWidth;
+                    parser.startTime = System.currentTimeMillis() - 10 - Math.abs(r.nextLong() % 1000000);
+                    parser.startTimeSet = true;
+
+                    final SQLObject result = SQLObject.getMatchingObject(parser);
+
+                    if (result == null)
+                        nullObjects.incrementAndGet();
+                    else
+                        readObjects.incrementAndGet();
+                }, 0, sleepTime, MICROSECONDS);
             }).start();
         }
 
@@ -65,11 +65,17 @@ public class SQLReadWithGivenRate {
             public void run() {
                 // call the method
 
-                int nulls = nullObjects.get();
+                int nulls = 0;
+                for(int i = 0;i < noSchedulers;i++) {
+                    nulls += nullObjectsArr[i].get();
+                }
                 monitor.addMeasurement("Null objects", nulls - previousNull);
                 previousNull = nulls;
 
-                int currentReadObjects = readObjects.get();
+                int currentReadObjects = 0;
+                for(int i = 0;i < noSchedulers;i++) {
+                    currentReadObjects += readObjectsArr[i].get();
+                }
                 monitor.addMeasurement("Read objects", currentReadObjects - previousSuccess);
                 previousSuccess = currentReadObjects;
 
