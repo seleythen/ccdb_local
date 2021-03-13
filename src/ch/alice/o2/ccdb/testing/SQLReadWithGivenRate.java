@@ -20,14 +20,12 @@ public class SQLReadWithGivenRate {
     public static void main(final String[] args) throws InterruptedException {
         final int noThreads = args.length >= 1 ? Integer.parseInt(args[0]) : 10;
 
-        long sleepTime = args.length >= 2 ? Long.parseLong(args[1]) : 10;
+        final int noSchedulers = args.length >= 2 ? Integer.parseInt(args[1]) : 10;
 
+        long sleepTime = args.length >= 2 ? Long.parseLong(args[2]) : 10;
 
         AtomicInteger readObjects = new AtomicInteger(0);
         AtomicInteger nullObjects = new AtomicInteger(0);
-        AtomicInteger requestsFinishedNumber = new AtomicInteger(0);
-
-        final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(noThreads);
 
         final Random r = new Random(System.currentTimeMillis());
 
@@ -47,11 +45,12 @@ public class SQLReadWithGivenRate {
                     nullObjects.incrementAndGet();
                 else
                     readObjects.incrementAndGet();
-                requestsFinishedNumber.incrementAndGet();
             }
         };
-
-        scheduler.scheduleAtFixedRate(insertTask, 0, sleepTime, MICROSECONDS);
+        for (int i = 0; i < noSchedulers; i++) {
+            final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(noThreads);
+            scheduler.scheduleAtFixedRate(insertTask, 0, sleepTime, MICROSECONDS);
+        }
 
         Timer timer = new Timer();
         int interval = 1000;
@@ -63,9 +62,6 @@ public class SQLReadWithGivenRate {
             @Override
             public void run() {
                 // call the method
-                int readRequests = requestsFinishedNumber.get();
-                monitor.addMeasurement("Read requests", readRequests - previousReadRequests);
-                previousReadRequests = readRequests;
 
                 int nulls = nullObjects.get();
                 monitor.addMeasurement("Null objects", nulls - previousNull);
@@ -74,6 +70,10 @@ public class SQLReadWithGivenRate {
                 int currentReadObjects = readObjects.get();
                 monitor.addMeasurement("Read objects", currentReadObjects - previousSuccess);
                 previousSuccess = currentReadObjects;
+
+                int readRequests = nulls + currentReadObjects;
+                monitor.addMeasurement("Read requests", readRequests - previousReadRequests);
+                previousReadRequests = readRequests;
             }
         }, interval, interval);
         while (true) {
