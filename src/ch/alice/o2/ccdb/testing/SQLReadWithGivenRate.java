@@ -40,8 +40,7 @@ public class SQLReadWithGivenRate {
             readObjects.set(0);
             nullObjects.set(0);
             new Thread(() -> {
-                final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(noThreads);
-                scheduler.scheduleAtFixedRate(() -> {
+                while(true) {
                     final RequestParser parser = new RequestParser(null);
 
                     parser.path = "dummy";
@@ -55,7 +54,12 @@ public class SQLReadWithGivenRate {
                         nullObjects.incrementAndGet();
                     else
                         readObjects.incrementAndGet();
-                }, 0, sleepTime, MICROSECONDS);
+                    try {
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                }
             }).start();
         }
 
