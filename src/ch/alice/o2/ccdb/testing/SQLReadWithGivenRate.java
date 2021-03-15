@@ -18,11 +18,9 @@ public class SQLReadWithGivenRate {
     private static final Monitor monitor = MonitorFactory.getMonitor(SQLReadWithGivenRate.class.getCanonicalName());
 
     public static void main(final String[] args) throws InterruptedException {
-        final int noThreads = args.length >= 1 ? Integer.parseInt(args[0]) : 10;
+        final int noSchedulers = args.length >= 1 ? Integer.parseInt(args[0]) : 10;
 
-        final int noSchedulers = args.length >= 2 ? Integer.parseInt(args[1]) : 10;
-
-        long sleepTime = args.length >= 2 ? Long.parseLong(args[2]) : 10;
+        long sleepTime = args.length >= 2 ? Long.parseLong(args[1]) : 10;
 
         AtomicInteger[] readObjectsArr = new AtomicInteger[noSchedulers];
         AtomicInteger[] nullObjectsArr = new AtomicInteger[noSchedulers];
