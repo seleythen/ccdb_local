@@ -110,11 +110,49 @@ class HTMLFormatter implements SQLFormatter {
 					else
 						writer.print("SE #" + replica);
 
-				writer.print("</a></li>\n");
+				writer.print("</a>");
+
+				if (replica.intValue() == 0 && obj.fileName.toLowerCase().endsWith(".root")) {
+					writer.print(" <a target=_blank href='/JSRoot?f=");
+					writer.print(Format.encode(address));
+					writer.print("&n=");
+					writer.print(Format.encode(obj.fileName));
+					writer.print(getJSRootOptions(obj.getProperty("drawOptions"), obj.getProperty("displayHints"), obj.getProperty("ObjectType"), obj.getProperty("item"), obj.getPath()));
+					writer.print("'>ROOT browser</a>");
+				}
+
+				writer.println("</li>");
 			}
 		}
 
 		writer.print("</ul></td></tr>\n");
+	}
+
+	private static String getJSRootOptions(final String displayHints, final String drawOptions, final String objectType, final String itemName, final String path) {
+		String ret = "";
+
+		if (displayHints != null)
+			ret = "&opt=" + Format.encode(displayHints);
+
+		if (drawOptions != null)
+			ret += (ret.length() > 0 ? "," : "&opt=") + Format.encode(drawOptions);
+
+		String item = itemName;
+
+		if (item == null) {
+			if (path.startsWith("qc/")) {
+				item = "ccdb_object";
+
+				// default display options for TH2D objects in the /qc/ namespace
+				if (ret.length() == 0 && "TH2D".equals(objectType))
+					ret = "&opt=colz,logz";
+			}
+		}
+
+		if (item != null)
+			ret += "&item=" + Format.encode(item);
+
+		return ret;
 	}
 
 	@Override
@@ -181,7 +219,18 @@ class HTMLFormatter implements SQLFormatter {
 		writer.print("<li><a href='");
 		writer.print(Format.escHtml(obj.getPath()));
 		writer.print("'>0");
-		writer.print("</a></li>\n");
+		writer.print("</a>");
+
+		if (obj.getOriginalName().toLowerCase().endsWith(".root")) {
+			writer.print(" <a target=_blank href='/JSRoot?f=");
+			writer.print(Format.encode(obj.getPath()));
+			writer.print("&n=");
+			writer.print(Format.encode(obj.getOriginalName()));
+			writer.print(getJSRootOptions(obj.getProperty("drawOptions"), obj.getProperty("displayHints"), obj.getProperty("ObjectType"), obj.getProperty("item"), obj.getFolder()));
+			writer.print("'>ROOT browser</a>");
+		}
+
+		writer.print("</li>\n");
 
 		writer.print("</ul></td></tr>\n");
 	}
@@ -347,7 +396,18 @@ class HTMLFormatter implements SQLFormatter {
 			if (obj.isComplete()) {
 				isComplete = true;
 
-				writer.print("<li><a href='/download/" + obj.getUuid() + "'>0</a></li>\n");
+				writer.print("<li><a href='/download/" + obj.getUuid() + "'>0</a>");
+
+				if (obj.getOriginalName().toLowerCase().endsWith(".root")) {
+					writer.print(" <a target=_blank href='/JSRoot?f=");
+					writer.print(Format.encode("/download/" + obj.getUuid()));
+					writer.print("&n=");
+					writer.print(Format.encode(obj.getOriginalName()));
+					writer.print(getJSRootOptions(obj.getProperty("drawOptions"), obj.getProperty("displayHints"), obj.getProperty("ObjectType"), obj.getProperty("item"), obj.getKey()));
+					writer.print("'>ROOT browser</a>");
+				}
+
+				writer.println("</li>");
 			}
 		}
 		catch (@SuppressWarnings("unused") final IOException | NoSuchAlgorithmException e) {

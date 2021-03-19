@@ -119,6 +119,9 @@ public class SQLDownload extends HttpServlet {
 				IOUtils.copy(is, os);
 			}
 
+			if (monitor != null)
+				monitor.addMeasurement("GET_data", localFile.length());
+
 			return;
 		}
 
@@ -225,6 +228,9 @@ public class SQLDownload extends HttpServlet {
 			try (RandomAccessFile input = new RandomAccessFile(localFile, "r"); OutputStream output = response.getOutputStream()) {
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			return;
@@ -247,9 +253,9 @@ public class SQLDownload extends HttpServlet {
 
 			final StringBuilder subHeader = new StringBuilder();
 
-			subHeader.append("\n--").append(boundaryString);
-			subHeader.append("\nContent-Type: ").append(obj.contentType).append('\n');
-			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(obj.size).append("\n\n");
+			subHeader.append("\r\n--").append(boundaryString);
+			subHeader.append("\r\nContent-Type: ").append(obj.contentType).append("\r\n");
+			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(obj.size).append("\r\n\r\n");
 
 			final String sh = subHeader.toString();
 
@@ -258,7 +264,7 @@ public class SQLDownload extends HttpServlet {
 			contentLength += toCopy + sh.length();
 		}
 
-		final String documentFooter = "\n--" + boundaryString + "--\n";
+		final String documentFooter = "\r\n--" + boundaryString + "--";
 
 		contentLength += documentFooter.length();
 
@@ -281,6 +287,9 @@ public class SQLDownload extends HttpServlet {
 
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			output.write(documentFooter.getBytes());

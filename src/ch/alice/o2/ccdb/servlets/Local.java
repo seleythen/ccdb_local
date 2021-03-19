@@ -174,6 +174,7 @@ public class Local extends HttpServlet {
 			if (!head)
 				download(matchingObject, request, response);
 			else {
+				// JSRoot doesn't work when the length is returned in the HEAD request
 				response.setContentLengthLong(matchingObject.referenceFile.length());
 				response.setHeader("Content-Disposition", "inline;filename=\"" + matchingObject.getOriginalName() + "\"");
 				response.setHeader("Content-Type", matchingObject.getProperty("Content-Type", "application/octet-stream"));
@@ -235,6 +236,9 @@ public class Local extends HttpServlet {
 			try (InputStream is = new FileInputStream(obj.referenceFile); OutputStream os = response.getOutputStream()) {
 				IOUtils.copy(is, os);
 			}
+
+			if (monitor != null)
+				monitor.addMeasurement("GET_data", obj.referenceFile.length());
 
 			return;
 		}
@@ -344,6 +348,9 @@ public class Local extends HttpServlet {
 			try (RandomAccessFile input = new RandomAccessFile(obj.referenceFile, "r"); OutputStream output = response.getOutputStream()) {
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			return;
@@ -366,9 +373,9 @@ public class Local extends HttpServlet {
 
 			final StringBuilder subHeader = new StringBuilder();
 
-			subHeader.append("\n--").append(boundaryString);
-			subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
-			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(fileSize).append("\n\n");
+			subHeader.append("\r\n--").append(boundaryString);
+			subHeader.append("\r\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append("\r\n");
+			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(fileSize).append("\r\n\r\n");
 
 			final String sh = subHeader.toString();
 
@@ -377,7 +384,7 @@ public class Local extends HttpServlet {
 			contentLength += toCopy + sh.length();
 		}
 
-		final String documentFooter = "\n--" + boundaryString + "--\n";
+		final String documentFooter = "\r\n--" + boundaryString + "--";
 
 		contentLength += documentFooter.length();
 
@@ -400,6 +407,9 @@ public class Local extends HttpServlet {
 
 				input.seek(first);
 				copy(input, output, toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			output.write(documentFooter.getBytes());
@@ -501,6 +511,9 @@ public class Local extends HttpServlet {
 			setHeaders(newObject, response);
 			response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
 			response.sendError(HttpServletResponse.SC_CREATED);
+			
+			if (monitor != null)
+				monitor.addMeasurement("POST_data", targetFile.length());
 		}
 	}
 

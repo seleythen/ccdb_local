@@ -50,9 +50,9 @@ public class Memory extends HttpServlet {
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(Memory.class.getCanonicalName());
 
-	private static final boolean REDIRECT_TO_UPSTREAM;
+	static final boolean REDIRECT_TO_UPSTREAM;
 
-	private static final String UPSTREAM_URL;
+	static final String UPSTREAM_URL;
 
 	static {
 		final String recoveryURL = Options.getOption("udp_receiver.recovery_url", "http://alice-ccdb.cern.ch:8080/");
@@ -94,6 +94,15 @@ public class Memory extends HttpServlet {
 	}
 
 	private static void doGet(final HttpServletRequest request, final HttpServletResponse response, final boolean head) throws IOException {
+		final boolean prepare = lazyj.Utils.stringToBool(request.getParameter("prepare"), false);
+
+		if (prepare && REDIRECT_TO_UPSTREAM) {
+			// go to the authoritative source to make sure the correct object version is distributed to everybody
+			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+			response.setHeader("Location", UPSTREAM_URL + request.getPathInfo());
+			return;
+		}
+
 		// list of objects matching the request
 		// URL parameters are:
 		// task name / detector name [ / time [ / UUID ] | [ / query string]* ]
@@ -158,7 +167,7 @@ public class Memory extends HttpServlet {
 
 	/**
 	 * Set the HTTP headers common for both GET and HEAD requests, for a given object
-	 * 
+	 *
 	 * @param obj
 	 * @param response
 	 */
@@ -188,7 +197,7 @@ public class Memory extends HttpServlet {
 
 	/**
 	 * Set the MD5 checksum header only. For HEAD requests the assumption is that the entire content would be served and this is the checksum
-	 * 
+	 *
 	 * @param obj
 	 * @param response
 	 */
@@ -201,7 +210,7 @@ public class Memory extends HttpServlet {
 
 	/**
 	 * Download the content of an object from memory
-	 * 
+	 *
 	 * @param obj
 	 * @param request
 	 * @param response
@@ -210,7 +219,7 @@ public class Memory extends HttpServlet {
 	static void download(final Blob obj, final HttpServletRequest request, final HttpServletResponse response) throws IOException {
 		final String range = request.getHeader("Range");
 
-		System.err.println("Client " + request.getRemoteAddr() + " requested to download " + obj.getUuid() + ", range: " + range);
+		// System.err.println("Client " + request.getRemoteAddr() + " requested to download " + obj.getUuid() + ", range: " + range);
 
 		if (range == null || range.trim().isEmpty()) {
 			response.setHeader("Accept-Ranges", "bytes");
@@ -222,6 +231,9 @@ public class Memory extends HttpServlet {
 			try (OutputStream os = response.getOutputStream()) {
 				os.write(obj.getPayload(), 0, obj.getPayload().length);
 			}
+
+			if (monitor != null)
+				monitor.addMeasurement("GET_data", obj.getPayload().length);
 
 			return;
 		}
@@ -331,6 +343,9 @@ public class Memory extends HttpServlet {
 			try (OutputStream os = response.getOutputStream()) {
 				// TODO: Check if cast from long to int would be a problem
 				os.write(obj.getPayload(), (int) first, (int) toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
 
 			return;
@@ -354,9 +369,9 @@ public class Memory extends HttpServlet {
 
 			final StringBuilder subHeader = new StringBuilder();
 
-			subHeader.append("\n--").append(boundaryString);
-			subHeader.append("\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append('\n');
-			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(payloadSize).append("\n\n");
+			subHeader.append("\r\n--").append(boundaryString);
+			subHeader.append("\r\nContent-Type: ").append(obj.getProperty("Content-Type", "application/octet-stream")).append("\r\n");
+			subHeader.append("Content-Range: bytes ").append(first).append("-").append(last).append("/").append(payloadSize).append("\r\n\r\n");
 
 			final String sh = subHeader.toString();
 
@@ -365,7 +380,7 @@ public class Memory extends HttpServlet {
 			contentLength += toCopy + sh.length();
 		}
 
-		final String documentFooter = "\n--" + boundaryString + "--\n";
+		final String documentFooter = "\r\n--" + boundaryString + "--";
 
 		contentLength += documentFooter.length();
 
@@ -388,7 +403,11 @@ public class Memory extends HttpServlet {
 
 				// TODO: Check if cast from long to int would be a problem
 				os.write(obj.getPayload(), (int) first, (int) toCopy);
+
+				if (monitor != null)
+					monitor.addMeasurement("GET_data", toCopy);
 			}
+
 			os.write(documentFooter.getBytes());
 		}
 
@@ -494,6 +513,9 @@ public class Memory extends HttpServlet {
 
 			if (udpSender != null)
 				udpSender.newObject(newBlob);
+
+			if (monitor != null)
+				monitor.addMeasurement("POST_data", payload.length);
 		}
 	}
 

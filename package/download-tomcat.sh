@@ -3,7 +3,7 @@
 cd `dirname $0`
 
 # Tomcat version to embed in this project
-VER="9.0.41"
+VER="9.0.44"
 
 T="apache-tomcat-$VER"
 
@@ -28,5 +28,5 @@ fi
 
 if [ ! -f ../lib/postgresql.jar ]; then
     echo "Downloading PostgreSQL JDBC driver"
-    curl -L "https://jdbc.postgresql.org/download/postgresql-42.2.18.jar" -o ../lib/postgresql.jar
+    curl -L "https://jdbc.postgresql.org/download/postgresql-42.2.19.jar" -o ../lib/postgresql.jar
 fi
