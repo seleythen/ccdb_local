@@ -146,6 +146,9 @@ public class EmbeddedTomcat extends Tomcat {
 		public void doFilter(final ServletRequest req, final ServletResponse resp, final FilterChain chain) throws IOException, ServletException {
 			final HttpServletResponse response = (HttpServletResponse) resp;
 			response.setHeader("Access-Control-Allow-Origin", "*");
+			response.setHeader("Access-Control-Allow-Headers", "range");
+			response.setHeader("Access-Control-Expose-Headers", "content-range,content-length,accept-ranges");
+			response.setHeader("Access-Control-Allow-Methods", "HEAD,GET");
 
 			chain.doFilter(req, resp);
 		}

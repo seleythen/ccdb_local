@@ -6,6 +6,7 @@ import org.apache.catalina.LifecycleException;
 import org.apache.catalina.Wrapper;
 
 import ch.alice.o2.ccdb.multicast.UDPReceiver;
+import ch.alice.o2.ccdb.servlets.JSRoot;
 import ch.alice.o2.ccdb.servlets.Memory;
 import ch.alice.o2.ccdb.servlets.MemoryBrowse;
 import ch.alice.o2.ccdb.servlets.MemoryDownload;
@@ -41,6 +42,7 @@ public class MemoryEmbeddedTomcat {
 		tomcat.addServlet(MemoryDownload.class.getName(), "/download/*");
 
 		tomcat.addServlet(MonitorServlet.class.getName(), "/monitor/*");
+		tomcat.addServlet(JSRoot.class.getName(), "/JSRoot");
 
 		// Start the server
 		try {

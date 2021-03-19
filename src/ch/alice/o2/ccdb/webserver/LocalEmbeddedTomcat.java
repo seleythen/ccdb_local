@@ -5,6 +5,7 @@ import javax.servlet.ServletException;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.Wrapper;
 
+import ch.alice.o2.ccdb.servlets.JSRoot;
 import ch.alice.o2.ccdb.servlets.Local;
 import ch.alice.o2.ccdb.servlets.LocalBrowse;
 import ch.alice.o2.ccdb.servlets.LocalTruncate;
@@ -38,6 +39,7 @@ public class LocalEmbeddedTomcat {
 		tomcat.addServlet(Local.class.getName(), "/*");
 		tomcat.addServlet(LocalTruncate.class.getName(), "/truncate/*");
 		tomcat.addServlet(MonitorServlet.class.getName(), "/monitor/*");
+		tomcat.addServlet(JSRoot.class.getName(), "/JSRoot");
 
 		// Start the server
 		try {

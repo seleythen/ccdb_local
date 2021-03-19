@@ -59,6 +59,8 @@ public class SQLBrowse extends HttpServlet {
 
 			final boolean sizeReport = Utils.stringToBool(request.getParameter("report"), false);
 
+			final boolean prepare = Utils.stringToBool(request.getParameter("prepare"), false);
+
 			formatter.setExtendedReport(sizeReport);
 
 			try (PrintWriter pw = response.getWriter()) {
@@ -76,6 +78,9 @@ public class SQLBrowse extends HttpServlet {
 							formatter.middle(pw);
 
 						formatter.format(pw, object);
+
+						if (prepare && parser.latestFlag)
+							AsyncMulticastQueue.queueObject(object);
 					}
 
 				formatter.footer(pw);
