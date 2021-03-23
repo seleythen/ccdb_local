@@ -59,12 +59,38 @@ done
 
 rm -rf src META-INF
 
-#jar -cfe sql.jar \
-#    ch.alice.o2.ccdb.testing.SQLBenchmark ch/alice/o2/ccdb/testing/SQLBenchmark.class \
-#    ch javax org lazyj
+jar -cfe sql-benchmark.jar \
+    ch.alice.o2.ccdb.testing.SQLBenchmark ch/alice/o2/ccdb/testing/SQLBenchmark.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
+jar -cfe sql-insert-bulk.jar \
+    ch.alice.o2.ccdb.testing.SQLInsertBulk ch/alice/o2/ccdb/testing/SQLInsertBulk.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
+jar -cfe sql-insert-bulk-new-paths.jar \
+    ch.alice.o2.ccdb.testing.SQLInsertNewPath ch/alice/o2/ccdb/testing/SQLInsertNewPath.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
+jar -cfe sql-insert-monalisa.jar \
+    ch.alice.o2.ccdb.testing.SQLInsertContinuously ch/alice/o2/ccdb/testing/SQLInsertContinuously.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
+jar -cfe sql-insert-with-rate-monalisa.jar \
+    ch.alice.o2.ccdb.testing.SQLInsertWithGivenRate ch/alice/o2/ccdb/testing/SQLInsertWithGivenRate.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
 
 jar -cfe sql.jar \
     ch.alice.o2.ccdb.webserver.SQLBackedTomcat ch/alice/o2/ccdb/webserver/SQLBackedTomcat.class \
+    ch javax org lazyj lia apmon com org utils jline joptsimple \
+    alien config trusted_authorities.jks
+
+jar -cfe sql-read-with-rate-monalisa.jar \
+    ch.alice.o2.ccdb.testing.SQLReadWithGivenRate ch/alice/o2/ccdb/testing/SQLReadWithGivenRate.class \
     ch javax org lazyj lia apmon com org utils jline joptsimple \
     alien config trusted_authorities.jks
 
@@ -74,3 +100,5 @@ jar -cfe sql.jar \
 
 # remove all intermediate folders
 rm -rf javax org ch org lazyj alien config utils lia com org hep apmon trusted_authorities.jks io jline joptsimple
+
+# cp memory.jar /var/ftp/pub

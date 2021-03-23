@@ -371,16 +371,22 @@ public class SQLObject implements Comparable<SQLObject> {
 
 		if (pattern == null) {
 			if (replica.intValue() == 0) {
-				String hostname;
-
-				try {
-					hostname = InetAddress.getLocalHost().getCanonicalHostName();
+				if (config.getb("server.0.relativeURL", false)) {
+					// It's easier for CcdbApi to follow redirects if this is disabled, having the full URL in the Location header
+					pattern = "/download/UUID";
 				}
-				catch (@SuppressWarnings("unused") final Throwable t) {
-					hostname = "localhost";
-				}
+				else {
+					String hostname;
 
-				pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
+					try {
+						hostname = InetAddress.getLocalHost().getCanonicalHostName();
+					}
+					catch (@SuppressWarnings("unused") final Throwable t) {
+						hostname = "localhost";
+					}
+
+					pattern = "http://" + hostname + ":" + Options.getIntOption("tomcat.port", 8080) + "/download/UUID";
+				}
 			}
 			else {
 				if (replica.intValue() > 0) {
@@ -668,8 +674,9 @@ public class SQLObject implements Comparable<SQLObject> {
 	private static synchronized Integer getPathID(final String path, final boolean createIfNotExists) {
 		Integer value = PATHS.get(path);
 
-		if (value != null)
+		if (value != null) {
 			return value;
+		}
 
 		try (DBFunctions db = getDB()) {
 			db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
@@ -696,7 +703,6 @@ public class SQLObject implements Comparable<SQLObject> {
 
 				// always execute the select, in case another instance has inserted it in the mean time
 				db.query("SELECT pathid FROM ccdb_paths WHERE path=?;", false, path);
-
 				if (db.moveNext()) {
 					value = Integer.valueOf(db.geti(1));
 					PATHS.put(path, value);
@@ -705,7 +711,6 @@ public class SQLObject implements Comparable<SQLObject> {
 				}
 			}
 		}
-
 		return null;
 	}
 

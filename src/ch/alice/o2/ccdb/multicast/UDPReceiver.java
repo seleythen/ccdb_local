@@ -10,12 +10,17 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.URL;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +71,8 @@ public class UDPReceiver extends Thread {
 
 	private String multicastIPaddress = null;
 
+	private String multicastInterface = null;
+
 	private int multicastPortNumber = 0;
 
 	private int unicastPortNumber = 0;
@@ -92,6 +99,7 @@ public class UDPReceiver extends Thread {
 
 		multicastIPaddress = Options.getOption("udp_receiver.multicast_address", "224.0.204.219"); // 224.0.0xCC.0xDB
 		multicastPortNumber = Options.getIntOption("udp_receiver.multicast_port", 3342);
+		multicastInterface = Options.getOption("udp_receiver.multicast_interface", "");
 
 		unicastPortNumber = Options.getIntOption("udp_receiver.unicast_port", 0);
 	}
@@ -563,8 +571,18 @@ public class UDPReceiver extends Thread {
 
 	private void runMulticastReceiver() {
 		try (MulticastSocket socket = new MulticastSocket(this.multicastPortNumber)) {
+
+			final NetworkInterface netInterface = getInterface();
 			final InetAddress group = InetAddress.getByName(this.multicastIPaddress);
-			socket.joinGroup(group);
+			if(netInterface == null) {
+				System.err.println("Join to default interface");
+				socket.joinGroup(group);
+			} else {
+				System.err.println("Join to custom interface: " + netInterface.getName());
+				final InetSocketAddress addr = new InetSocketAddress(group, 0);
+				socket.joinGroup(addr, netInterface);
+			}
+			
 
 			final byte[] buf = new byte[Utils.PACKET_MAX_SIZE];
 			final DatagramPacket packet = new DatagramPacket(buf, buf.length);
@@ -574,7 +592,6 @@ public class UDPReceiver extends Thread {
 					// Receive object
 
 					socket.receive(packet);
-
 					final int len = packet.getLength();
 
 					final byte[] activePart = new byte[len];
@@ -592,6 +609,30 @@ public class UDPReceiver extends Thread {
 		}
 		catch (final IOException e) {
 			logger.log(Level.SEVERE, "Exception running the multicast receiver", e);
+		}
+	}
+
+	private NetworkInterface getInterface() {
+		try {
+			Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
+			for(NetworkInterface net: Collections.list(nets)) {
+				if(net.getName().equals(multicastInterface) && !multicastInterface.equals("")) {
+					return net;
+				}
+			}
+			for(NetworkInterface net: Collections.list(nets)) {
+				if(net.isUp() && net.supportsMulticast() && !net.isLoopback()) {
+					return net;
+				}
+			}
+			for(NetworkInterface net: Collections.list(nets)) {
+				if(net.isUp() && net.supportsMulticast()) {
+					return net;
+				}
+			}
+			return null;
+		} catch(SocketException se) {
+			return null;
 		}
 	}
 

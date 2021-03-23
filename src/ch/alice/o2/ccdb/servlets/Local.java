@@ -499,6 +499,7 @@ public class Local extends HttpServlet {
 			newObject.setProperty("UploadedFrom", request.getRemoteHost());
 			newObject.setProperty("File-Size", String.valueOf(targetFile.length()));
 			newObject.setProperty("Content-MD5", alien.io.IOUtils.getMD5(targetFile));
+			newObject.setProperty("Uploaded-At", String.valueOf(newObjectTime));
 
 			if (newObject.getProperty("CreateTime") == null)
 				newObject.setProperty("CreateTime", String.valueOf(newObjectTime));

@@ -448,7 +448,12 @@ public class SQLBacked extends HttpServlet {
 
 	static {
 		// make sure the database structures exist when the server is initialized
-		createDBStructure();
+		try {
+			createDBStructure();
+		} catch(Throwable error) {
+			System.err.println("Error during creating DB structure: " + error.getMessage());
+			throw error;
+		}
 	}
 
 	/**
@@ -464,7 +469,8 @@ public class SQLBacked extends HttpServlet {
 					db.query("CREATE TABLE IF NOT EXISTS ccdb_contenttype (contentTypeId SERIAL PRIMARY KEY, contentType text UNIQUE NOT NULL);");
 
 					db.query(
-							"CREATE TABLE IF NOT EXISTS ccdb (id uuid PRIMARY KEY, pathId int NOT NULL REFERENCES ccdb_paths(pathId), validity tsrange, createTime bigint NOT NULL, replicas integer[], size bigint, md5 uuid, filename text, contenttype int REFERENCES ccdb_contenttype(contentTypeId), uploadedfrom inet, initialvalidity bigint, metadata hstore, lastmodified bigint);");
+							"CREATE TABLE IF NOT EXISTS ccdb (id uuid PRIMARY KEY, pathId int NOT NULL REFERENCES ccdb_paths(pathId) ON UPDATE CASCADE, validity tsrange, createTime bigint NOT NULL, replicas integer[], size bigint, "
+									+ "md5 uuid, filename text, contenttype int REFERENCES ccdb_contenttype(contentTypeId) ON UPDATE CASCADE, uploadedfrom inet, initialvalidity bigint, metadata hstore, lastmodified bigint);");
 					db.query("CREATE INDEX IF NOT EXISTS ccdb_pathId2_idx ON ccdb(pathId);");
 					db.query("ALTER TABLE ccdb ALTER validity SET STATISTICS 10000;");
 					db.query("CREATE INDEX IF NOT EXISTS ccdb_validity2_idx on ccdb using gist(validity);");
@@ -511,5 +517,9 @@ public class SQLBacked extends HttpServlet {
 			db.query("INSERT INTO ccdb_stats SELECT pathid, count(1), sum(size) FROM ccdb GROUP BY 1;");
 			db.query("INSERT INTO ccdb_stats SELECT 0, sum(object_count), sum(object_size) FROM ccdb_stats WHERE pathid!=0;");
 		}
+	}
+
+	static {
+		System.err.println("Database and servlet initialized");
 	}
 }
