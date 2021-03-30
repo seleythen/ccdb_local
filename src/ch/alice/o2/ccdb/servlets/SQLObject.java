@@ -549,7 +549,7 @@ public class SQLObject implements Comparable<SQLObject> {
 		if (keyID == null)
 			return;
 
-		if (value == null) {
+		if (value == null || value.isBlank()) {
 			final String oldValue = metadata.remove(keyID);
 
 			tainted = tainted || oldValue != null;

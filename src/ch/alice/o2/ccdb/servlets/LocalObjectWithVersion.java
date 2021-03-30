@@ -164,9 +164,16 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	public boolean setProperty(final String key, final String value) {
 		loadProperties();
 
-		final Object oldValue = objectProperties.setProperty(key, value);
+		final boolean changed;
 
-		final boolean changed = oldValue == null || !value.equals(oldValue.toString());
+		if (value == null || value.isBlank()) {
+			changed = objectProperties.remove(key) != null;
+		}
+		else {
+			final Object oldValue = objectProperties.setProperty(key, value);
+
+			changed = oldValue == null || !value.equals(oldValue.toString());
+		}
 
 		taintedProperties = taintedProperties || changed;
 
@@ -218,8 +225,7 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 
 		loadProperties();
 
-		search:
-		for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
+		search: for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
 			final String key = entry.getKey().trim();
 			final String value = entry.getValue().trim();
 
