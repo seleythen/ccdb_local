@@ -222,8 +222,7 @@ public class SQLObject implements Comparable<SQLObject> {
 			try {
 				final Integer[] r = (Integer[]) replicasObject.getArray();
 
-				for (final Integer i : r)
-					replicas.add(i);
+				Collections.addAll(replicas, r);
 			}
 			catch (@SuppressWarnings("unused") final SQLException e) {
 				// ignore
@@ -468,7 +467,7 @@ public class SQLObject implements Comparable<SQLObject> {
 
 	/**
 	 * Get all URLs where replicas of this object can be retrieved from
-	 * 
+	 *
 	 * @param ipAddress
 	 *            client's IP address, to better sort the replicas function of its location
 	 * @param httpOnly
@@ -620,9 +619,9 @@ public class SQLObject implements Comparable<SQLObject> {
 	public boolean delete() {
 		if (existing)
 			try (DBFunctions db = getDB()) {
-				final String q = "DELETE FROM ccdb WHERE id='" + id.toString() + "'";
+				final String q = "DELETE FROM ccdb WHERE id=?";
 
-				if (!db.query(q))
+				if (!db.query(q, false, id.toString()))
 					return false;
 
 				return db.getUpdateCount() > 0;
@@ -656,17 +655,17 @@ public class SQLObject implements Comparable<SQLObject> {
 		if (exactPathId != null)
 			pathIDs = Arrays.asList(exactPathId);
 		else
-			// wildcard expression ?
-			if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
-				pathIDs = getPathIDs(parser.path);
+		// wildcard expression ?
+		if (parser.path != null && (parser.path.contains("*") || parser.path.contains("%"))) {
+			pathIDs = getPathIDs(parser.path);
 
-				parser.wildcardMatching = true;
+			parser.wildcardMatching = true;
 
-				if (pathIDs == null || pathIDs.size() == 0)
-					return null;
-			}
-			else
+			if (pathIDs == null || pathIDs.size() == 0)
 				return null;
+		}
+		else
+			return null;
 
 		return pathIDs;
 	}
@@ -688,7 +687,7 @@ public class SQLObject implements Comparable<SQLObject> {
 			}
 
 			if (createIfNotExists) {
-				final Integer hashId = Integer.valueOf(Math.abs(path.hashCode()));
+				final Integer hashId = absHashCode(path);
 
 				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_paths (pathId, path) VALUES (?, ?);", false, hashId, path)) {
 					// could create the hash-based path ID, all good
@@ -794,7 +793,7 @@ public class SQLObject implements Comparable<SQLObject> {
 			}
 
 			if (createIfNotExists) {
-				final Integer hashId = Integer.valueOf(Math.abs(metadataKey.hashCode()));
+				final Integer hashId = absHashCode(metadataKey);
 
 				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_metadata(metadataId, metadataKey) VALUES (?, ?);", false, hashId, metadataKey)) {
 					METADATA.put(metadataKey, hashId);
@@ -867,7 +866,7 @@ public class SQLObject implements Comparable<SQLObject> {
 			}
 
 			if (createIfNotExists) {
-				final Integer hashId = Integer.valueOf(Math.abs(contentType.hashCode()));
+				final Integer hashId = absHashCode(contentType);
 
 				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_contenttype (contentTypeId, ccdb_contenttype) VALUES (?, ?);", false, hashId, contentType)) {
 					CONTENTTYPE.put(contentType, hashId);
@@ -1063,9 +1062,8 @@ public class SQLObject implements Comparable<SQLObject> {
 
 		if (parser.latestFlag)
 			q.append(" LIMIT 1");
-		else
-			if (parser.browseLimit > 0)
-				q.append(" LIMIT " + parser.browseLimit);
+		else if (parser.browseLimit > 0)
+			q.append(" LIMIT " + parser.browseLimit);
 
 		try (DBFunctions db = getDB()) {
 			db.query(q.toString(), false, arguments.toArray(new Object[0]));
@@ -1179,5 +1177,13 @@ public class SQLObject implements Comparable<SQLObject> {
 	@Override
 	public int hashCode() {
 		return id.hashCode();
+	}
+
+	/**
+	 * @param o
+	 * @return strictly positive integer value of the hashcode of the given object
+	 */
+	public static Integer absHashCode(final Object o) {
+		return Integer.valueOf((int) (Math.abs((long) (o.hashCode()) % Integer.MAX_VALUE)) + 1);
 	}
 }
