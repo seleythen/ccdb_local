@@ -18,7 +18,6 @@ import ch.alice.o2.ccdb.RequestParser;
 import ch.alice.o2.ccdb.servlets.formatters.FormatterFactory;
 import ch.alice.o2.ccdb.servlets.formatters.SQLFormatter;
 import lazyj.DBFunctions;
-import lazyj.Format;
 import lazyj.Utils;
 
 /**
@@ -108,7 +107,7 @@ public class SQLBrowse extends HttpServlet {
 								if (c == '/')
 									cnt++;
 
-							db.query("select distinct split_part(path,'/'," + (cnt + 2) + ") from ccdb_paths where path like '" + Format.escSQL(parser.path) + "/%' order by 1;");
+							db.query("select distinct split_part(path,'/',?) from ccdb_paths where path like ? order by 1;", false, Integer.valueOf(cnt + 2), parser.path + "/%");
 
 							prefix = parser.path + "/";
 						}
@@ -130,28 +129,30 @@ public class SQLBrowse extends HttpServlet {
 							else
 								formatter.middle(pw);
 
+							final String folder = prefix + db.gets(1);
+
 							if (sizeReport) {
 								try (DBFunctions db2 = SQLObject.getDB()) {
-									db2.query("SELECT object_count, object_size FROM ccdb_stats WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path='" + prefix + db.gets(1) + "');");
+									db2.query("SELECT object_count, object_size FROM ccdb_stats WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path=?);", false, folder);
 
 									final long ownCount = db2.getl(1);
 									final long ownSize = db2.getl(2);
 
-									db2.query("SELECT sum(object_count), sum(object_size) FROM ccdb_stats WHERE pathid IN (SELECT pathid FROM ccdb_paths WHERE path LIKE '" + prefix + db.gets(1)
-											+ "/%');");
+									db2.query("SELECT sum(object_count), sum(object_size) FROM ccdb_stats WHERE pathid IN (SELECT pathid FROM ccdb_paths WHERE path LIKE ?);", false,
+											folder + "/%");
 
 									final long subfoldersCount = db2.getl(1);
 									final long subfoldersSize = db2.getl(2);
 
-									formatter.subfoldersListing(pw, prefix + db.gets(1), prefix + db.gets(1) + suffix, ownCount, ownSize, subfoldersCount, subfoldersSize);
+									formatter.subfoldersListing(pw, folder, folder + suffix, ownCount, ownSize, subfoldersCount, subfoldersSize);
 								}
 							}
 							else
-								formatter.subfoldersListing(pw, prefix + db.gets(1), prefix + db.gets(1) + suffix);
+								formatter.subfoldersListing(pw, folder, folder + suffix);
 						}
 
 						if (sizeReport) {
-							db.query("SELECT object_count, object_size FROM ccdb_stats WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path='" + parser.path + "');");
+							db.query("SELECT object_count, object_size FROM ccdb_stats WHERE pathid=(SELECT pathid FROM ccdb_paths WHERE path=?);", false, parser.path);
 
 							thisFolderCount = db.getl(1);
 							thisFolderSize = db.getl(2);

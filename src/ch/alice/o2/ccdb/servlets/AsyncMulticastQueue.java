@@ -1,7 +1,7 @@
 /**
  * Cache warming tool. For existing objects it implements fetching the binary content from AliEn (in case the local file is missing) and
  * sending the content via multicast to the configured targets.
- * 
+ *
  * Currently only the SQL-backed implementation can make use of it (as is the only one aware of AliEn)
  */
 package ch.alice.o2.ccdb.servlets;
@@ -109,6 +109,11 @@ public class AsyncMulticastQueue {
 
 	private static JAliEnCOMMander commander = null;
 
+	private static synchronized void initCommander() {
+		if (commander == null)
+			commander = new JAliEnCOMMander(null, null, "CERN", null);
+	}
+
 	/**
 	 * @param obj
 	 * @return <code>true</code> if the file is ready to be sent, <code>false</code> if any problem
@@ -132,8 +137,7 @@ public class AsyncMulticastQueue {
 
 		targetObjectPath = targetObjectPath.substring(8);
 
-		if (commander == null)
-			commander = new JAliEnCOMMander(null, null, "CERN", null);
+		initCommander();
 
 		try (Timing t = new Timing(monitor, "stage_in_ms")) {
 			try {

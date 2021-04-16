@@ -2,6 +2,9 @@ package ch.alice.o2.ccdb.webserver;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.logging.Level;
@@ -86,6 +89,8 @@ public class EmbeddedTomcat extends Tomcat {
 
 	private final StandardContext ctx;
 
+	private static final List<Logger> hardReferencesToLoggers = new ArrayList<>();
+
 	/**
 	 * @param defaultAddress
 	 *            default listening address for the Tomcat server. Either "localhost" (default for testing servers) or "*" for production instances.
@@ -102,8 +107,11 @@ public class EmbeddedTomcat extends Tomcat {
 			LogManager.getLogManager().reset();
 
 		if (debugLevel > 2) {
-			Logger.getLogger("org.apache.catalina").setLevel(Level.FINEST);
-			Logger.getLogger("alien").setLevel(Level.FINEST);
+			for (final String s : Arrays.asList("org.apache.catalina", "alien")) {
+				final Logger l = Logger.getLogger(s);
+				l.setLevel(Level.FINEST);
+				hardReferencesToLoggers.add(l);
+			}
 		}
 
 		address = Options.getOption("tomcat.address", defaultAddress);

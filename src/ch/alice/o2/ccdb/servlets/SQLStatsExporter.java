@@ -4,7 +4,6 @@ import java.util.Vector;
 
 import alien.monitoring.MonitoringObject;
 import lazyj.DBFunctions;
-import lazyj.Format;
 
 /**
  * Publish monitoring information about the metadata repository
@@ -18,7 +17,7 @@ public class SQLStatsExporter implements MonitoringObject {
 
 	/**
 	 * Indicate which path to create the stats for. If <code>null</code> then the first level of directories is exported. When non-null, all sub-folders of that path are exported.
-	 * 
+	 *
 	 * @param path
 	 */
 	public SQLStatsExporter(final String path) {
@@ -27,7 +26,7 @@ public class SQLStatsExporter implements MonitoringObject {
 		if (path != null) {
 			int slashesCount = 0;
 
-			for (char c : path.toCharArray())
+			for (final char c : path.toCharArray())
 				if (c == '/')
 					slashesCount++;
 
@@ -41,8 +40,8 @@ public class SQLStatsExporter implements MonitoringObject {
 	public void fillValues(final Vector<String> paramNames, final Vector<Object> paramValues) {
 		try (DBFunctions db = SQLObject.getDB()) {
 			if (path != null)
-				db.query("SELECT split_part(path,'/'," + depth + "), sum(object_count), sum(object_size) FROM ccdb_paths INNER JOIN ccdb_stats USING(pathid) WHERE path LIKE '"
-						+ Format.escSQL(path) + "/%' GROUP BY 1;");
+				db.query("SELECT split_part(path,'/',?), sum(object_count), sum(object_size) FROM ccdb_paths INNER JOIN ccdb_stats USING(pathid) WHERE path LIKE ? GROUP BY 1;", false,
+						Integer.valueOf(depth), path + "/%");
 			else
 				db.query("SELECT split_part(path,'/',1), sum(object_count), sum(object_size) FROM ccdb_paths INNER JOIN ccdb_stats USING(pathid) GROUP BY 1;");
 

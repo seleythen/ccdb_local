@@ -2,7 +2,7 @@ package ch.alice.o2.ccdb.testing;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import ch.alice.o2.ccdb.RequestParser;
@@ -105,8 +105,6 @@ public class SQLBenchmark {
 		else
 			System.err.println("Not inserting anything, just benchmarking read times");
 
-		final Random r = new Random(System.currentTimeMillis());
-
 		final int noQueries = 10000;
 
 		for (final int queryThreads : new int[] { 1, 4, 8, 16, 24, 32 }) {
@@ -125,7 +123,7 @@ public class SQLBenchmark {
 
 							parser.path = "dummy";
 							// parser.startTime = i * rangeWidth + r.nextLong() % rangeWidth;
-							parser.startTime = Math.abs(r.nextLong() % ((base + noOfObjects * noThreads) * 160));
+							parser.startTime = Math.abs(ThreadLocalRandom.current().nextLong() % ((base + noOfObjects * noThreads) * 160));
 							parser.startTimeSet = true;
 
 							final SQLObject result = SQLObject.getMatchingObject(parser);
