@@ -40,6 +40,7 @@ import lazyj.DBFunctions;
 import lazyj.ExtProperties;
 import lazyj.Format;
 import lazyj.StringFactory;
+import lazyj.Utils;
 
 /**
  * SQL backing for a CCDB/QC object
@@ -366,11 +367,15 @@ public class SQLObject implements Comparable<SQLObject> {
 	 * @return full URL
 	 */
 	public List<String> getAddress(final Integer replica, final String ipAddress, final boolean resolveAliEn) {
-		String pattern = config.gets("server." + replica + ".urlPattern", null);
+		final String configKey = "server." + replica + ".urlPattern";
+
+		String pattern = Options.getOption(configKey, config.gets(configKey, null));
 
 		if (pattern == null) {
 			if (replica.intValue() == 0) {
-				if (config.getb("server.0.relativeURL", false)) {
+				final String relativeURLKey = "server.0.relativeURL";
+
+				if (Utils.stringToBool(Options.getOption(relativeURLKey, null), config.getb(relativeURLKey, false))) {
 					// It's easier for CcdbApi to follow redirects if this is disabled, having the full URL in the Location header
 					pattern = "/download/UUID";
 				}
