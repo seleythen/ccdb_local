@@ -65,7 +65,7 @@ public class Local extends HttpServlet {
 		while (location.endsWith("/"))
 			location = location.substring(0, location.length() - 1);
 
-		location = location.replaceAll("//", "/");
+		location = location.replace("//", "/");
 
 		basePath = location;
 	}
@@ -99,13 +99,12 @@ public class Local extends HttpServlet {
 				basePathSupportsMSTimestamps = true;
 
 				for (long lTest = 1000001; lTest <= 1000003; lTest++) {
-					f1.setLastModified(lTest);
-
-					if (f1.lastModified() != lTest)
+					if (!f1.setLastModified(lTest) || f1.lastModified() != lTest)
 						basePathSupportsMSTimestamps = false;
 				}
 
-				f1.delete();
+				if (!f1.delete())
+					logger.log(Level.WARNING, "Cannot delete " + f1.getAbsolutePath());
 
 				if (basePathSupportsMSTimestamps)
 					logger.log(Level.INFO, "Underlying filesystem of " + basePath + " supports millisecond-level resolution, trusting the last modification time of the blob files");
@@ -293,33 +292,32 @@ public class Local extends HttpServlet {
 					return;
 				}
 			}
-			else
-				if (idx == 0) {
-					// a single negative value means 'last N bytes'
-					start = Long.parseLong(s.substring(idx + 1));
+			else if (idx == 0) {
+				// a single negative value means 'last N bytes'
+				start = Long.parseLong(s.substring(idx + 1));
 
-					end = fileSize - 1;
+				end = fileSize - 1;
 
-					start = end - start + 1;
+				start = end - start + 1;
 
-					if (start < 0) {
-						response.setHeader("Content-Range", "bytes */" + fileSize);
-						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-								"You requested more last bytes (" + s.substring(idx + 1) + ") from the end of the file than the file actually has (" + fileSize + ")");
-						start = 0;
-					}
+				if (start < 0) {
+					response.setHeader("Content-Range", "bytes */" + fileSize);
+					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
+							"You requested more last bytes (" + s.substring(idx + 1) + ") from the end of the file than the file actually has (" + fileSize + ")");
+					start = 0;
 				}
-				else {
-					start = Long.parseLong(s);
+			}
+			else {
+				start = Long.parseLong(s);
 
-					if (start >= fileSize) {
-						response.setHeader("Content-Range", "bytes */" + fileSize);
-						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
-						return;
-					}
-
-					end = fileSize - 1;
+				if (start >= fileSize) {
+					response.setHeader("Content-Range", "bytes */" + fileSize);
+					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
+					return;
 				}
+
+				end = fileSize - 1;
+			}
 
 			requestedRanges.add(new AbstractMap.SimpleEntry<>(Long.valueOf(start), Long.valueOf(end)));
 		}
@@ -459,11 +457,10 @@ public class Local extends HttpServlet {
 
 			final File folder = new File(basePath + "/" + parser.path + "/" + parser.startTime);
 
-			if (!folder.exists())
-				if (!folder.mkdirs()) {
-					response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot create path " + folder.getAbsolutePath());
-					return;
-				}
+			if (!folder.exists() && !folder.mkdirs()) {
+				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot create path " + folder.getAbsolutePath());
+				return;
+			}
 
 			final long newObjectTime = System.currentTimeMillis();
 
@@ -510,7 +507,7 @@ public class Local extends HttpServlet {
 			setHeaders(newObject, response);
 			response.setHeader("Location", getURLPrefix(request) + "/" + parser.path + "/" + parser.startTime + "/" + targetUUID.toString());
 			response.sendError(HttpServletResponse.SC_CREATED);
-			
+
 			if (monitor != null)
 				monitor.addMeasurement("POST_data", targetFile.length());
 		}
@@ -576,7 +573,8 @@ public class Local extends HttpServlet {
 			}
 
 			final File fProperties = new File(matchingObject.referenceFile.getPath() + ".properties");
-			fProperties.delete();
+			if (!fProperties.delete())
+				logger.log(Level.WARNING, "Cannot delete " + fProperties.getAbsolutePath());
 
 			response.sendError(HttpServletResponse.SC_NO_CONTENT);
 		}
@@ -621,11 +619,8 @@ public class Local extends HttpServlet {
 
 					if (owv.covers(parser.startTime) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter) && (parser.notBefore <= 0 || owv.getCreateTime() >= parser.notBefore)
 							&& owv.matches(parser.flagConstraints))
-						if (mostRecent == null)
+						if ((mostRecent == null) || (owv.compareTo(mostRecent) < 0))
 							mostRecent = owv;
-						else
-							if (owv.compareTo(mostRecent) < 0)
-								mostRecent = owv;
 				}
 			}
 			catch (@SuppressWarnings("unused") final NumberFormatException nfe) {

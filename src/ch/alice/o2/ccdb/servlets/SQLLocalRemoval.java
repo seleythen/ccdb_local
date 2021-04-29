@@ -1,6 +1,8 @@
 package ch.alice.o2.ccdb.servlets;
 
 import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Remove binary blobs from the local repository
@@ -9,6 +11,8 @@ import java.io.File;
  * @since 2019-10-17
  */
 public class SQLLocalRemoval implements SQLNotifier {
+	private static Logger logger = Logger.getLogger(SQLLocalRemoval.class.getCanonicalName());
+
 	private SQLLocalRemoval() {
 		// singleton
 	}
@@ -38,8 +42,8 @@ public class SQLLocalRemoval implements SQLNotifier {
 		if (object.replicas.contains(localReplica)) {
 			final File f = object.getLocalFile(false);
 
-			if (f != null)
-				f.delete();
+			if (f != null && !f.delete())
+				logger.log(Level.WARNING, "Cannot remove local file " + f.getAbsolutePath());
 
 			object.replicas.remove(localReplica);
 		}

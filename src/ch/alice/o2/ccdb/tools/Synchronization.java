@@ -15,6 +15,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -37,6 +39,8 @@ import lazyj.Utils;
  * @since Nov 26, 2020
  */
 public class Synchronization {
+	private static Logger logger = Logger.getLogger(Synchronization.class.getCanonicalName());
+
 	private static final AtomicInteger aiSynchronized = new AtomicInteger();
 	private static final AtomicInteger aiSkipped = new AtomicInteger();
 	private static final AtomicInteger aiError = new AtomicInteger();
@@ -78,7 +82,7 @@ public class Synchronization {
 		try {
 			targetRepository = new URL(targetRepo);
 		}
-		catch (MalformedURLException e1) {
+		catch (final MalformedURLException e1) {
 			System.err.println("Invalid target URL(" + targetRepo + "): " + e1.getMessage());
 			return;
 		}
@@ -92,7 +96,8 @@ public class Synchronization {
 		try {
 			dbTarget = dbf.newDocumentBuilder();
 		}
-		catch (@SuppressWarnings("unused") ParserConfigurationException e) {
+		catch (final ParserConfigurationException e) {
+			logger.log(Level.WARNING, "Cannot initialize the DocumentBuilder", e);
 			return;
 		}
 
@@ -107,13 +112,16 @@ public class Synchronization {
 			System.err.println("Could not connect to " + targetRepo + " due to : " + ioe.getMessage());
 			return;
 		}
-		catch (SAXException e) {
-			System.err.println("Cannot parse the reply from " + targetXmlPath + " due to : " + e.getMessage());
+		catch (final SAXException e) {
+			logger.log(Level.WARNING, "Cannot parse the reply from " + targetXmlPath, e);
 			return;
 		}
 
 		final NodeList targetObjects = docTarget.getElementsByTagName("object");
-		for (int i = 0; i < targetObjects.getLength(); i++) {
+
+		final int len = targetObjects.getLength();
+
+		for (int i = 0; i < len; i++) {
 			String id = targetObjects.item(i).getAttributes().getNamedItem("id").getNodeValue();
 
 			if (id.startsWith("uuid"))
@@ -128,7 +136,8 @@ public class Synchronization {
 		try {
 			dbSource = dbf.newDocumentBuilder();
 		}
-		catch (@SuppressWarnings("unused") ParserConfigurationException e) {
+		catch (final ParserConfigurationException e) {
+			logger.log(Level.WARNING, "Cannot initialize the DocumentBuilder", e);
 			return;
 		}
 
@@ -138,11 +147,11 @@ public class Synchronization {
 		try {
 			docSource = dbSource.parse(sourceXmlPath);
 		}
-		catch (SAXException e) {
+		catch (final SAXException e) {
 			System.err.println("Cannot parse the reply from " + targetXmlPath + " due to : " + e.getMessage());
 			return;
 		}
-		catch (IOException ioe) {
+		catch (final IOException ioe) {
 			System.err.println("Could not connect to " + sourceRepo + " due to : " + ioe.getMessage());
 			return;
 		}
@@ -238,7 +247,7 @@ public class Synchronization {
 					for (int j = 0; j < metadata.getLength(); j++) {
 						final Node m = metadata.item(j);
 
-						if (m.getNodeName().equals("metadata"))
+						if ("metadata".equals(m.getNodeName()))
 							toUpload.setProperty(m.getAttributes().getNamedItem("key").getNodeValue(), m.getAttributes().getNamedItem("value").getNodeValue());
 					}
 
@@ -256,7 +265,8 @@ public class Synchronization {
 					aiError.incrementAndGet();
 				}
 				finally {
-					localFile.delete();
+					if (!localFile.delete())
+						logger.log(Level.WARNING, "Cannot remove local file " + localFile.getAbsolutePath());
 				}
 			}
 			else {

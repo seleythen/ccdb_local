@@ -151,6 +151,24 @@ public class Utils {
 		public int compareTo(final Pair o) {
 			return first - o.first;
 		}
+
+		@Override
+		public boolean equals(final Object obj) {
+			if (this == obj)
+				return true;
+
+			if (obj == null || !(obj instanceof Pair))
+				return false;
+
+			final Pair other = (Pair) obj;
+
+			return this.first == other.first && this.second == other.second;
+		}
+
+		@Override
+		public int hashCode() {
+			return first * 43 + second * 23;
+		}
 	}
 
 	/**

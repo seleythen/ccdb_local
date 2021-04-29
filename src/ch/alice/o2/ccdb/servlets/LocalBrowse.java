@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -57,7 +58,7 @@ public class LocalBrowse extends HttpServlet {
 
 			final List<LocalObjectWithVersion> matchingObjects = getAllMatchingObjects(parser);
 
-			Collections.sort(matchingObjects, (o1, o2) -> o1.getPath().compareTo(o2.getPath()));
+			Collections.sort(matchingObjects, Comparator.comparing(LocalObjectWithVersion::getPath));
 
 			final SQLFormatter formatter = FormatterFactory.getFormatter(request);
 
@@ -88,16 +89,16 @@ public class LocalBrowse extends HttpServlet {
 
 					final String prefix = Local.basePath + "/" + parser.path;
 
-					String suffix = "";
+					final StringBuilder suffix = new StringBuilder();
 
 					if (parser.startTimeSet)
-						suffix += "/" + parser.startTime;
+						suffix.append('/').append(parser.startTime);
 
 					if (parser.uuidConstraint != null)
-						suffix += "/" + parser.uuidConstraint;
+						suffix.append('/').append(parser.uuidConstraint);
 
 					for (final Map.Entry<String, String> entry : parser.flagConstraints.entrySet())
-						suffix += "/" + entry.getKey() + "=" + entry.getValue();
+						suffix.append('/').append(entry.getKey()).append('=').append(entry.getValue());
 
 					final File fBaseDir = new File(prefix);
 
@@ -227,11 +228,8 @@ public class LocalBrowse extends HttpServlet {
 					if ((!parser.startTimeSet || owv.covers(parser.startTime)) && (parser.notAfter <= 0 || owv.getCreateTime() <= parser.notAfter)
 							&& (parser.notBefore <= 0 || owv.getCreateTime() >= parser.notBefore) && owv.matches(parser.flagConstraints)) {
 						if (parser.latestFlag) {
-							if (mostRecent == null)
+							if ((mostRecent == null) || (owv.compareTo(mostRecent) < 0))
 								mostRecent = owv;
-							else
-								if (owv.compareTo(mostRecent) < 0)
-									mostRecent = owv;
 						}
 						else
 							ret.add(owv);

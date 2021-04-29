@@ -191,7 +191,7 @@ public class UDPReceiver extends Thread {
 
 				return blob.isComplete();
 			}
-			catch (final Exception e) {
+			catch (final Throwable e) {
 				logger.log(Level.WARNING, "Exception recovering full content of " + blob.getKey() + " / " + blob.getUuid(), e);
 				return false;
 			}
@@ -271,17 +271,23 @@ public class UDPReceiver extends Thread {
 
 							final byte[] content = new byte[bp.getSize()];
 
+							int readLen;
+
 							try (InputStream is = bp.getInputStream()) {
-								is.read(content);
+								readLen = is.read(content);
 							}
 
-							final StringTokenizer st = new StringTokenizer(contentRange, " -/");
+							if (readLen == bp.getSize()) {
+								final StringTokenizer st = new StringTokenizer(contentRange, " -/");
 
-							st.nextToken();
+								st.nextToken();
 
-							final int startOffset = Integer.parseInt(st.nextToken());
+								final int startOffset = Integer.parseInt(st.nextToken());
 
-							blob.addByteRange(content, new Pair(startOffset, startOffset + content.length));
+								blob.addByteRange(content, new Pair(startOffset, startOffset + content.length));
+							}
+							else
+								logger.log(Level.WARNING, "Read less bytes " + readLen + " from the input stream than expected (" + content.length + ") for " + blob.getUuid() + ", part no. " + part);
 						}
 					}
 				}
@@ -317,7 +323,7 @@ public class UDPReceiver extends Thread {
 
 			return isNowComplete;
 		}
-		catch (final Exception e) {
+		catch (final Throwable e) {
 			logger.log(Level.WARNING, "Exception recovering ranges from " + blob.getKey() + " / " + blob.getUuid(), e);
 			return false;
 		}
@@ -334,12 +340,12 @@ public class UDPReceiver extends Thread {
 		for (final Map.Entry<String, List<String>> entry : headers.entrySet()) {
 			String key = entry.getKey();
 
-			if (key == null || IGNORED_HEADERS.contains(key) || key.equals("Content-Type") || entry.getValue() == null || entry.getValue().size() == 0)
+			if (key == null || IGNORED_HEADERS.contains(key) || "Content-Type".equals(key) || entry.getValue() == null || entry.getValue().size() == 0)
 				continue;
 
 			String value = entry.getValue().get(entry.getValue().size() - 1); // last value overrides any previous ones
 
-			if (key.equals("Content-Disposition")) {
+			if ("Content-Disposition".equals(key)) {
 				final int idx = value.indexOf("filename=\"");
 
 				if (idx >= 0) {
@@ -357,74 +363,68 @@ public class UDPReceiver extends Thread {
 		}
 	}
 
-	private final Thread incompleteBlobRecovery = new Thread(new Runnable() {
-		@Override
-		public void run() {
-			while (true) {
-				DelayedBlob toRecover;
-				try {
-					toRecover = recoveryQueue.take();
-				}
-				catch (@SuppressWarnings("unused") final InterruptedException e1) {
-					return;
-				}
+	private final Thread incompleteBlobRecovery = new Thread((Runnable) () -> {
+		while (true) {
+			DelayedBlob toRecover;
+			try {
+				toRecover = recoveryQueue.take();
+			}
+			catch (@SuppressWarnings("unused") final InterruptedException e1) {
+				return;
+			}
 
-				if (toRecover == null)
+			if (toRecover == null)
+				continue;
+
+			final Blob blob = toRecover.blob;
+
+			try {
+				if (blob.isComplete()) {
+					// nothing to do anymore
 					continue;
-
-				final Blob blob = toRecover.blob;
-
-				try {
-					if (blob.isComplete()) {
-						// nothing to do anymore
-						continue;
-					}
-
-					if (recoverBlob(blob)) {
-						monitor.incrementCounter("recovered_blobs");
-						sort(blob.getKey());
-					}
-					else
-						monitor.incrementCounter("failed_to_recover_blobs");
 				}
-				catch (final Exception e) {
-					logger.log(Level.WARNING, "Exception running the recovery for " + blob.getKey() + " / " + blob.getUuid(), e);
+
+				if (recoverBlob(blob)) {
+					monitor.incrementCounter("recovered_blobs");
+					sort(blob.getKey());
 				}
+				else
+					monitor.incrementCounter("failed_to_recover_blobs");
+			}
+			catch (final Exception e) {
+				logger.log(Level.WARNING, "Exception running the recovery for " + blob.getKey() + " / " + blob.getUuid(), e);
 			}
 		}
 	}, "IncompleteBlobRecovery");
 
-	private static final Comparator<Reference<Blob>> startTimeComparator = new Comparator<>() {
-		@Override
-		public int compare(final Reference<Blob> sb1, final Reference<Blob> sb2) {
-			final Blob o1 = sb1.get();
-			final Blob o2 = sb2.get();
+	private static final Comparator<Reference<Blob>> startTimeComparator = (sb1, sb2) -> {
+		final Blob o1 = sb1.get();
+		final Blob o2 = sb2.get();
 
-			if (o1 == null && o2 == null)
-				return 0;
-
-			if (o1 == null)
-				return -1;
-
-			if (o2 == null)
-				return 1;
-
-			final long diff = o1.startTime - o2.startTime;
-
-			if (diff > Integer.MAX_VALUE)
-				return Integer.MAX_VALUE;
-
-			if (diff > 0)
-				return (int) diff;
-
-			if (diff < Integer.MIN_VALUE)
-				return Integer.MIN_VALUE;
-
-			if (diff < 0)
-				return (int) diff;
-
+		if (o1 == null && o2 == null)
 			return 0;
-		}
+
+		if (o1 == null)
+			return -1;
+
+		if (o2 == null)
+			return 1;
+
+		final long diff = o1.startTime - o2.startTime;
+
+		if (diff > Integer.MAX_VALUE)
+			return Integer.MAX_VALUE;
+
+		if (diff > 0)
+			return (int) diff;
+
+		if (diff < Integer.MIN_VALUE)
+			return Integer.MIN_VALUE;
+
+		if (diff < 0)
+			return (int) diff;
+
+		return 0;
 	};
 
 	/**
@@ -683,15 +683,14 @@ public class UDPReceiver extends Thread {
 											objectIterator.remove();
 										}
 									}
-									else
-										if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 10) {
-											if (logger.isLoggable(Level.INFO))
-												logger.log(Level.INFO, "Removing incomplete and not yet recovered object " + b.getKey() + ": " + b.getUuid());
+									else if (System.currentTimeMillis() - b.getLastTouched() > 1000 * 10) {
+										if (logger.isLoggable(Level.INFO))
+											logger.log(Level.INFO, "Removing incomplete and not yet recovered object " + b.getKey() + ": " + b.getUuid());
 
-											monitor.incrementCounter("evicted_incomplete_objects");
+										monitor.incrementCounter("evicted_incomplete_objects");
 
-											objectIterator.remove();
-										}
+										objectIterator.remove();
+									}
 								}
 								catch (@SuppressWarnings("unused") final NoSuchAlgorithmException e) {
 									// ignore
@@ -758,9 +757,19 @@ public class UDPReceiver extends Thread {
 
 	private static ExpirationChecker expirationChecker = null;
 
+	private static synchronized void initExecutorService() {
+		if (executorService == null)
+			executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES, (r) -> new Thread(r, "UDPPacketProcessor"));
+
+		if (expirationChecker == null) {
+			expirationChecker = new ExpirationChecker();
+			expirationChecker.start();
+		}
+	}
+
 	@Override
 	public void run() {
-		executorService = new CachedThreadPool(Options.getIntOption("udp_receiver.threads", 4), 1, TimeUnit.MINUTES, (r) -> new Thread(r, "UDPPacketProcessor"));
+		initExecutorService();
 
 		boolean anyListenerStarted = false;
 
@@ -792,8 +801,5 @@ public class UDPReceiver extends Thread {
 			}
 			else
 				System.err.println("No recovery URL defined");
-
-		expirationChecker = new ExpirationChecker();
-		expirationChecker.start();
 	}
 }

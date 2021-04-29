@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import alien.catalogue.GUIDUtils;
 import lazyj.cache.ExpirationCache;
@@ -58,6 +60,8 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	private boolean completeEndTime = true;
 
 	private final static ExpirationCache<String, Long> validityInterval = Local.hasMillisecondSupport() ? null : new ExpirationCache<>(65536);
+
+	private static Logger logger = Logger.getLogger(LocalObjectWithVersion.class.getCanonicalName());
 
 	/**
 	 * Create a local object based on a local file.
@@ -225,7 +229,8 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 
 		loadProperties();
 
-		search: for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
+		search:
+		for (final Map.Entry<String, String> entry : flagConstraints.entrySet()) {
 			final String key = entry.getKey().trim();
 			final String value = entry.getValue().trim();
 
@@ -389,6 +394,22 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 		return 0;
 	}
 
+	@Override
+	public boolean equals(final Object obj) {
+		if (this == obj)
+			return true;
+
+		if (obj == null || !(obj instanceof LocalObjectWithVersion))
+			return false;
+
+		return getID().equals(((LocalObjectWithVersion) obj).getID());
+	}
+
+	@Override
+	public int hashCode() {
+		return getID().hashCode();
+	}
+
 	/**
 	 * @param endTime
 	 *            the new end validity interval
@@ -396,7 +417,10 @@ public class LocalObjectWithVersion implements Comparable<LocalObjectWithVersion
 	public void setValidityLimit(final long endTime) {
 		this.endTime = endTime;
 		this.completeEndTime = true;
-		referenceFile.setLastModified(endTime);
+
+		if (!referenceFile.setLastModified(endTime) && Local.hasMillisecondSupport())
+			logger.log(Level.WARNING, "Cannot set the lastModified field of " + referenceFile.getAbsolutePath() + " to " + endTime);
+
 		setProperty("ValidUntil", String.valueOf(endTime));
 
 		if (validityInterval != null)

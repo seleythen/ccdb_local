@@ -87,16 +87,16 @@ public class MemoryBrowse extends HttpServlet {
 				// in showing them, so just skip this section.
 				formatter.subfoldersListingHeader(pw);
 
-				String suffix = "";
+				final StringBuilder suffix = new StringBuilder();
 
 				if (parser.startTimeSet)
-					suffix += "/" + parser.startTime;
+					suffix.append('/').append(parser.startTime);
 
 				if (parser.uuidConstraint != null)
-					suffix += "/" + parser.uuidConstraint;
+					suffix.append('/').append(parser.uuidConstraint);
 
 				for (final Map.Entry<String, String> entry : parser.flagConstraints.entrySet())
-					suffix += "/" + entry.getKey() + "=" + entry.getValue();
+					suffix.append('/').append(entry.getKey()).append('=').append(entry.getValue());
 
 				// TODO: search for all keys that have as prefix the current parser.path
 

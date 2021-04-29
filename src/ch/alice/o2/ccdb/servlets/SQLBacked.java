@@ -14,6 +14,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -45,6 +47,8 @@ public class SQLBacked extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLBacked.class.getCanonicalName());
+
+	private static Logger logger = Logger.getLogger(SQLBacked.class.getCanonicalName());
 
 	private static List<SQLNotifier> notifiers = new ArrayList<>();
 
@@ -201,7 +205,7 @@ public class SQLBacked extends HttpServlet {
 
 	/**
 	 * Write out the MD5 header, if known
-	 * 
+	 *
 	 * @param obj
 	 * @param response
 	 */
@@ -212,7 +216,7 @@ public class SQLBacked extends HttpServlet {
 
 	/**
 	 * Set the response headers with the internal and any user-set metadata information
-	 * 
+	 *
 	 * @param obj
 	 * @param response
 	 */
@@ -302,7 +306,10 @@ public class SQLBacked extends HttpServlet {
 			}
 			catch (@SuppressWarnings("unused") final IOException ioe) {
 				response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot upload the blob to the local file " + targetFile.getAbsolutePath());
-				targetFile.delete();
+
+				if (!targetFile.delete())
+					logger.log(Level.WARNING, "Cannot delete target file of failed upload " + targetFile.getAbsolutePath());
+
 				return;
 			}
 

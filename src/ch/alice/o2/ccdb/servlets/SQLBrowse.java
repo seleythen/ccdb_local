@@ -96,8 +96,6 @@ public class SQLBrowse extends HttpServlet {
 					try (DBFunctions db = SQLObject.getDB()) {
 						String prefix = "";
 
-						String suffix = "";
-
 						if (parser.path == null || parser.path.length() == 0)
 							db.query("select distinct split_part(path,'/',1) from ccdb_paths order by 1;");
 						else {
@@ -112,14 +110,16 @@ public class SQLBrowse extends HttpServlet {
 							prefix = parser.path + "/";
 						}
 
+						final StringBuilder suffix = new StringBuilder();
+
 						if (parser.startTimeSet)
-							suffix += "/" + parser.startTime;
+							suffix.append('/').append(parser.startTime);
 
 						if (parser.uuidConstraint != null)
-							suffix += "/" + parser.uuidConstraint;
+							suffix.append('/').append(parser.uuidConstraint);
 
 						for (final Map.Entry<String, String> entry : parser.flagConstraints.entrySet())
-							suffix += "/" + entry.getKey() + "=" + entry.getValue();
+							suffix.append('/').append(entry.getKey()).append('=').append(entry.getValue());
 
 						first = true;
 

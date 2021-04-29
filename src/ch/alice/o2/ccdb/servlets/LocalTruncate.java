@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -30,6 +32,8 @@ public class LocalTruncate extends HttpServlet {
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(LocalTruncate.class.getCanonicalName());
 
+	private static Logger logger = Logger.getLogger(LocalTruncate.class.getCanonicalName());
+
 	@Override
 	protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
 		final Set<String> pathsToCheck = new HashSet<>();
@@ -47,7 +51,9 @@ public class LocalTruncate extends HttpServlet {
 					}
 
 					final File fProperties = new File(object.referenceFile.getPath() + ".properties");
-					fProperties.delete();
+
+					if (!fProperties.delete())
+						logger.log(Level.WARNING, "Cannot remove local file " + fProperties.getAbsolutePath());
 
 					final String path = object.getPath();
 
