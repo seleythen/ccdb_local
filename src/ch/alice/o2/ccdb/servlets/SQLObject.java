@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -52,6 +54,8 @@ public class SQLObject implements Comparable<SQLObject> {
 	private static ExtProperties config = new ExtProperties(Options.getOption("config.dir", "."), Options.getOption("config.file", "config"));
 
 	private static final Monitor monitor = MonitorFactory.getMonitor(SQLObject.class.getCanonicalName());
+
+	private static Logger logger = Logger.getLogger(SQLObject.class.getCanonicalName());
 
 	/**
 	 * @return the database connection
@@ -626,12 +630,22 @@ public class SQLObject implements Comparable<SQLObject> {
 			try (DBFunctions db = getDB()) {
 				final String q = "DELETE FROM ccdb WHERE id=?";
 
-				if (!db.query(q, false, id.toString()))
+				if (!db.query(q, false, id.toString())) {
+					logger.log(Level.WARNING, "Query failed to execute: " + q + " [" + id.toString() + "]");
 					return false;
+				}
 
-				return db.getUpdateCount() > 0;
+				final int updateCount = db.getUpdateCount();
+
+				if (updateCount <= 0) {
+					logger.log(Level.WARNING, "Query didn't remove anything: " + q + " [" + id.toString() + "]");
+					return false;
+				}
+
+				return true;
 			}
 
+		logger.log(Level.WARNING, "Asked to delete something that is not persistently stored in the database: " + id.toString());
 		return false;
 	}
 
