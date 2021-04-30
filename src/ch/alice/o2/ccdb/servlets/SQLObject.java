@@ -630,7 +630,7 @@ public class SQLObject implements Comparable<SQLObject> {
 			try (DBFunctions db = getDB()) {
 				final String q = "DELETE FROM ccdb WHERE id=?";
 
-				if (!db.query(q, false, id.toString())) {
+				if (!db.query(q, false, id)) {
 					logger.log(Level.WARNING, "Query failed to execute: " + q + " [" + id.toString() + "]");
 					return false;
 				}
