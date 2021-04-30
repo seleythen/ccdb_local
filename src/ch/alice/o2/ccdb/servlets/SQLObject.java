@@ -375,7 +375,7 @@ public class SQLObject implements Comparable<SQLObject> {
 			if (replica.intValue() == 0) {
 				final String relativeURLKey = "server.0.relativeURL";
 
-				if (Utils.stringToBool(Options.getOption(relativeURLKey, null), config.getb(relativeURLKey, false))) {
+				if (Utils.stringToBool(Options.getOption(relativeURLKey, null), config.getb(relativeURLKey, true))) {
 					// It's easier for CcdbApi to follow redirects if this is disabled, having the full URL in the Location header
 					pattern = "/download/UUID";
 				}
