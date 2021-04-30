@@ -157,6 +157,8 @@ public class SQLBacked extends HttpServlet {
 			return;
 		}
 
+		CCDBUtils.disableCaching(response);
+
 		final SQLObject matchingObject = SQLObject.getMatchingObject(parser);
 
 		if (matchingObject == null) {

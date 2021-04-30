@@ -153,6 +153,8 @@ public class Local extends HttpServlet {
 			return;
 		}
 
+		CCDBUtils.disableCaching(response);
+
 		final LocalObjectWithVersion matchingObject = getMatchingObject(parser);
 
 		if (matchingObject == null) {

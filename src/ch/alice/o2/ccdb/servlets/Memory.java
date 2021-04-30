@@ -118,6 +118,8 @@ public class Memory extends HttpServlet {
 
 		final Blob matchingObject = getMatchingObject(parser);
 
+		CCDBUtils.disableCaching(response);
+
 		if (matchingObject == null) {
 			monitor.incrementCacheMisses("memcache");
 
@@ -188,7 +190,7 @@ public class Memory extends HttpServlet {
 		for (final Map.Entry<String, String> entry : metadata.entrySet()) {
 			final String key = entry.getKey();
 
-			if (key.equals("Last-Modified") || key.equals("Date") || key.equals("ETag"))
+			if ("Last-Modified".equals(key) || "Date".equals(key) || "ETag".equals(key))
 				continue;
 
 			response.setHeader(entry.getKey(), entry.getValue());
@@ -288,33 +290,32 @@ public class Memory extends HttpServlet {
 					return;
 				}
 			}
-			else
-				if (idx == 0) {
-					// a single negative value means 'last N bytes'
-					start = Long.parseLong(s.substring(idx + 1));
+			else if (idx == 0) {
+				// a single negative value means 'last N bytes'
+				start = Long.parseLong(s.substring(idx + 1));
 
-					end = payloadSize - 1;
+				end = payloadSize - 1;
 
-					start = end - start + 1;
+				start = end - start + 1;
 
-					if (start < 0) {
-						response.setHeader("Content-Range", "bytes */" + payloadSize);
-						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-								"You requested more last bytes (" + s.substring(idx + 1) + ") from the end of the file than the file actually has (" + payloadSize + ")");
-						start = 0;
-					}
+				if (start < 0) {
+					response.setHeader("Content-Range", "bytes */" + payloadSize);
+					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
+							"You requested more last bytes (" + s.substring(idx + 1) + ") from the end of the file than the file actually has (" + payloadSize + ")");
+					start = 0;
 				}
-				else {
-					start = Long.parseLong(s);
+			}
+			else {
+				start = Long.parseLong(s);
 
-					if (start >= payloadSize) {
-						response.setHeader("Content-Range", "bytes */" + payloadSize);
-						response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
-						return;
-					}
-
-					end = payloadSize - 1;
+				if (start >= payloadSize) {
+					response.setHeader("Content-Range", "bytes */" + payloadSize);
+					response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE, "You requested an invalid range, starting beyond the end of the file (" + start + ")");
+					return;
 				}
+
+				end = payloadSize - 1;
+			}
 
 			requestedRanges.add(new AbstractMap.SimpleEntry<>(Long.valueOf(start), Long.valueOf(end)));
 		}
@@ -569,11 +570,10 @@ public class Memory extends HttpServlet {
 
 						if (b == null)
 							it.remove();
-						else
-							if (b.equals(matchingObject)) {
-								it.remove();
-								break;
-							}
+						else if (b.equals(matchingObject)) {
+							it.remove();
+							break;
+						}
 					}
 				}
 			}
