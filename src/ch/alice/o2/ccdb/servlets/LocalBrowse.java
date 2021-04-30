@@ -49,6 +49,8 @@ public class LocalBrowse extends HttpServlet {
 			// query string example: "quality=2"
 
 			final RequestParser parser = new RequestParser(request, true);
+			
+			CCDBUtils.disableCaching(response);
 
 			// The "ok" check restricts browsing of root directory, which is needed by QCG (as per O2-1859)
 			// if (!parser.ok) {

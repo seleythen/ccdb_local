@@ -55,6 +55,8 @@ public class SQLBrowse extends HttpServlet {
 			final SQLFormatter formatter = FormatterFactory.getFormatter(request);
 
 			response.setContentType(formatter.getContentType());
+			
+			CCDBUtils.disableCaching(response);
 
 			final boolean sizeReport = Utils.stringToBool(request.getParameter("report"), false);
 

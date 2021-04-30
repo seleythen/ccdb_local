@@ -48,6 +48,8 @@ public class MemoryBrowse extends HttpServlet {
 
 		final RequestParser parser = new RequestParser(request, true);
 
+		CCDBUtils.disableCaching(response);
+
 		if (prepare && parser.latestFlag && Memory.REDIRECT_TO_UPSTREAM) {
 			// go to the authoritative source to make sure the correct object version is distributed to everybody
 			response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
