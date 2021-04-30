@@ -28,5 +28,5 @@ fi
 
 if [ ! -f ../lib/postgresql.jar ]; then
     echo "Downloading PostgreSQL JDBC driver"
-    curl -L "https://jdbc.postgresql.org/download/postgresql-42.2.19.jar" -o ../lib/postgresql.jar
+    curl -L "https://jdbc.postgresql.org/download/postgresql-42.2.20.jar" -o ../lib/postgresql.jar
 fi
