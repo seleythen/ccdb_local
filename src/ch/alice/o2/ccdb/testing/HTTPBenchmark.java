@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import alien.monitoring.Timing;
+import alien.test.cassandra.tomcat.Options;
 import lazyj.Format;
 
 /**
@@ -27,6 +28,8 @@ public class HTTPBenchmark {
 
 	private static Object syncObject = new Object();
 
+	private static final String repository = Options.getOption("repository.url", "http://ccdb-test.cern.ch:8080/");
+
 	private static class RequestThread extends Thread {
 
 		@Override
@@ -34,7 +37,7 @@ public class HTTPBenchmark {
 			for (int i = 0; i < iterations; i++) {
 				try (Timing t = new Timing()) {
 					try {
-						lazyj.Utils.download("http://ccdb-test.cern.ch:8080/", null);
+						lazyj.Utils.download(repository, null);
 
 						requestsMade.incrementAndGet();
 						nanosTook.addAndGet(t.getNanos());
@@ -75,7 +78,7 @@ public class HTTPBenchmark {
 		if (args.length > 1)
 			iterations = Integer.parseInt(args[1]);
 
-		System.err.println("Making " + iterations + " requests from " + threads + " threads");
+		System.err.println("Starting " + threads + " threads to make " + iterations + " GET requests each");
 
 		final ArrayList<RequestThread> list = new ArrayList<>();
 
