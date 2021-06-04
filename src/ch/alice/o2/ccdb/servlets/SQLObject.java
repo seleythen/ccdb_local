@@ -887,7 +887,7 @@ public class SQLObject implements Comparable<SQLObject> {
 			if (createIfNotExists) {
 				final Integer hashId = absHashCode(contentType);
 
-				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_contenttype (contentTypeId, ccdb_contenttype) VALUES (?, ?);", false, hashId, contentType)) {
+				if (hashId.intValue() > 0 && db.query("INSERT INTO ccdb_contenttype (contentTypeId, contentType) VALUES (?, ?);", false, hashId, contentType)) {
 					CONTENTTYPE.put(contentType, hashId);
 					CONTENTTYPE_REVERSE.put(hashId, contentType);
 					return hashId;
