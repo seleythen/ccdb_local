@@ -177,21 +177,38 @@ public class EmbeddedTomcat extends Tomcat {
 		ctx.addFilterMap(filter1mapping);
 	}
 
+	private static void passConnectorProperty(final Connector connector, final String key, final int defaultValue) {
+		connector.setProperty(key, String.valueOf(Options.getIntOption(key, defaultValue)));
+	}
+
 	private void decorateConnector(final Connector connector) {
 		connector.setProperty("address", address);
 		connector.setProperty("encodedSolidusHandling", "PASS_THROUGH");
-		connector.setProperty("maxKeepAliveRequests", String.valueOf(Options.getIntOption("maxKeepAliveRequests", 1000)));
+
+		passConnectorProperty(connector, "maxKeepAliveRequests", 1000);
 
 		// large headers are needed since alternate locations include access envelopes, that are rather large (default is 8KB)
-		connector.setProperty("maxHttpHeaderSize", "100000");
+		passConnectorProperty(connector, "maxHttpHeaderSize", 100000);
 
 		// same, let's allow for a lot of custom headers to be set (default is 100)
-		connector.setProperty("maxHeaderCount", "1000");
+		passConnectorProperty(connector, "maxHeaderCount", 1000);
 
-		connector.setProperty("connectionTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 10000))); // clients should be quick
+		// clients have 10s to connect
+		passConnectorProperty(connector, "connectionTimeout", 10000);
 
+		// and 5 minutes max to upload an object
 		connector.setProperty("disableUploadTimeout", "false");
-		connector.setProperty("connectionUploadTimeout", String.valueOf(Options.getIntOption("connectionTimeout", 300000))); // 5 minutes max to upload an object
+		passConnectorProperty(connector, "connectionUploadTimeout", 300000);
+
+		// default connector value is 100 in Tomcat
+		passConnectorProperty(connector, "acceptCount", 200);
+		passConnectorProperty(connector, "acceptorThreadPriority", Thread.MAX_PRIORITY);
+
+		// default number of theads in Tomcat is also 20
+		passConnectorProperty(connector, "maxThreads", 200);
+
+		// same default value as in Tomcat
+		connector.setProperty("compression", Options.getOption("compression", "off"));
 	}
 
 	/**
