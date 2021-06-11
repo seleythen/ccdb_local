@@ -3,3 +3,6 @@
 build
 package/apache-tomcat*
 .DS_STORE
+.codetale.conf
+.idea
+*iml
