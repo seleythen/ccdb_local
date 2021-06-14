@@ -35,11 +35,13 @@ public class SQLInsertContinuously {
 					startingCount = 0;
 			}
 
-		System.err.println("Executing vacuum");
+		// System.err.println("Executing vacuum");
 
-		try (DBFunctions db = SQLObject.getDB()) {
-			db.query("VACUUM FULL ANALYZE ccdb;");
-		}
+		// try (DBFunctions db = SQLObject.getDB()) {
+		// 	db.query("VACUUM FULL ANALYZE ccdb;");
+		// }
+
+		final long startTime = System.currentTimeMillis();
 
 		final long base = startingCount;
 
@@ -103,6 +105,10 @@ public class SQLInsertContinuously {
 		for(Thread thread : threads) {
 			thread.join();
 		}
+
+		final long endTime = System.currentTimeMillis();
+
+		System.out.println("inserted objects; total_time ms\n" + (noOfObjects * noThreads) + ";" + (endTime - startTime));
 
 		timer.cancel();
 	}
